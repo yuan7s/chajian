@@ -5,8 +5,8 @@ Imports System.Runtime.InteropServices
 Imports System.Security.Cryptography
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement
 Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar
-Imports SldWorks
-Imports SwConst
+Imports SolidWorks.Interop.sldworks
+Imports SolidWorks.Interop.SwConst
 
 Public Class Form1
 
