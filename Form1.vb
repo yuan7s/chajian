@@ -1,12 +1,4 @@
-﻿Imports System
-Imports System.Diagnostics
-Imports System.Net.Mime.MediaTypeNames
-Imports System.Runtime.InteropServices
-Imports System.Security.Cryptography
-Imports System.Windows.Forms.VisualStyles.VisualStyleElement
-Imports System.Windows.Forms.VisualStyles.VisualStyleElement.ProgressBar
-Imports SldWorks
-Imports SwConst
+﻿Imports System.Runtime.InteropServices
 
 Public Class Form1
 
@@ -65,7 +57,7 @@ Public Class Form1
         Else
             Dim SwComp As Object   'Component2
             SwComp = Part.SelectionManager.GetSelectedObjectsComponent(1)
-            If Not SwComp Is Nothing Then '选中了子件
+            If SwComp IsNot Nothing Then '选中了子件
                 Shell("explorer.exe /select, " & SwComp.GetPathName, vbNormalFocus)
             Else
                 Shell("explorer.exe /select, " & Part.GetPathName, vbNormalFocus)
@@ -392,17 +384,21 @@ Public Class Form1
 
         Next i
 
+        Dim combinedArray() As Object
+
         Array.Sort(compNames)
-        'If assNames IsNot Nothing Then
-        '    Array.Sort(assNames)
+        If assNames IsNot Nothing Then
+            Array.Sort(assNames)
+            Dim f = UBound(assNames) + UBound(compNames)
+            combinedArray(f) = assNames.Concat(compNames).ToArray()
+        Else
+            combinedArray = compNames
+        End If
+        'For i = 0 To UBound(compNames)
+        '    Debug.Print(compNames(i))
+        'Next i
 
-        'End If
-        Array.Sort(assNames)
-        For i = 0 To UBound(compNames)
-            Debug.Print(compNames(i))
-        Next i
 
-        Dim combinedArray() = assNames.Concat(compNames).ToArray()
 
         Dim modelDoc2 As SldWorks.ModelDoc2
         Dim assemblyDoc As SldWorks.AssemblyDoc
