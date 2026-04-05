@@ -283,14 +283,6 @@ Public Class Form1
                 swFeatMgr.ShowComponentConfigurationDescriptions = False
                 swFeatMgr.ShowDisplayStateNames = False
                 SubAsmsjs(Part)
-            Case swDocumentTypes_e.swDocPART
-                swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
-                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(4, 0, 0)
-                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(2, 0, 0)
-
-                swFeatMgr.ShowComponentConfigurationNames = False
-                swFeatMgr.ShowComponentConfigurationDescriptions = False
-                swFeatMgr.ShowDisplayStateNames = False
             Case Else
                 MsgBox("错误的文档")
         End Select
