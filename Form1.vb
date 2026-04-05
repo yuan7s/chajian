@@ -266,18 +266,16 @@ Public Class Form1
 
 
     Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
-        Dim swApp As Object = Nothing
-        Dim activeDoc As Object = Nothing
-
+        Dim swApp As Object
 
         swApp = Marshal.GetActiveObject("SldWorks.Application")
         Dim Part As SldWorks.ModelDoc2
         Dim swFeatMgr As SldWorks.FeatureManager
         Part = swApp.ActiveDoc
-        swFeatMgr = Part.FeatureManager
+        'swFeatMgr = Part.FeatureManager
 
 
-        If Not Part Is Nothing Then
+        If Part IsNot Nothing Then
             Dim compIdentifierRet As Long
             swFeatMgr = Part.FeatureManager
             swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
@@ -355,14 +353,14 @@ Public Class Form1
             If featType = "Reference" Then
                 Dim swty As SldWorks.Component2
                 swty = vFeats(i).GetSpecificFeature2
-                If Not swty Is Nothing Then
+                If swty IsNot Nothing Then
                     Dim compModel As SldWorks.ModelDoc2
                     compModel = swty.GetModelDoc2
                     Select Case compModel.GetType()
                         Case SwConst.swDocumentTypes_e.swDocPART
                             ReDim Preserve compNames(b)
                             compNames(b) = swFeat.Name
-                            b = b + 1
+                            b += 1
                             'Debug.Print(swFeat.Name)
                             'Debug.Print（"特征 " & i & ": " & swFeat.Name & swFeat.GetTypeName2）
 
@@ -372,7 +370,7 @@ Public Class Form1
                         Case SwConst.swDocumentTypes_e.swDocASSEMBLY
                             ReDim Preserve assNames(d)
                             assNames(d) = swFeat.Name
-                            d = d + 1
+                            d += 1
                             'assemblyFeatures.Add swFeat
                             'Debug.Print("装配体特征: " & " -> " & swFeat.Name)
                     End Select
