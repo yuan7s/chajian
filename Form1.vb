@@ -1,4 +1,6 @@
 ﻿Imports System.Runtime.InteropServices
+Imports SldWorks
+Imports SwConst
 
 Public Class Form1
 
@@ -112,12 +114,6 @@ Public Class Form1
         Next i
         'MsgBox "排序结果：" & values(2) & ", " & values(1) & ", " & values(0)
         c = values(2) & "x" & values(1) & "x" & values(0)
-        'Dim swConfigurationManager
-        'Dim swConfiguration
-        'Dim ActiveCName
-        'swConfigurationManager = Part.ConfigurationManager
-        'swConfiguration = swConfigurationManager.ActiveConfiguration
-        'ActiveCName = swConfiguration.Name
 
         Dim blnretval As Object
         Dim config As Object
@@ -126,8 +122,6 @@ Public Class Form1
         cusPropMgr = config.CustomPropertyManager
         blnretval = cusPropMgr.Add3("下料尺寸", SwConst.swCustomInfoType_e.swCustomInfoText, c， SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
 
-        'Part.DeleteCustomInfo2(ActiveCName, "下料尺寸")  '把数据导入属性栏
-        'Part.AddCustomInfo3(ActiveCName, "下料尺寸", 30, c)
         Part.SketchManager.Insert3DSketch(True)
         Part.SketchManager.Insert3DSketch(True)
 
@@ -143,7 +137,7 @@ Public Class Form1
         Part.SketchManager.Insert3DSketch(True)
     End Sub
 
-    Private Sub Button6_Click(sender As Object, e As EventArgs) Handles Button6.Click
+    Private Sub Button6_Click(sender As Object, e As EventArgs)
         Const PROG_ID As String = "SldWorks.Application"
         Dim swApp = CreateObject(PROG_ID)
         Dim part As Object
@@ -151,7 +145,7 @@ Public Class Form1
         part = swApp.ActiveDoc
         part.Extension.SetUserPreferenceInteger(SwConst.swUserPreferenceIntegerValue_e.swDetailingDimensionStandard, 0, SwConst.swDetailingStandard_e.swDetailingStandardISO)
         part.SketchManager.Insert3DSketch(True)
-        Part.SketchManager.Insert3DSketch(True)
+        part.SketchManager.Insert3DSketch(True)
     End Sub
 
     Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
@@ -256,6 +250,7 @@ Public Class Form1
             cusPropMgr = config.CustomPropertyManager
             blnretval = cusPropMgr.Add3("物料编码", SwConst.swCustomInfoType_e.swCustomInfoText, c， SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             blnretval = cusPropMgr.Add3("零件图号", SwConst.swCustomInfoType_e.swCustomInfoText, c， SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            blnretval = cusPropMgr.Add3("文件名称", SwConst.swCustomInfoType_e.swCustomInfoText, c， SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             Part.SketchManager.Insert3DSketch（True）
             Part.SketchManager.Insert3DSketch（True）
         End If
@@ -447,4 +442,112 @@ Public Class Form1
     Private Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
         Shell("cmd.exe /c taskkill /F /IM sldworks.exe ", AppWinStyle.Hide)
     End Sub
+
+    Private Sub Button6_Click_1(sender As Object, e As EventArgs) Handles Button6.Click
+        Dim swApp As Object
+        swApp = Marshal.GetActiveObject("SldWorks.Application")
+        Dim Part As SldWorks.ModelDoc2
+        Part = swApp.ActiveDoc
+
+        Dim TopConfString As String
+        'Dim Configuration As SldWorks.Configuration
+        'Dim RootComponent As SldWorks.Component2
+        Dim Errors As Long
+
+
+        If Part.GetType <> 2 Then Exit Sub
+        TopConfString = Part.GetActiveConfiguration.Name
+        swApp.DocumentVisible（False, swDocumentTypes_e.swDocPART) '隐藏打开文件
+        SubAsm(Part, TopConfString)
+
+        'swApp.ActivateDoc3(Part.GetPathName, False, swRebuildOnActivation_e.swUserDecision, Errors)
+        swApp.DocumentVisible(True, swDocumentTypes_e.swDocPART)
+        MsgBox("完成")
+    End Sub
+
+    Function SubAsm(AsmDoc, ConfString)
+        Dim Configuration As SldWorks.Configuration
+        Dim RootComponent As SldWorks.Component2
+        Dim Components As Object
+        Dim Child As Object
+        Dim ChildModel As SldWorks.ModelDoc2
+        Dim fopen
+        Dim ChildConfString As String
+        Dim ChildType As Integer
+        Dim namearr As Object
+        Dim longstatus As Long, LongWarnings As Long
+        Dim vConfigNameArr As Object
+        Dim vConfigName As Object
+        Dim vCustInfoNameArr As Object
+        Dim vCustInfoName As Object
+        Dim retval As String
+
+
+        Configuration = AsmDoc.GetConfigurationByName(ConfString)
+        RootComponent = Configuration.GetRootComponent
+        Components = RootComponent.GetChildren  ''获取目录树
+
+
+        For Each Child In Components
+            ChildModel = Child.GetModelDoc
+            If Not (ChildModel Is Nothing) Then
+                ChildConfString = Child.ReferencedConfiguration
+                ChildType = ChildModel.GetType
+                Dim swapp As SldWorks.SldWorks
+                swapp = Marshal.GetActiveObject("SldWorks.Application")
+
+                If ChildType = 1 Then  '处理零件
+
+                    fopen = swapp.OpenDoc6(Child.GetPathName, swDocumentTypes_e.swDocPART, swOpenDocOptions_e.swOpenDocOptions_Silent, "", longstatus, LongWarnings)
+
+                    If longstatus = 0 Then
+                        vCustInfoNameArr = fopen.GetConfigurationNames
+                        namearr = fopen.GetCustomInfoNames2(vCustInfoNameArr(0))   '自定义属性为空值 配置属性为默认或者default
+                        vConfigNameArr = fopen.GetCustomInfoNames
+
+
+                        For Each vCustInfoName In namearr
+                            retval = fopen.DeleteCustomInfo2(vCustInfoNameArr(0), vCustInfoName)
+                        Next
+                        For Each vConfigName In vConfigNameArr
+
+                            retval = fopen.DeleteCustomInfo(vConfigName)
+                        Next
+
+                        fopen.SketchManager.Insert3DSketch(True)
+                        fopen.SketchManager.Insert3DSketch(True)
+                    End If
+
+                End If
+                If ChildType = 2 Then ' 装配体遍历
+                    fopen = swapp.OpenDoc6(Child.GetPathName, swDocumentTypes_e.swDocASSEMBLY, swOpenDocOptions_e.swOpenDocOptions_Silent, "", longstatus, LongWarnings)
+
+
+                    If longstatus = 0 Then
+                        vCustInfoNameArr = fopen.GetConfigurationNames
+                        namearr = fopen.GetCustomInfoNames2(vCustInfoNameArr(0))   '自定义属性为空值 配置属性为默认或者default
+                        vConfigNameArr = fopen.GetCustomInfoNames
+
+
+                        For Each vCustInfoName In namearr
+                            retval = fopen.DeleteCustomInfo2(vCustInfoNameArr(0), vCustInfoName)
+                        Next
+                        For Each vConfigName In vConfigNameArr
+
+                            retval = fopen.DeleteCustomInfo(vConfigName)
+                        Next
+                        fopen.SketchManager.Insert3DSketch(True)
+                        fopen.SketchManager.Insert3DSketch(True)
+                    End If
+
+                    SubAsm(ChildModel, ChildConfString)
+                End If
+            End If
+        Next
+        Return True
+    End Function
+
+
+
+
 End Class
