@@ -337,8 +337,9 @@ Public Class Form1
 
         Dim b As Long
         Dim d As Long
-        Dim compNames() As String
-        Dim assNames() As String
+        Dim compNames() As String = Nothing
+        Dim assNames() As String = Nothing
+
         b = 0
         d = 0
         For i = 0 To UBound(vFeats)
@@ -382,21 +383,16 @@ Public Class Form1
 
         Next i
 
-        Dim combinedArray() As Object
 
+        Dim combinedArray() As String
         Array.Sort(compNames)
         If assNames IsNot Nothing Then
             Array.Sort(assNames)
-            Dim f = UBound(assNames) + UBound(compNames)
-            combinedArray(f) = assNames.Concat(compNames).ToArray()
+            'Dim f = UBound(assNames) + UBound(compNames)
+            combinedArray = assNames.Concat(compNames).ToArray()
         Else
             combinedArray = compNames
         End If
-        'For i = 0 To UBound(compNames)
-        '    Debug.Print(compNames(i))
-        'Next i
-
-
 
         Dim modelDoc2 As SldWorks.ModelDoc2
         Dim assemblyDoc As SldWorks.AssemblyDoc
