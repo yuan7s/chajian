@@ -449,17 +449,13 @@ Public Class Form1
         Dim Part As SldWorks.ModelDoc2
         Part = swApp.ActiveDoc
         Dim TopConfString As String
-        'Dim Configuration As SldWorks.Configuration
-        'Dim RootComponent As SldWorks.Component2
         Dim Errors As Long
 
         If Part.GetType <> 2 Then Exit Sub
         TopConfString = Part.GetActiveConfiguration.Name
-        'swApp.DocumentVisible（False, swDocumentTypes_e.swDocPART) '隐藏打开文件
 
         SubAsm(Part, TopConfString)
-        'swApp.DocumentVisible(True, swDocumentTypes_e.swDocPART)
-        'swApp.ActivateDoc3(asmname, False, swRebuildOnActivation_e.swUserDecision, Errors)
+
 
         MsgBox("完成")
     End Sub
