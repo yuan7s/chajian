@@ -269,22 +269,87 @@ Public Class Form1
         Part = swApp.ActiveDoc
         'swFeatMgr = Part.FeatureManager
 
-
-        If Part IsNot Nothing Then
-            Dim compIdentifierRet As Long
-            swFeatMgr = Part.FeatureManager
-            swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
-            compIdentifierRet = swFeatMgr.SetComponentIdentifiers(4, 0, 0)
-            compIdentifierRet = swFeatMgr.SetComponentIdentifiers(2, 0, 0)
-
-            swFeatMgr.ShowComponentConfigurationNames = False
-            swFeatMgr.ShowComponentConfigurationDescriptions = False
-            swFeatMgr.ShowDisplayStateNames = False
+        Dim compIdentifierRet As Long
+        swFeatMgr = Part.FeatureManager
 
 
+        Select Case Part.GetType
+            Case swDocumentTypes_e.swDocASSEMBLY
+                swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
+                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(4, 0, 0)
+                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(2, 0, 0)
 
-        End If
+                swFeatMgr.ShowComponentConfigurationNames = False
+                swFeatMgr.ShowComponentConfigurationDescriptions = False
+                swFeatMgr.ShowDisplayStateNames = False
+                SubAsmsjs(Part)
+            Case swDocumentTypes_e.swDocPART
+                swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
+                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(4, 0, 0)
+                compIdentifierRet = swFeatMgr.SetComponentIdentifiers(2, 0, 0)
+
+                swFeatMgr.ShowComponentConfigurationNames = False
+                swFeatMgr.ShowComponentConfigurationDescriptions = False
+                swFeatMgr.ShowDisplayStateNames = False
+            Case Else
+                MsgBox("错误的文档")
+        End Select
+
     End Sub
+    Function SubAsmsjs(AsmDoc As Object) As Object
+        Dim Configuration As SldWorks.Configuration
+        Dim RootComponent As SldWorks.Component2
+        Dim Components As Object
+        Dim Child As Object
+        Dim ChildModel As SldWorks.ModelDoc2
+        Dim fopen As Object
+        Dim ChildConfString As String
+        Dim ChildType As Integer
+        Dim longstatus As Long, LongWarnings As Long
+
+
+
+        Configuration = AsmDoc.GetActiveConfiguration
+        RootComponent = Configuration.GetRootComponent
+        Components = RootComponent.GetChildren  ''获取目录树
+
+
+        For Each Child In Components
+            ChildModel = Child.GetModelDoc
+            If Not (ChildModel Is Nothing) Then
+                ChildConfString = Child.ReferencedConfiguration
+                ChildType = ChildModel.GetType
+                Dim swapp As SldWorks.SldWorks
+                swapp = Marshal.GetActiveObject("SldWorks.Application")
+
+                If ChildType = 1 Then  '处理零件
+
+                End If
+                If ChildType = 2 Then ' 装配体遍历
+                    fopen = swapp.OpenDoc6(Child.GetPathName, swDocumentTypes_e.swDocASSEMBLY, swOpenDocOptions_e.swOpenDocOptions_Silent, "", longstatus, LongWarnings)
+
+
+                    If longstatus = 0 Then
+                        Dim compIdentifierRet As Long
+                        Dim swFeatMgr As SldWorks.FeatureManager
+                        swFeatMgr = fopen.FeatureManager
+                        swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = False
+                        compIdentifierRet = swFeatMgr.SetComponentIdentifiers(4, 0, 0)
+                        compIdentifierRet = swFeatMgr.SetComponentIdentifiers(2, 0, 0)
+
+                        swFeatMgr.ShowComponentConfigurationNames = False
+                        swFeatMgr.ShowComponentConfigurationDescriptions = False
+                        swFeatMgr.ShowDisplayStateNames = False
+                        fopen.SketchManager.Insert3DSketch(True)
+                        fopen.SketchManager.Insert3DSketch(True)
+                    End If
+
+                    SubAsmsjs(ChildModel)
+                End If
+            End If
+        Next
+        Return True
+    End Function
 
     Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
         Me.TopMost = Not Me.TopMost
