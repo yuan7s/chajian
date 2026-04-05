@@ -1,4 +1,4 @@
-﻿Imports System.Runtime.InteropServices
+Imports System.Runtime.InteropServices
 Imports SldWorks
 Imports SwConst
 
@@ -448,20 +448,19 @@ Public Class Form1
         swApp = Marshal.GetActiveObject("SldWorks.Application")
         Dim Part As SldWorks.ModelDoc2
         Part = swApp.ActiveDoc
-
         Dim TopConfString As String
         'Dim Configuration As SldWorks.Configuration
         'Dim RootComponent As SldWorks.Component2
         Dim Errors As Long
 
-
         If Part.GetType <> 2 Then Exit Sub
         TopConfString = Part.GetActiveConfiguration.Name
-        swApp.DocumentVisible（False, swDocumentTypes_e.swDocPART) '隐藏打开文件
-        SubAsm(Part, TopConfString)
+        'swApp.DocumentVisible（False, swDocumentTypes_e.swDocPART) '隐藏打开文件
 
-        'swApp.ActivateDoc3(Part.GetPathName, False, swRebuildOnActivation_e.swUserDecision, Errors)
-        swApp.DocumentVisible(True, swDocumentTypes_e.swDocPART)
+        SubAsm(Part, TopConfString)
+        'swApp.DocumentVisible(True, swDocumentTypes_e.swDocPART)
+        'swApp.ActivateDoc3(asmname, False, swRebuildOnActivation_e.swUserDecision, Errors)
+
         MsgBox("完成")
     End Sub
 
@@ -486,6 +485,8 @@ Public Class Form1
         Configuration = AsmDoc.GetConfigurationByName(ConfString)
         RootComponent = Configuration.GetRootComponent
         Components = RootComponent.GetChildren  ''获取目录树
+
+
 
 
         For Each Child In Components
