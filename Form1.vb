@@ -449,7 +449,6 @@ Public Class Form1
         Dim Part As SldWorks.ModelDoc2
         Part = swApp.ActiveDoc
         Dim TopConfString As String
-        Dim Errors As Long
 
         If Part.GetType <> 2 Then Exit Sub
         TopConfString = Part.GetActiveConfiguration.Name
@@ -460,13 +459,13 @@ Public Class Form1
         MsgBox("完成")
     End Sub
 
-    Function SubAsm(AsmDoc, ConfString)
+    Function SubAsm(AsmDoc As Object, ConfString As String) As Object
         Dim Configuration As SldWorks.Configuration
         Dim RootComponent As SldWorks.Component2
         Dim Components As Object
         Dim Child As Object
         Dim ChildModel As SldWorks.ModelDoc2
-        Dim fopen
+        Dim fopen As Object
         Dim ChildConfString As String
         Dim ChildType As Integer
         Dim namearr As Object
