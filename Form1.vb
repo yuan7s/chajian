@@ -600,7 +600,21 @@ Public Class Form1
         Return True
     End Function
 
+    Private Sub MenuStrip1_ItemClicked(sender As Object, e As ToolStripItemClickedEventArgs)
 
+    End Sub
 
+    Private Sub Panel1_Paint(sender As Object, e As PaintEventArgs)
 
+    End Sub
+
+    Private Sub Button14_Click(sender As Object, e As EventArgs)
+
+    End Sub
+
+    Private Sub Button14_Click_1(sender As Object, e As EventArgs) Handles Button14.Click
+        'Me.Hide()
+        Form2.Show()
+
+    End Sub
 End Class

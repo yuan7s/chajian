@@ -1,0 +1,13 @@
+﻿Public Class Form2
+    'Private Sub ButtonBack_Click(sender As Object, e As EventArgs) Handles ButtonBack.Click
+    '    ' 关闭当前窗体，显示之前的窗体
+    '    Me.Close()
+    'End Sub
+
+    Private Sub Form2_FormClosed(sender As Object, e As FormClosedEventArgs) Handles MyBase.FormClosed
+        ' 当 Form2 关闭时，重新显示 Form1
+        Application.OpenForms("Form1")?.Show()
+    End Sub
+
+
+End Class
