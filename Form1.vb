@@ -1,5 +1,6 @@
 Imports System.Runtime.InteropServices
 Imports SldWorks
+Imports System.Diagnostics
 Imports SwConst
 
 Public Class Form1
@@ -28,7 +29,7 @@ Public Class Form1
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-
+        PopulateSolidWorksProcesses()
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
@@ -70,10 +71,17 @@ Public Class Form1
     End Sub
 
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
-        Const PROG_ID As String = "SldWorks.Application"
+        ' 使用下拉选择的 SolidWorks 实例
+        Dim swApp As Object
+        swApp = GetSelectedSwApp()
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+
         Dim Part As SldWorks.ModelDoc2
-        Dim swApp = CreateObject(PROG_ID)
         Part = swApp.ActiveDoc
+        If Part Is Nothing Then Exit Sub
 
         Dim X As Double
         Dim Y As Double
@@ -613,8 +621,160 @@ Public Class Form1
     End Sub
 
     Private Sub Button14_Click_1(sender As Object, e As EventArgs) Handles Button14.Click
-        'Me.Hide()
+        ' 仅打开 Form2（刷新由单独的刷新按钮处理）
         Form2.Show()
 
+    End Sub
+
+    Private Sub ListView1_SelectedIndexChanged(sender As Object, e As EventArgs)
+
+    End Sub
+
+    Private Sub ComboBox1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox1.SelectedIndexChanged
+        Dim info = TryCast(ComboBox1.SelectedItem, SwProcessInfo)
+        If info Is Nothing Then
+            Return
+        End If
+
+        ' 保存或使用所选 SolidWorks 进程的 PID
+        SelectedSwProcessId = info.ProcessId
+        Try
+            SelectedSwProcess = Process.GetProcessById(info.ProcessId)
+        Catch ex As Exception
+            SelectedSwProcess = Nothing
+        End Try
+        ' 可在此处执行进一步操作，例如显示所选窗口标题或与该进程交互
+        ' MsgBox("已选择: " & info.Title & " (PID=" & info.ProcessId & ")")
+    End Sub
+
+    Private SelectedSwProcessId As Integer = -1
+    Private SelectedSwProcess As Process = Nothing
+
+    <DllImport("user32.dll")>
+    Private Shared Function SetForegroundWindow(hWnd As IntPtr) As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function ShowWindow(hWnd As IntPtr, nCmdShow As Integer) As Boolean
+    End Function
+
+    <DllImport("user32.dll", CharSet:=CharSet.Auto, SetLastError:=True)>
+    Private Shared Function GetWindowText(hWnd As IntPtr, lpString As System.Text.StringBuilder, nMaxCount As Integer) As Integer
+    End Function
+
+    <DllImport("user32.dll", SetLastError:=True)>
+    Private Shared Function GetWindowTextLength(hWnd As IntPtr) As Integer
+    End Function
+
+    Private Const SW_RESTORE As Integer = 9
+
+    ' 尝试根据选定的进程返回对应的 SolidWorks COM 对象
+    Public Function GetSelectedSwApp() As Object
+        Try
+            If SelectedSwProcess IsNot Nothing Then
+                Dim h = SelectedSwProcess.MainWindowHandle
+                If h <> IntPtr.Zero Then
+                    ' 恢复并置前窗口，随后从 ROT 获取当前活动 SolidWorks 对象
+                    ShowWindow(h, SW_RESTORE)
+                    SetForegroundWindow(h)
+                End If
+            End If
+
+            ' 这是常用的获取 SolidWorks COM 对象方法（如果有多个实例，通常返回当前活动项）
+            Dim swApp = Marshal.GetActiveObject("SldWorks.Application")
+            Return swApp
+        Catch ex As Exception
+            Return Nothing
+        End Try
+    End Function
+
+    Private Sub PopulateSolidWorksProcesses()
+        ComboBox1.Items.Clear()
+
+        Try
+            Dim procs = Process.GetProcessesByName("sldworks")
+            For Each p In procs
+                Dim title As String = String.Empty
+                Dim h As IntPtr = p.MainWindowHandle
+
+                ' 首先尝试常规属性
+                title = p.MainWindowTitle
+
+                ' 如果为空，尝试使用 Win32 API 直接读取窗口文本
+                If String.IsNullOrWhiteSpace(title) AndAlso h <> IntPtr.Zero Then
+                    Try
+                        Dim len As Integer = GetWindowTextLength(h)
+                        If len > 0 Then
+                            Dim sb As New System.Text.StringBuilder(len + 1)
+                            GetWindowText(h, sb, sb.Capacity)
+                            title = sb.ToString()
+                        End If
+                    Catch
+                        ' 忽略
+                    End Try
+                End If
+
+                ' 如果仍然为空，尝试将该实例置前并通过 COM 获取活动文档名作为标题
+                If String.IsNullOrWhiteSpace(title) AndAlso h <> IntPtr.Zero Then
+                    Try
+                        ShowWindow(h, SW_RESTORE)
+                        SetForegroundWindow(h)
+                        Dim swApp = Marshal.GetActiveObject("SldWorks.Application")
+                        If swApp IsNot Nothing Then
+                            Dim doc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
+                            If doc IsNot Nothing Then
+                                Dim path As String = doc.GetPathName()
+                                If Not String.IsNullOrWhiteSpace(path) Then
+                                    title = System.IO.Path.GetFileNameWithoutExtension(path)
+                                End If
+                            End If
+                        End If
+                    Catch
+                        ' 忽略
+                    End Try
+                End If
+
+                If String.IsNullOrWhiteSpace(title) Then
+                    title = "SolidWorks (PID " & p.Id & ")"
+                Else
+                    ' 如果标题包含 " - "，取其后部分（通常为文档名或文档信息）
+                    Dim sep As String = " - "
+                    Dim idx As Integer = title.IndexOf(sep)
+                    If idx >= 0 Then
+                        title = title.Substring(idx + sep.Length).Trim()
+                    End If
+
+                    ' 去除可能的方括号包围（例如："[name.SLDASM]")
+                    If title.StartsWith("[") AndAlso title.EndsWith("]") AndAlso title.Length > 2 Then
+                        title = title.Substring(1, title.Length - 2).Trim()
+                    End If
+                End If
+
+                ComboBox1.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id})
+            Next
+
+            If ComboBox1.Items.Count > 0 Then
+                ComboBox1.SelectedIndex = 0
+            End If
+        Catch ex As Exception
+            ' 忽略异常或根据需要记录
+        End Try
+    End Sub
+
+    Private Class SwProcessInfo
+        Public Property Title As String
+        Public Property ProcessId As Integer
+        Public Overrides Function ToString() As String
+            Return Title
+        End Function
+    End Class
+
+    Private Sub Button15_Click(sender As Object, e As EventArgs) Handles Button15.Click
+        ' 刷新 SolidWorks 进程列表
+        PopulateSolidWorksProcesses()
+    End Sub
+
+    Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
+        Form3.Show()
     End Sub
 End Class
