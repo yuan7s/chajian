@@ -267,7 +267,7 @@ Public Class Form3
             If docs IsNot Nothing Then
                 For Each doc As SldWorks.ModelDoc2 In docs
                     Dim docPath As String = doc.GetPathName()
-                    If Not String.IsNullOrEmpty(docPath) AndAlso _
+                    If Not String.IsNullOrEmpty(docPath) AndAlso
                        Not String.Equals(oldPath, docPath, StringComparison.OrdinalIgnoreCase) Then
                         If String.Equals(Path.GetFileName(docPath), newName & ext, StringComparison.OrdinalIgnoreCase) Then
                             MessageBox.Show("名称为 " & newName & ext & " 的文件已经打开，请修改为不同的名称", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information)
@@ -288,6 +288,20 @@ Public Class Form3
             cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             cusPropMgr.Add3("图号编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+
+            If CheckBox3.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox3.Text) Then
+                cusPropMgr.Add3("版本", swCustomInfoType_e.swCustomInfoText, TextBox3.Text.Trim(), swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            End If
+
+            If CheckBox4.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox4.Text) Then
+                Dim designInfo As String = TextBox4.Text.Trim()
+                cusPropMgr.Add3("设计", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+                cusPropMgr.Add3("出图", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            End If
+
+            If CheckBox2.Checked Then
+                SetBlankSize(docToSave)
+            End If
 
             If CheckBox1.Checked Then
                 Dim oldBaseName As String = Path.GetFileNameWithoutExtension(oldPath)
@@ -366,16 +380,16 @@ Public Class Form3
                 TextBox2.BackColor = System.Drawing.Color.MistyRose
                 Label6.ForeColor = System.Drawing.Color.Red
                 If existsInAssembly AndAlso fileExists Then
-                    Label6.Text = "装配体及本地均存在同名文件"
+                    Label6.Text = "重名(装配体+本地)"
                 ElseIf existsInAssembly Then
-                    Label6.Text = "装配体中存在同名文件"
+                    Label6.Text = "重名(装配体)"
                 Else
-                    Label6.Text = "本地存在同名文件"
+                    Label6.Text = "重名(本地)"
                 End If
                 Label6.Visible = True
             Else
                 TextBox2.BackColor = System.Drawing.Color.LightGreen
-                Label6.Text = "可以保存"
+                Label6.Text = "可保存"
                 Label6.ForeColor = System.Drawing.Color.Green
                 Label6.BackColor = System.Drawing.SystemColors.Control
                 Label6.Visible = True
@@ -426,7 +440,7 @@ Public Class Form3
         Try
             Dim drawingPath As String = Path.Combine(dir, newName & ".SLDDRW")
             If System.IO.File.Exists(drawingPath) Then
-                Label6.Text &= "，存在工程图"
+                Label6.Text &= "，有工程图"
             End If
         Catch
         End Try
@@ -454,5 +468,49 @@ Public Class Form3
             ReleaseCapture()
             SendMessage(Handle, WmNclbuttondown, New IntPtr(HtCaption), IntPtr.Zero)
         End If
+    End Sub
+
+    Private Sub SetBlankSize(doc As SldWorks.ModelDoc2)
+        If doc Is Nothing Then Return
+        Dim docType As Integer = doc.GetType()
+        If docType <> SwConst.swDocumentTypes_e.swDocPART AndAlso docType <> SwConst.swDocumentTypes_e.swDocASSEMBLY Then Return
+
+        Dim corners As Object
+        If docType = SwConst.swDocumentTypes_e.swDocPART Then
+            corners = CType(doc, SldWorks.PartDoc).GetPartBox(True)
+        Else
+            corners = CType(doc, SldWorks.AssemblyDoc).GetBox(SwConst.swBoundingBoxOptions_e.swBoundingBoxIncludeRefPlanes)
+        End If
+
+        Dim x As Double = (corners(3) - corners(0)) * 1000
+        Dim y As Double = (corners(4) - corners(1)) * 1000
+        Dim z As Double = (corners(5) - corners(2)) * 1000
+
+        Dim values(2) As Double
+        values(0) = Math.Round(x, 1)
+        values(1) = Math.Round(y, 1)
+        values(2) = Math.Round(z, 1)
+
+        For i As Integer = 0 To 2
+            For j As Integer = i + 1 To 2
+                If values(i) > values(j) Then
+                    Dim temp As Double = values(i)
+                    values(i) = values(j)
+                    values(j) = temp
+                End If
+            Next
+        Next
+
+        Dim c As String = values(2) & "x" & values(1) & "x" & values(0)
+        Dim config As Object = doc.GetActiveConfiguration
+        Dim cusPropMgr As Object = config.CustomPropertyManager
+        cusPropMgr.Add3("下料尺寸", SwConst.swCustomInfoType_e.swCustomInfoText, c, SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+
+        doc.SketchManager.Insert3DSketch(True)
+        doc.SketchManager.Insert3DSketch(True)
+    End Sub
+
+    Private Sub TextBox4_TextChanged(sender As Object, e As EventArgs) Handles TextBox4.TextChanged
+
     End Sub
 End Class
