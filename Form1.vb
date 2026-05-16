@@ -120,10 +120,11 @@ Public Class Form1
             Dim docPath As String = modelDoc.GetPathName()
             If Not String.IsNullOrEmpty(docPath) Then
                 fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(docPath)
-                dirPathLabel.Text = System.IO.Path.GetDirectoryName(docPath)
+                Dim dirName As String = System.IO.Path.GetDirectoryName(docPath)
+                dirPathLabel.Text = If(String.IsNullOrEmpty(dirName), docPath, dirName)
             Else
                 fileNameLabel.Text = modelDoc.GetTitle()
-                dirPathLabel.Text = ""
+                dirPathLabel.Text = "(未保存)"
             End If
         Catch
             fileNameLabel.Text = "错误"
