@@ -48,6 +48,11 @@ Public Class Form1
     Private Sub RefreshProcessList()
         Dim prevInfo = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
         PopulateSolidWorksProcesses()
+        If swProcessCombo.Items.Count = 0 Then Return
+        If swProcessCombo.Items.Count = 1 Then
+            swProcessCombo.SelectedIndex = 0
+            Return
+        End If
         If prevInfo IsNot Nothing Then
             For i As Integer = 0 To swProcessCombo.Items.Count - 1
                 Dim info = TryCast(swProcessCombo.Items(i), SwProcessInfo)
