@@ -167,8 +167,8 @@ Public Class Form3
                     selExt = Path.GetExtension(filename)
                     If Not String.IsNullOrEmpty(selExt) Then selExt = selExt.TrimStart("."c).ToLowerInvariant()
                 End If
-                Label3.Text = selExt
-                Label4.Text = selExt
+                Label3.Text = If(String.IsNullOrEmpty(selExt), "", "." & selExt)
+                Label4.Text = If(String.IsNullOrEmpty(selExt), "", "." & selExt)
 
                 UpdateDrawingExistsIndicator(filename)
             Else
@@ -176,9 +176,9 @@ Public Class Form3
                 Dim defaultName As String = If(String.IsNullOrEmpty(docName), "", Path.GetFileNameWithoutExtension(docName))
                 TextBox1.Text = defaultName
                 TextBox2.Text = defaultName
-                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).TrimStart("."c).ToLowerInvariant())
-                Label3.Text = docExt
-                Label4.Text = docExt
+                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).ToLowerInvariant())
+                Label3.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
+                Label4.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
                 UpdateDrawingExistsIndicator(docName)
             End If
         Catch

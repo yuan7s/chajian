@@ -44,7 +44,7 @@ Partial Class Form3
         '
         Me.Label1.AutoSize = True
         Me.Label1.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Bold)
-        Me.Label1.Location = New System.Drawing.Point(47, 40)
+        Me.Label1.Location = New System.Drawing.Point(47, 32)
         Me.Label1.Name = "Label1"
         Me.Label1.Size = New System.Drawing.Size(62, 18)
         Me.Label1.TabIndex = 0
@@ -54,7 +54,7 @@ Partial Class Form3
         '
         Me.Label2.AutoSize = True
         Me.Label2.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Bold)
-        Me.Label2.Location = New System.Drawing.Point(47, 115)
+        Me.Label2.Location = New System.Drawing.Point(47, 106)
         Me.Label2.Name = "Label2"
         Me.Label2.Size = New System.Drawing.Size(62, 18)
         Me.Label2.TabIndex = 1
@@ -64,7 +64,7 @@ Partial Class Form3
         '
         Me.Label3.AutoSize = True
         Me.Label3.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.Label3.Location = New System.Drawing.Point(640, 46)
+        Me.Label3.Location = New System.Drawing.Point(640, 32)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(84, 31)
         Me.Label3.TabIndex = 4
@@ -74,7 +74,7 @@ Partial Class Form3
         '
         Me.Label4.AutoSize = True
         Me.Label4.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.Label4.Location = New System.Drawing.Point(640, 115)
+        Me.Label4.Location = New System.Drawing.Point(640, 106)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(84, 31)
         Me.Label4.TabIndex = 5
@@ -83,9 +83,9 @@ Partial Class Form3
         'Button1
         '
         Me.Button1.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.Button1.Location = New System.Drawing.Point(99, 183)
+        Me.Button1.Location = New System.Drawing.Point(80, 183)
         Me.Button1.Name = "Button1"
-        Me.Button1.Size = New System.Drawing.Size(119, 49)
+        Me.Button1.Size = New System.Drawing.Size(140, 54)
         Me.Button1.TabIndex = 6
         Me.Button1.Text = "Button1"
         Me.Button1.UseVisualStyleBackColor = True
@@ -93,9 +93,9 @@ Partial Class Form3
         'Button2
         '
         Me.Button2.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.Button2.Location = New System.Drawing.Point(254, 183)
+        Me.Button2.Location = New System.Drawing.Point(240, 183)
         Me.Button2.Name = "Button2"
-        Me.Button2.Size = New System.Drawing.Size(105, 49)
+        Me.Button2.Size = New System.Drawing.Size(120, 54)
         Me.Button2.TabIndex = 7
         Me.Button2.Text = "重命名"
         Me.Button2.UseVisualStyleBackColor = True
@@ -106,7 +106,7 @@ Partial Class Form3
         Me.CheckBox1.Checked = True
         Me.CheckBox1.CheckState = System.Windows.Forms.CheckState.Checked
         Me.CheckBox1.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.CheckBox1.Location = New System.Drawing.Point(430, 185)
+        Me.CheckBox1.Location = New System.Drawing.Point(500, 185)
         Me.CheckBox1.Name = "CheckBox1"
         Me.CheckBox1.Size = New System.Drawing.Size(106, 22)
         Me.CheckBox1.TabIndex = 8
@@ -117,7 +117,7 @@ Partial Class Form3
         '
         Me.CheckBox2.AutoSize = True
         Me.CheckBox2.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.CheckBox2.Location = New System.Drawing.Point(430, 214)
+        Me.CheckBox2.Location = New System.Drawing.Point(500, 214)
         Me.CheckBox2.Name = "CheckBox2"
         Me.CheckBox2.Size = New System.Drawing.Size(106, 22)
         Me.CheckBox2.TabIndex = 9
@@ -128,7 +128,7 @@ Partial Class Form3
         '
         Me.CheckBox3.AutoSize = True
         Me.CheckBox3.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.CheckBox3.Location = New System.Drawing.Point(570, 185)
+        Me.CheckBox3.Location = New System.Drawing.Point(650, 185)
         Me.CheckBox3.Name = "CheckBox3"
         Me.CheckBox3.Size = New System.Drawing.Size(70, 22)
         Me.CheckBox3.TabIndex = 10
@@ -139,7 +139,7 @@ Partial Class Form3
         '
         Me.CheckBox4.AutoSize = True
         Me.CheckBox4.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.CheckBox4.Location = New System.Drawing.Point(570, 214)
+        Me.CheckBox4.Location = New System.Drawing.Point(650, 214)
         Me.CheckBox4.Name = "CheckBox4"
         Me.CheckBox4.Size = New System.Drawing.Size(106, 22)
         Me.CheckBox4.TabIndex = 11
@@ -185,7 +185,7 @@ Partial Class Form3
         'TextBox3
         '
         Me.TextBox3.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.TextBox3.Location = New System.Drawing.Point(640, 184)
+        Me.TextBox3.Location = New System.Drawing.Point(720, 184)
         Me.TextBox3.Name = "TextBox3"
         Me.TextBox3.Size = New System.Drawing.Size(60, 28)
         Me.TextBox3.TabIndex = 16
@@ -194,7 +194,7 @@ Partial Class Form3
         'TextBox4
         '
         Me.TextBox4.Font = New System.Drawing.Font("微软雅黑", 9.0!)
-        Me.TextBox4.Location = New System.Drawing.Point(680, 214)
+        Me.TextBox4.Location = New System.Drawing.Point(770, 214)
         Me.TextBox4.Name = "TextBox4"
         Me.TextBox4.Size = New System.Drawing.Size(80, 28)
         Me.TextBox4.TabIndex = 17
@@ -203,7 +203,7 @@ Partial Class Form3
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(9.0!, 18.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(930, 276)
+        Me.ClientSize = New System.Drawing.Size(970, 276)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog
         Me.MaximizeBox = False
         Me.Controls.Add(Me.TextBox4)
