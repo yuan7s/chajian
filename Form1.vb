@@ -31,6 +31,7 @@ Public Class Form1
         timer.Start()
     End Sub
     
+    
 
     Private Sub ProcessTimer_Tick(sender As Object, e As EventArgs)
         Try
@@ -80,12 +81,14 @@ Public Class Form1
                         Dim fp As String = refModel.GetPathName()
                         If Not String.IsNullOrEmpty(fp) Then
                             fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                            dirPathLabel.Text = System.IO.Path.GetDirectoryName(fp)
                             Return
                         End If
                     End If
                     Dim cp As String = comp.GetPathName()
                     If Not String.IsNullOrEmpty(cp) Then
                         fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(cp)
+                        dirPathLabel.Text = System.IO.Path.GetDirectoryName(cp)
                         Return
                     End If
                 ElseIf TypeOf selObj Is SldWorks.ModelDoc2 Then
@@ -93,6 +96,7 @@ Public Class Form1
                     Dim fp As String = selModel.GetPathName()
                     If Not String.IsNullOrEmpty(fp) Then
                         fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                        dirPathLabel.Text = System.IO.Path.GetDirectoryName(fp)
                         Return
                     End If
                 End If
