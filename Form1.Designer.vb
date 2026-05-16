@@ -235,8 +235,7 @@ Partial Class Form1
         'fileNameLabel
         '
         Me.fileNameLabel.Name = "fileNameLabel"
-        Me.fileNameLabel.Size = New System.Drawing.Size(100, 21)
-        Me.fileNameLabel.Spring = True
+        Me.fileNameLabel.Size = New System.Drawing.Size(160, 21)
         Me.fileNameLabel.Text = ""
         '
         'separator2
@@ -253,8 +252,7 @@ Partial Class Form1
         'dirPathLabel
         '
         Me.dirPathLabel.Name = "dirPathLabel"
-        Me.dirPathLabel.Size = New System.Drawing.Size(300, 21)
-        Me.dirPathLabel.Spring = True
+        Me.dirPathLabel.Size = New System.Drawing.Size(400, 21)
         Me.dirPathLabel.Text = ""
         Me.StatusStrip1.ResumeLayout(False)
         Me.StatusStrip1.PerformLayout()
