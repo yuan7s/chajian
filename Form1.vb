@@ -25,7 +25,7 @@ Public Class Form1
         PopulateSolidWorksProcesses()
         ConnectToSw()
         AttachDocEvents()
-        UpdateLabel1()
+        UpdateStatusBar()
         Dim timer As New Timer() With {.Interval = 3000}
         AddHandler timer.Tick, AddressOf ProcessTimer_Tick
         timer.Start()
@@ -39,27 +39,27 @@ Public Class Form1
             End If
         Catch
             ConnectToSw()
-            Dim prevIdx As Integer = ComboBox1.SelectedIndex
+            Dim prevIdx As Integer = swProcessCombo.SelectedIndex
             PopulateSolidWorksProcesses()
-            If prevIdx >= 0 AndAlso prevIdx < ComboBox1.Items.Count Then
-                ComboBox1.SelectedIndex = prevIdx
+            If prevIdx >= 0 AndAlso prevIdx < swProcessCombo.Items.Count Then
+                swProcessCombo.SelectedIndex = prevIdx
             End If
             AttachDocEvents()
-            UpdateLabel1()
+            UpdateStatusBar()
         End Try
     End Sub
 
-    Private Sub UpdateLabel1()
+    Private Sub UpdateStatusBar()
         Try
             If _swApp Is Nothing Then
-                Label1.Text = "未连接"
-                Label3.Text = ""
+                fileNameLabel.Text = "未连接"
+                dirPathLabel.Text = ""
                 Return
             End If
             Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
             If modelDoc Is Nothing Then
-                Label1.Text = "无文档"
-                Label3.Text = ""
+                fileNameLabel.Text = "无文档"
+                dirPathLabel.Text = ""
                 Return
             End If
 
@@ -79,20 +79,20 @@ Public Class Form1
                     If refModel IsNot Nothing Then
                         Dim fp As String = refModel.GetPathName()
                         If Not String.IsNullOrEmpty(fp) Then
-                            Label1.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                            fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
                             Return
                         End If
                     End If
                     Dim cp As String = comp.GetPathName()
                     If Not String.IsNullOrEmpty(cp) Then
-                        Label1.Text = System.IO.Path.GetFileNameWithoutExtension(cp)
+                        fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(cp)
                         Return
                     End If
                 ElseIf TypeOf selObj Is SldWorks.ModelDoc2 Then
                     Dim selModel As SldWorks.ModelDoc2 = CType(selObj, SldWorks.ModelDoc2)
                     Dim fp As String = selModel.GetPathName()
                     If Not String.IsNullOrEmpty(fp) Then
-                        Label1.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                        fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
                         Return
                     End If
                 End If
@@ -101,15 +101,15 @@ Public Class Form1
             ' 无选择时显示文档标题
             Dim docPath As String = modelDoc.GetPathName()
             If Not String.IsNullOrEmpty(docPath) Then
-                Label1.Text = System.IO.Path.GetFileNameWithoutExtension(docPath)
-                Label3.Text = System.IO.Path.GetDirectoryName(docPath)
+                fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(docPath)
+                dirPathLabel.Text = System.IO.Path.GetDirectoryName(docPath)
             Else
-                Label1.Text = modelDoc.GetTitle()
-                Label3.Text = ""
+                fileNameLabel.Text = modelDoc.GetTitle()
+                dirPathLabel.Text = ""
             End If
         Catch
-            Label1.Text = "错误"
-            Label3.Text = ""
+            fileNameLabel.Text = "错误"
+            dirPathLabel.Text = ""
         End Try
     End Sub
 
@@ -950,8 +950,8 @@ Public Class Form1
 
     End Sub
 
-    Private Sub ComboBox1_SelectedIndexChanged(sender As Object, e As EventArgs) Handles ComboBox1.SelectedIndexChanged
-        Dim info = TryCast(ComboBox1.SelectedItem, SwProcessInfo)
+    Private Sub swProcessCombo_SelectedIndexChanged(sender As Object, e As EventArgs) Handles swProcessCombo.SelectedIndexChanged
+        Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
         If info Is Nothing Then
             Return
         End If
@@ -964,7 +964,7 @@ Public Class Form1
         End Try
         ConnectToSw()
         AttachDocEvents()
-        UpdateLabel1()
+        UpdateStatusBar()
     End Sub
 
     Private _selectedSwProcess As Process = Nothing
@@ -1001,23 +1001,23 @@ Public Class Form1
     End Sub
 
     Private Function _swApp_ActiveDocChangeNotify() As Integer Handles _swApp.ActiveDocChangeNotify
-        Dim prevIndex As Integer = ComboBox1.SelectedIndex
+        Dim prevIndex As Integer = swProcessCombo.SelectedIndex
         PopulateSolidWorksProcesses()
-        If prevIndex >= 0 AndAlso prevIndex < ComboBox1.Items.Count Then
-            ComboBox1.SelectedIndex = prevIndex
+        If prevIndex >= 0 AndAlso prevIndex < swProcessCombo.Items.Count Then
+            swProcessCombo.SelectedIndex = prevIndex
         End If
-        UpdateLabel1()
+        UpdateStatusBar()
         AttachDocEvents()
         Return 0
     End Function
 
     Private Function _swApp_ActiveModelDocChangeNotify() As Integer Handles _swApp.ActiveModelDocChangeNotify
-        Dim prevIndex As Integer = ComboBox1.SelectedIndex
+        Dim prevIndex As Integer = swProcessCombo.SelectedIndex
         PopulateSolidWorksProcesses()
-        If prevIndex >= 0 AndAlso prevIndex < ComboBox1.Items.Count Then
-            ComboBox1.SelectedIndex = prevIndex
+        If prevIndex >= 0 AndAlso prevIndex < swProcessCombo.Items.Count Then
+            swProcessCombo.SelectedIndex = prevIndex
         End If
-        UpdateLabel1()
+        UpdateStatusBar()
         AttachDocEvents()
         Return 0
     End Function
@@ -1027,20 +1027,20 @@ Public Class Form1
             If _swApp IsNot Nothing Then
                 Dim doc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
                 If doc Is Nothing Then
-                    Label1.Text = "无文档"
-                    Label3.Text = ""
+                    fileNameLabel.Text = "无文档"
+                    dirPathLabel.Text = ""
                 ElseIf String.Equals(doc.GetPathName(), fileName, StringComparison.OrdinalIgnoreCase) Then
-                    Label1.Text = "无文档"
-                    Label3.Text = ""
+                    fileNameLabel.Text = "无文档"
+                    dirPathLabel.Text = ""
                 Else
-                    UpdateLabel1()
+                    UpdateStatusBar()
                 End If
             Else
-                Label1.Text = "未连接"
-                Label3.Text = ""
+                fileNameLabel.Text = "未连接"
+                dirPathLabel.Text = ""
             End If
         Catch
-            UpdateLabel1()
+            UpdateStatusBar()
         End Try
         Return 0
     End Function
@@ -1089,7 +1089,7 @@ Public Class Form1
     End Sub
 
     Private Function Doc_SelectionChange() As Integer
-        UpdateLabel1()
+        UpdateStatusBar()
         Return 0
     End Function
 
@@ -1114,7 +1114,7 @@ Public Class Form1
     End Function
 
     Private Sub PopulateSolidWorksProcesses()
-        ComboBox1.Items.Clear()
+        swProcessCombo.Items.Clear()
 
         Try
             Dim procs = Process.GetProcessesByName("sldworks")
@@ -1174,11 +1174,11 @@ Public Class Form1
                     End If
                 End If
 
-                ComboBox1.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id})
+                swProcessCombo.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id})
             Next
 
-            If ComboBox1.Items.Count > 0 Then
-                ComboBox1.SelectedIndex = 0
+            If swProcessCombo.Items.Count > 0 Then
+                swProcessCombo.SelectedIndex = 0
             End If
         Catch ex As Exception
             ' 忽略异常或根据需要记录
@@ -1193,10 +1193,10 @@ Public Class Form1
         End Function
     End Class
 
-    Private Sub Button15_Click(sender As Object, e As EventArgs) Handles Button15.Click
+    Private Sub refreshBtn_Click(sender As Object, e As EventArgs) Handles refreshBtn.Click
         ' 刷新 SolidWorks 进程列表
         PopulateSolidWorksProcesses()
-        UpdateLabel1()
+        UpdateStatusBar()
     End Sub
 
     Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
