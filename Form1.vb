@@ -23,6 +23,94 @@ Public Class Form1
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         PopulateSolidWorksProcesses()
+        ConnectToSw()
+        AttachDocEvents()
+        UpdateLabel1()
+        Dim timer As New Timer() With {.Interval = 3000}
+        AddHandler timer.Tick, AddressOf ProcessTimer_Tick
+        timer.Start()
+    End Sub
+    
+
+    Private Sub ProcessTimer_Tick(sender As Object, e As EventArgs)
+        Try
+            If _swApp IsNot Nothing Then
+                Dim test As Object = _swApp.ActiveDoc
+            End If
+        Catch
+            ConnectToSw()
+            Dim prevIdx As Integer = ComboBox1.SelectedIndex
+            PopulateSolidWorksProcesses()
+            If prevIdx >= 0 AndAlso prevIdx < ComboBox1.Items.Count Then
+                ComboBox1.SelectedIndex = prevIdx
+            End If
+            AttachDocEvents()
+            UpdateLabel1()
+        End Try
+    End Sub
+
+    Private Sub UpdateLabel1()
+        Try
+            If _swApp Is Nothing Then
+                Label1.Text = "未连接"
+                Label3.Text = ""
+                Return
+            End If
+            Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then
+                Label1.Text = "无文档"
+                Label3.Text = ""
+                Return
+            End If
+
+            ' 尝试获取选中对象的文件名
+            Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
+            Dim selCount As Integer = 0
+            Try
+                selCount = selMgr.GetSelectedObjectCount2(-1)
+            Catch
+            End Try
+
+            If selCount >= 1 Then
+                Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
+                If TypeOf selObj Is SldWorks.Component2 Then
+                    Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
+                    Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
+                    If refModel IsNot Nothing Then
+                        Dim fp As String = refModel.GetPathName()
+                        If Not String.IsNullOrEmpty(fp) Then
+                            Label1.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                            Return
+                        End If
+                    End If
+                    Dim cp As String = comp.GetPathName()
+                    If Not String.IsNullOrEmpty(cp) Then
+                        Label1.Text = System.IO.Path.GetFileNameWithoutExtension(cp)
+                        Return
+                    End If
+                ElseIf TypeOf selObj Is SldWorks.ModelDoc2 Then
+                    Dim selModel As SldWorks.ModelDoc2 = CType(selObj, SldWorks.ModelDoc2)
+                    Dim fp As String = selModel.GetPathName()
+                    If Not String.IsNullOrEmpty(fp) Then
+                        Label1.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
+                        Return
+                    End If
+                End If
+            End If
+
+            ' 无选择时显示文档标题
+            Dim docPath As String = modelDoc.GetPathName()
+            If Not String.IsNullOrEmpty(docPath) Then
+                Label1.Text = System.IO.Path.GetFileNameWithoutExtension(docPath)
+                Label3.Text = System.IO.Path.GetDirectoryName(docPath)
+            Else
+                Label1.Text = modelDoc.GetTitle()
+                Label3.Text = ""
+            End If
+        Catch
+            Label1.Text = "错误"
+            Label3.Text = ""
+        End Try
     End Sub
 
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
@@ -290,7 +378,7 @@ Public Class Form1
     Function SubAsmsjs(swApp As SldWorks.SldWorks, asmDoc As SldWorks.ModelDoc2) As Object
         Dim configuration As SldWorks.Configuration
         Dim rootComponent As SldWorks.Component2
-        Dim Components As Object
+        Dim comps As Object
         Dim child As Object
         Dim childModel As SldWorks.ModelDoc2
         Dim fopen As SldWorks.ModelDoc2
@@ -301,7 +389,7 @@ Public Class Form1
         rootComponent = configuration.GetRootComponent
         Components = rootComponent.GetChildren  ‘’获取目录树
 
-        For Each child In Components
+        For Each child In comps
             childModel = child.GetModelDoc
             If Not (childModel Is Nothing) Then
                 childType = childModel.GetType
@@ -769,6 +857,18 @@ Public Class Form1
             Exit Sub
         End If
 
+        Dim docName As String = IO.Path.GetFileNameWithoutExtension(part.GetPathName())
+        If String.IsNullOrEmpty(docName) Then docName = part.GetTitle()
+        Dim wasTopMost As Boolean = TopMost
+        TopMost = True
+        Dim confirmResult As DialogResult = MessageBox.Show(
+            "将删除【" & docName & "】及其所有子件的自定义属性，确定继续？",
+            "确认删除自定义属性",
+            MessageBoxButtons.OKCancel,
+            MessageBoxIcon.Warning)
+        TopMost = wasTopMost
+        If confirmResult <> DialogResult.OK Then Exit Sub
+
         Dim topConfString As String = part.GetActiveConfiguration.Name
         SubAsm(swApp, part, topConfString)
         MessageBox.Show("完成", "", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly)
@@ -777,7 +877,7 @@ Public Class Form1
     Function SubAsm(swApp As SldWorks.SldWorks, asmDoc As SldWorks.ModelDoc2, confString As String) As Object
         Dim configuration As SldWorks.Configuration
         Dim rootComponent As SldWorks.Component2
-        Dim Components As Object
+        Dim comps As Object
         Dim child As Object
         Dim childModel As SldWorks.ModelDoc2
         Dim fopen As SldWorks.ModelDoc2
@@ -785,8 +885,6 @@ Public Class Form1
         Dim childType As Integer
         Dim namearr As Object
         Dim longstatus As Integer, longWarnings As Integer
-        Dim vConfigNameArr As Object
-        Dim vConfigName As Object
         Dim vCustInfoNameArr As Object
         Dim vCustInfoName As Object
 
@@ -803,7 +901,7 @@ Public Class Form1
         rootComponent = configuration.GetRootComponent
         Components = rootComponent.GetChildren  ''获取目录树
 
-        For Each child In Components
+        For Each child In comps
             childModel = child.GetModelDoc
             If Not (childModel Is Nothing) Then
                 childConfString = child.ReferencedConfiguration
@@ -847,7 +945,7 @@ Public Class Form1
     End Function
 
     Private Sub Button14_Click_1(sender As Object, e As EventArgs) Handles Button14.Click
-        ' 仅打开 Form2（刷新由单独的刷新按钮处理）
+        ' 仅打开 Form2（刷新由单独刷新按钮处理）
         Form2.Show()
 
     End Sub
@@ -864,9 +962,17 @@ Public Class Form1
         Catch ex As Exception
             _selectedSwProcess = Nothing
         End Try
+        ConnectToSw()
+        AttachDocEvents()
+        UpdateLabel1()
     End Sub
 
     Private _selectedSwProcess As Process = Nothing
+    Private WithEvents _swApp As SldWorks.SldWorks
+    Private _attachedPartDoc As SldWorks.PartDoc
+    Private _attachedAsmDoc As SldWorks.AssemblyDoc
+    Private _attachedDrawDoc As SldWorks.DrawingDoc
+    Private _attachedDocPath As String
 
     <DllImport("user32.dll")>
     Private Shared Function SetForegroundWindow(hWnd As IntPtr) As Boolean
@@ -885,6 +991,107 @@ Public Class Form1
     End Function
 
     Private Const SwRestore As Integer = 9
+
+    Private Sub ConnectToSw()
+        Try
+            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+        Catch
+            _swApp = Nothing
+        End Try
+    End Sub
+
+    Private Function _swApp_ActiveDocChangeNotify() As Integer Handles _swApp.ActiveDocChangeNotify
+        Dim prevIndex As Integer = ComboBox1.SelectedIndex
+        PopulateSolidWorksProcesses()
+        If prevIndex >= 0 AndAlso prevIndex < ComboBox1.Items.Count Then
+            ComboBox1.SelectedIndex = prevIndex
+        End If
+        UpdateLabel1()
+        AttachDocEvents()
+        Return 0
+    End Function
+
+    Private Function _swApp_ActiveModelDocChangeNotify() As Integer Handles _swApp.ActiveModelDocChangeNotify
+        Dim prevIndex As Integer = ComboBox1.SelectedIndex
+        PopulateSolidWorksProcesses()
+        If prevIndex >= 0 AndAlso prevIndex < ComboBox1.Items.Count Then
+            ComboBox1.SelectedIndex = prevIndex
+        End If
+        UpdateLabel1()
+        AttachDocEvents()
+        Return 0
+    End Function
+
+    Private Function _swApp_FileCloseNotify(fileName As String, reason As Integer) As Integer Handles _swApp.FileCloseNotify
+        Try
+            If _swApp IsNot Nothing Then
+                Dim doc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
+                If doc Is Nothing Then
+                    Label1.Text = "无文档"
+                    Label3.Text = ""
+                ElseIf String.Equals(doc.GetPathName(), fileName, StringComparison.OrdinalIgnoreCase) Then
+                    Label1.Text = "无文档"
+                    Label3.Text = ""
+                Else
+                    UpdateLabel1()
+                End If
+            Else
+                Label1.Text = "未连接"
+                Label3.Text = ""
+            End If
+        Catch
+            UpdateLabel1()
+        End Try
+        Return 0
+    End Function
+
+    Private Sub DetachDocEvents()
+        If _attachedPartDoc IsNot Nothing Then
+            RemoveHandler _attachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedPartDoc = Nothing
+        End If
+        If _attachedAsmDoc IsNot Nothing Then
+            RemoveHandler _attachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedAsmDoc = Nothing
+        End If
+        If _attachedDrawDoc IsNot Nothing Then
+            RemoveHandler _attachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedDrawDoc = Nothing
+        End If
+        _attachedDocPath = Nothing
+    End Sub
+
+    Private Sub AttachDocEvents()
+        Try
+            If _swApp Is Nothing Then Return
+            Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then
+                DetachDocEvents()
+                Return
+            End If
+            Dim docPath As String = modelDoc.GetPathName()
+            If String.Equals(docPath, _attachedDocPath, StringComparison.OrdinalIgnoreCase) Then Return
+            DetachDocEvents()
+            _attachedDocPath = docPath
+            Dim docType As Integer = modelDoc.GetType()
+            If docType = CInt(swDocumentTypes_e.swDocPART) Then
+                _attachedPartDoc = CType(modelDoc, SldWorks.PartDoc)
+                AddHandler _attachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            ElseIf docType = CInt(swDocumentTypes_e.swDocASSEMBLY) Then
+                _attachedAsmDoc = CType(modelDoc, SldWorks.AssemblyDoc)
+                AddHandler _attachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            ElseIf docType = CInt(swDocumentTypes_e.swDocDRAWING) Then
+                _attachedDrawDoc = CType(modelDoc, SldWorks.DrawingDoc)
+                AddHandler _attachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            End If
+        Catch
+        End Try
+    End Sub
+
+    Private Function Doc_SelectionChange() As Integer
+        UpdateLabel1()
+        Return 0
+    End Function
 
     ' 尝试根据选定的进程返回对应的 SolidWorks COM 对象
     Public Function GetSelectedSwApp() As Object
@@ -982,13 +1189,14 @@ Public Class Form1
         Public Property Title As String
         Public Property ProcessId As Integer
         Public Overrides Function ToString() As String
-            Return Title
+            Return ProcessId.ToString() & ": " & Title
         End Function
     End Class
 
     Private Sub Button15_Click(sender As Object, e As EventArgs) Handles Button15.Click
         ' 刷新 SolidWorks 进程列表
         PopulateSolidWorksProcesses()
+        UpdateLabel1()
     End Sub
 
     Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
@@ -1039,13 +1247,13 @@ Public Class Form1
 
         Dim configuration As SldWorks.Configuration = asmDoc.GetConfigurationByName(confString)
         Dim rootComponent As SldWorks.Component2 = configuration.GetRootComponent
-        Dim Components As Object = rootComponent.GetChildren
+        Dim comps As Object = rootComponent.GetChildren
 
         Dim child As Object, childModel As SldWorks.ModelDoc2, fopen As SldWorks.ModelDoc2
         Dim childConfString As String, childType As Integer
         Dim longstatus As Integer, longWarnings As Integer
 
-        For Each child In Components
+        For Each child In comps
             childModel = child.GetModelDoc
             If Not (childModel Is Nothing) Then
                 childConfString = child.ReferencedConfiguration
@@ -1081,4 +1289,7 @@ Public Class Form1
         Return True
     End Function
 
+    Private Sub Button18_Click(sender As Object, e As EventArgs) Handles Button18.Click
+
+    End Sub
 End Class
