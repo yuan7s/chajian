@@ -22,7 +22,7 @@ Public Class Form1
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        PopulateSolidWorksProcesses()
+        RefreshProcessList()
         ConnectToSw()
         AttachDocEvents()
         UpdateStatusBar()
@@ -31,23 +31,32 @@ Public Class Form1
         timer.Start()
     End Sub
     
-    
 
     Private Sub ProcessTimer_Tick(sender As Object, e As EventArgs)
         Try
             If _swApp IsNot Nothing Then
-                Dim test As Object = _swApp.ActiveDoc
+                Dim unused = _swApp.ActiveDoc
             End If
         Catch
             ConnectToSw()
-            Dim prevIdx As Integer = swProcessCombo.SelectedIndex
-            PopulateSolidWorksProcesses()
-            If prevIdx >= 0 AndAlso prevIdx < swProcessCombo.Items.Count Then
-                swProcessCombo.SelectedIndex = prevIdx
-            End If
             AttachDocEvents()
-            UpdateStatusBar()
         End Try
+        RefreshProcessList()
+        UpdateStatusBar()
+    End Sub
+
+    Private Sub RefreshProcessList()
+        Dim prevInfo = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+        PopulateSolidWorksProcesses()
+        If prevInfo IsNot Nothing Then
+            For i As Integer = 0 To swProcessCombo.Items.Count - 1
+                Dim info = TryCast(swProcessCombo.Items(i), SwProcessInfo)
+                If info IsNot Nothing AndAlso info.ProcessId = prevInfo.ProcessId Then
+                    swProcessCombo.SelectedIndex = i
+                    Return
+                End If
+            Next
+        End If
     End Sub
 
     Private Sub UpdateStatusBar()
@@ -1005,22 +1014,14 @@ Public Class Form1
     End Sub
 
     Private Function _swApp_ActiveDocChangeNotify() As Integer Handles _swApp.ActiveDocChangeNotify
-        Dim prevIndex As Integer = swProcessCombo.SelectedIndex
-        PopulateSolidWorksProcesses()
-        If prevIndex >= 0 AndAlso prevIndex < swProcessCombo.Items.Count Then
-            swProcessCombo.SelectedIndex = prevIndex
-        End If
+        RefreshProcessList()
         UpdateStatusBar()
         AttachDocEvents()
         Return 0
     End Function
 
     Private Function _swApp_ActiveModelDocChangeNotify() As Integer Handles _swApp.ActiveModelDocChangeNotify
-        Dim prevIndex As Integer = swProcessCombo.SelectedIndex
-        PopulateSolidWorksProcesses()
-        If prevIndex >= 0 AndAlso prevIndex < swProcessCombo.Items.Count Then
-            swProcessCombo.SelectedIndex = prevIndex
-        End If
+        RefreshProcessList()
         UpdateStatusBar()
         AttachDocEvents()
         Return 0
@@ -1181,9 +1182,6 @@ Public Class Form1
                 swProcessCombo.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id})
             Next
 
-            If swProcessCombo.Items.Count > 0 Then
-                swProcessCombo.SelectedIndex = 0
-            End If
         Catch ex As Exception
             ' 忽略异常或根据需要记录
         End Try
@@ -1198,8 +1196,7 @@ Public Class Form1
     End Class
 
     Private Sub refreshBtn_Click(sender As Object, e As EventArgs) Handles refreshBtn.Click
-        ' 刷新 SolidWorks 进程列表
-        PopulateSolidWorksProcesses()
+        RefreshProcessList()
         UpdateStatusBar()
     End Sub
 
