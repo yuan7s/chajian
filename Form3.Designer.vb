@@ -34,8 +34,8 @@ Partial Class Form3
         Me.CheckBox4 = New System.Windows.Forms.CheckBox()
         Me.Label5 = New System.Windows.Forms.Label()
         Me.Label6 = New System.Windows.Forms.Label()
-        Me.RichTextBox1 = New System.Windows.Forms.RichTextBox()
-        Me.RichTextBox2 = New System.Windows.Forms.RichTextBox()
+        Me.TextBox1 = New System.Windows.Forms.TextBox()
+        Me.TextBox2 = New System.Windows.Forms.TextBox()
         Me.SuspendLayout()
         '
         'Label1
@@ -60,7 +60,7 @@ Partial Class Form3
         '
         Me.Label3.AutoSize = True
         Me.Label3.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.Label3.Location = New System.Drawing.Point(521, 46)
+        Me.Label3.Location = New System.Drawing.Point(640, 46)
         Me.Label3.Name = "Label3"
         Me.Label3.Size = New System.Drawing.Size(84, 31)
         Me.Label3.TabIndex = 4
@@ -70,7 +70,7 @@ Partial Class Form3
         '
         Me.Label4.AutoSize = True
         Me.Label4.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.Label4.Location = New System.Drawing.Point(524, 115)
+        Me.Label4.Location = New System.Drawing.Point(640, 115)
         Me.Label4.Name = "Label4"
         Me.Label4.Size = New System.Drawing.Size(84, 31)
         Me.Label4.TabIndex = 5
@@ -139,7 +139,7 @@ Partial Class Form3
         'Label5
         '
         Me.Label5.AutoSize = True
-        Me.Label5.Location = New System.Drawing.Point(615, 59)
+        Me.Label5.Location = New System.Drawing.Point(745, 59)
         Me.Label5.Name = "Label5"
         Me.Label5.Size = New System.Drawing.Size(98, 18)
         Me.Label5.TabIndex = 12
@@ -148,37 +148,35 @@ Partial Class Form3
         'Label6
         '
         Me.Label6.AutoSize = True
-        Me.Label6.Location = New System.Drawing.Point(615, 125)
+        Me.Label6.Location = New System.Drawing.Point(745, 123)
         Me.Label6.Name = "Label6"
         Me.Label6.Size = New System.Drawing.Size(98, 18)
         Me.Label6.TabIndex = 13
         Me.Label6.Text = "命名已存在"
         '
-        'RichTextBox1
+        'TextBox1
         '
-        Me.RichTextBox1.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.RichTextBox1.Location = New System.Drawing.Point(128, 28)
-        Me.RichTextBox1.Name = "RichTextBox1"
-        Me.RichTextBox1.Size = New System.Drawing.Size(383, 49)
-        Me.RichTextBox1.TabIndex = 14
-        Me.RichTextBox1.Text = ""
+        Me.TextBox1.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
+        Me.TextBox1.Location = New System.Drawing.Point(128, 28)
+        Me.TextBox1.Name = "TextBox1"
+        Me.TextBox1.Size = New System.Drawing.Size(500, 39)
+        Me.TextBox1.TabIndex = 14
         '
-        'RichTextBox2
+        'TextBox2
         '
-        Me.RichTextBox2.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
-        Me.RichTextBox2.Location = New System.Drawing.Point(128, 102)
-        Me.RichTextBox2.Name = "RichTextBox2"
-        Me.RichTextBox2.Size = New System.Drawing.Size(383, 51)
-        Me.RichTextBox2.TabIndex = 15
-        Me.RichTextBox2.Text = ""
+        Me.TextBox2.Font = New System.Drawing.Font("微软雅黑", 12.0!, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, CType(134, Byte))
+        Me.TextBox2.Location = New System.Drawing.Point(128, 102)
+        Me.TextBox2.Name = "TextBox2"
+        Me.TextBox2.Size = New System.Drawing.Size(500, 39)
+        Me.TextBox2.TabIndex = 15
         '
         'Form3
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(9.0!, 18.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(725, 276)
-        Me.Controls.Add(Me.RichTextBox2)
-        Me.Controls.Add(Me.RichTextBox1)
+        Me.ClientSize = New System.Drawing.Size(930, 276)
+        Me.Controls.Add(Me.TextBox2)
+        Me.Controls.Add(Me.TextBox1)
         Me.Controls.Add(Me.Label6)
         Me.Controls.Add(Me.Label5)
         Me.Controls.Add(Me.CheckBox4)
@@ -192,7 +190,7 @@ Partial Class Form3
         Me.Controls.Add(Me.Label2)
         Me.Controls.Add(Me.Label1)
         Me.Name = "Form3"
-        Me.Text = "Form3"
+        Me.Text = "重命名"
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
@@ -210,6 +208,6 @@ Partial Class Form3
     Friend WithEvents CheckBox4 As CheckBox
     Friend WithEvents Label5 As Label
     Friend WithEvents Label6 As Label
-    Friend WithEvents RichTextBox1 As RichTextBox
-    Friend WithEvents RichTextBox2 As RichTextBox
+    Friend WithEvents TextBox1 As TextBox
+    Friend WithEvents TextBox2 As TextBox
 End Class

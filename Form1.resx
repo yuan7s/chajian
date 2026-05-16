@@ -237,7 +237,7 @@
     <value>GroupBox2</value>
   </data>
   <data name="&gt;&gt;Button11.ZOrder" xml:space="preserve">
-    <value>2</value>
+    <value>3</value>
   </data>
   <data name="Button12.Location" type="System.Drawing.Point, System.Drawing">
     <value>939, 35</value>
@@ -285,7 +285,7 @@
     <value>GroupBox2</value>
   </data>
   <data name="&gt;&gt;Button13.ZOrder" xml:space="preserve">
-    <value>1</value>
+    <value>2</value>
   </data>
   <data name="Button1.Location" type="System.Drawing.Point, System.Drawing">
     <value>8, 38</value>
@@ -414,6 +414,45 @@
   <data name="&gt;&gt;GroupBox1.ZOrder" xml:space="preserve">
     <value>6</value>
   </data>
+  <data name="Button17.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="Button17.Location" type="System.Drawing.Point, System.Drawing">
+    <value>330, 100</value>
+  </data>
+  <data name="Button17.Size" type="System.Drawing.Size, System.Drawing">
+    <value>146, 50</value>
+  </data>
+  <data name="Button17.TabIndex" type="System.Int32, mscorlib">
+    <value>11</value>
+  </data>
+  <data name="Button17.Text" xml:space="preserve">
+    <value>删除配置属性</value>
+  </data>
+  <data name="&gt;&gt;Button17.Name" xml:space="preserve">
+    <value>Button17</value>
+  </data>
+  <data name="&gt;&gt;Button17.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Button17.Parent" xml:space="preserve">
+    <value>GroupBox2</value>
+  </data>
+  <data name="&gt;&gt;Button17.ZOrder" xml:space="preserve">
+    <value>0</value>
+  </data>
+  <data name="Button6.Location" type="System.Drawing.Point, System.Drawing">
+    <value>330, 28</value>
+  </data>
+  <data name="Button6.Size" type="System.Drawing.Size, System.Drawing">
+    <value>146, 50</value>
+  </data>
+  <data name="Button6.TabIndex" type="System.Int32, mscorlib">
+    <value>10</value>
+  </data>
+  <data name="Button6.Text" xml:space="preserve">
+    <value>删除自定义属性</value>
+  </data>
   <data name="&gt;&gt;Button6.Name" xml:space="preserve">
     <value>Button6</value>
   </data>
@@ -424,7 +463,7 @@
     <value>GroupBox2</value>
   </data>
   <data name="&gt;&gt;Button6.ZOrder" xml:space="preserve">
-    <value>0</value>
+    <value>1</value>
   </data>
   <data name="GroupBox2.Location" type="System.Drawing.Point, System.Drawing">
     <value>377, 104</value>
@@ -455,30 +494,6 @@
   </data>
   <data name="&gt;&gt;GroupBox2.ZOrder" xml:space="preserve">
     <value>5</value>
-  </data>
-  <data name="Button6.Location" type="System.Drawing.Point, System.Drawing">
-    <value>330, 28</value>
-  </data>
-  <data name="Button6.Size" type="System.Drawing.Size, System.Drawing">
-    <value>146, 50</value>
-  </data>
-  <data name="Button6.TabIndex" type="System.Int32, mscorlib">
-    <value>10</value>
-  </data>
-  <data name="Button6.Text" xml:space="preserve">
-    <value>删除自定义属性</value>
-  </data>
-  <data name="&gt;&gt;Button6.Name" xml:space="preserve">
-    <value>Button6</value>
-  </data>
-  <data name="&gt;&gt;Button6.Type" xml:space="preserve">
-    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
-  </data>
-  <data name="&gt;&gt;Button6.Parent" xml:space="preserve">
-    <value>GroupBox2</value>
-  </data>
-  <data name="&gt;&gt;Button6.ZOrder" xml:space="preserve">
-    <value>0</value>
   </data>
   <data name="Button10.Location" type="System.Drawing.Point, System.Drawing">
     <value>824, 38</value>
@@ -535,7 +550,7 @@
     <value>18</value>
   </data>
   <data name="ComboBox1.Location" type="System.Drawing.Point, System.Drawing">
-    <value>21, 375</value>
+    <value>12, 413</value>
   </data>
   <data name="ComboBox1.Size" type="System.Drawing.Size, System.Drawing">
     <value>262, 26</value>
@@ -556,7 +571,7 @@
     <value>2</value>
   </data>
   <data name="Button15.Location" type="System.Drawing.Point, System.Drawing">
-    <value>21, 324</value>
+    <value>13, 357</value>
   </data>
   <data name="Button15.Size" type="System.Drawing.Size, System.Drawing">
     <value>86, 41</value>

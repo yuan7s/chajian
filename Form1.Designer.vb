@@ -42,6 +42,7 @@ Partial Class Form1
         Me.ComboBox1 = New System.Windows.Forms.ComboBox()
         Me.Button15 = New System.Windows.Forms.Button()
         Me.Button16 = New System.Windows.Forms.Button()
+        Me.Button17 = New System.Windows.Forms.Button()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -124,6 +125,7 @@ Partial Class Form1
         '
         'GroupBox2
         '
+        Me.GroupBox2.Controls.Add(Me.Button17)
         Me.GroupBox2.Controls.Add(Me.Button6)
         Me.GroupBox2.Controls.Add(Me.Button13)
         Me.GroupBox2.Controls.Add(Me.Button11)
@@ -167,6 +169,12 @@ Partial Class Form1
         Me.Button16.Name = "Button16"
         Me.Button16.UseVisualStyleBackColor = True
         '
+        'Button17
+        '
+        resources.ApplyResources(Me.Button17, "Button17")
+        Me.Button17.Name = "Button17"
+        Me.Button17.UseVisualStyleBackColor = True
+        '
         'Form1
         '
         resources.ApplyResources(Me, "$this")
@@ -208,4 +216,5 @@ Partial Class Form1
     Friend WithEvents ComboBox1 As ComboBox
     Friend WithEvents Button15 As Button
     Friend WithEvents Button16 As Button
+    Friend WithEvents Button17 As Button
 End Class

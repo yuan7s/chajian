@@ -1,46 +1,118 @@
-﻿Imports System.Runtime.InteropServices
-Imports SldWorks
+Imports System.IO
+Imports System.Runtime.InteropServices
 Imports SwConst
 
 Public Class Form3
-    Private WithEvents selectionTimer As System.Windows.Forms.Timer
+    Private WithEvents _swAppField As SldWorks.SldWorks
+    Private _attachedDocPath As String
+    Private _attachedPartDoc As SldWorks.PartDoc
+    Private _attachedAsmDoc As SldWorks.AssemblyDoc
+    Private _attachedDrawDoc As SldWorks.DrawingDoc
+    Private _suppressNameCheck As Boolean
 
-    Private Sub CheckBox3_CheckedChanged(sender As Object, e As EventArgs) Handles CheckBox3.CheckedChanged
+    Private Const WmNclbuttondown As Integer = &HA1
+    Private Const HtCaption As Integer = &H2
 
-    End Sub
+    <DllImport("user32.dll")>
+    Private Shared Function ReleaseCapture() As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function SendMessage(hWnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As IntPtr) As IntPtr
+    End Function
 
     Private Sub Form3_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        Me.TopMost = True
-        ' 使用定时器定期轮询 SolidWorks 的选择状态并更新 TextBox1
-        selectionTimer = New System.Windows.Forms.Timer()
-        selectionTimer.Interval = 1000 ' 1 秒
-        selectionTimer.Start()
-        ' 立即执行一次更新
+        TopMost = True
+        TextBox1.ReadOnly = True
+        EnableDrag()
+        ConnectToSw()
+        _suppressNameCheck = True
         UpdateSelectionInfo()
+        _suppressNameCheck = False
+        AttachDocEvents()
     End Sub
 
     Private Sub Form3_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
-        If selectionTimer IsNot Nothing Then
-            selectionTimer.Stop()
-            selectionTimer.Dispose()
-            selectionTimer = Nothing
-        End If
+        _swAppField = Nothing
     End Sub
 
-    Private Sub selectionTimer_Tick(sender As Object, e As EventArgs) Handles selectionTimer.Tick
-        UpdateSelectionInfo()
-    End Sub
-
-    ''' <summary>
-    ''' 从选定的 SolidWorks 实例读取当前选择，并更新 TextBox1（仅当有选择时）和 Label3/Label4 扩展名。
-    ''' 如果未选择任何对象，则保持 TextBox1 为空。
-    ''' </summary>
-    Private Sub UpdateSelectionInfo()
+    Private Sub ConnectToSw()
         Try
-            Dim swApp As Object = Form1.GetSelectedSwApp()
+            _swAppField = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+        Catch
+            _swAppField = Nothing
+        End Try
+    End Sub
+
+    Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
+        UpdateSelectionInfo()
+        AttachDocEvents()
+        Return 0
+    End Function
+
+    Private Function _swAppField_ActiveModelDocChangeNotify() As Integer Handles _swAppField.ActiveModelDocChangeNotify
+        UpdateSelectionInfo()
+        AttachDocEvents()
+        Return 0
+    End Function
+
+    Private Sub DetachDocEvents()
+        If _attachedPartDoc IsNot Nothing Then
+            RemoveHandler _attachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedPartDoc = Nothing
+        End If
+        If _attachedAsmDoc IsNot Nothing Then
+            RemoveHandler _attachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedAsmDoc = Nothing
+        End If
+        If _attachedDrawDoc IsNot Nothing Then
+            RemoveHandler _attachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            _attachedDrawDoc = Nothing
+        End If
+        _attachedDocPath = Nothing
+    End Sub
+
+    Private Sub AttachDocEvents()
+        Try
+            If _swAppField Is Nothing Then Return
+            Dim modelDoc As SldWorks.ModelDoc2 = CType(_swAppField.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then
+                DetachDocEvents()
+                Return
+            End If
+
+            Dim docPath As String = modelDoc.GetPathName()
+            If String.Equals(docPath, _attachedDocPath, StringComparison.OrdinalIgnoreCase) Then Return
+
+            DetachDocEvents()
+            _attachedDocPath = docPath
+
+            Dim docType As Integer = modelDoc.GetType()
+            If docType = CInt(swDocumentTypes_e.swDocPART) Then
+                _attachedPartDoc = CType(modelDoc, SldWorks.PartDoc)
+                AddHandler _attachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            ElseIf docType = CInt(swDocumentTypes_e.swDocASSEMBLY) Then
+                _attachedAsmDoc = CType(modelDoc, SldWorks.AssemblyDoc)
+                AddHandler _attachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            ElseIf docType = CInt(swDocumentTypes_e.swDocDRAWING) Then
+                _attachedDrawDoc = CType(modelDoc, SldWorks.DrawingDoc)
+                AddHandler _attachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
+            End If
+        Catch
+        End Try
+    End Sub
+
+    Private Function Doc_SelectionChange() As Integer
+        UpdateSelectionInfo()
+        Return 0
+    End Function
+
+    Private Sub UpdateSelectionInfo()
+        _suppressNameCheck = True
+        Try
+            Dim swApp As SldWorks.SldWorks = _swAppField
             If swApp Is Nothing Then
-                ' 无法连接到实例，保持为空
-                RichTextBox1.Text = ""
+                TextBox1.Text = ""
                 Label3.Text = ""
                 Label4.Text = ""
                 Return
@@ -48,17 +120,16 @@ Public Class Form3
 
             Dim modelDoc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
             If modelDoc Is Nothing Then
-                RichTextBox1.Text = ""
+                TextBox1.Text = ""
                 Label3.Text = ""
                 Label4.Text = ""
                 Return
             End If
 
-            ' 更新活动文档扩展名到 Label4
             Dim activePath As String = modelDoc.GetPathName()
             Dim activeExt As String = ""
             If Not String.IsNullOrEmpty(activePath) Then
-                activeExt = System.IO.Path.GetExtension(activePath)
+                activeExt = Path.GetExtension(activePath)
                 If Not String.IsNullOrEmpty(activeExt) Then activeExt = activeExt.TrimStart("."c).ToLowerInvariant()
             End If
 
@@ -88,44 +159,300 @@ Public Class Form3
                     filename = modelDoc.GetPathName()
                 End If
 
-                RichTextBox1.Text = If(String.IsNullOrEmpty(filename), "", System.IO.Path.GetFileNameWithoutExtension(filename))
-                RichTextBox2.Text = If(String.IsNullOrEmpty(filename), "", System.IO.Path.GetFileNameWithoutExtension(filename))
+                TextBox1.Text = If(String.IsNullOrEmpty(filename), "", Path.GetFileNameWithoutExtension(filename))
+                TextBox2.Text = If(String.IsNullOrEmpty(filename), "", Path.GetFileNameWithoutExtension(filename))
 
-                ' 填充扩展名到 Label3（选中项）
                 Dim selExt As String = ""
                 If Not String.IsNullOrEmpty(filename) Then
-                    selExt = System.IO.Path.GetExtension(filename)
+                    selExt = Path.GetExtension(filename)
                     If Not String.IsNullOrEmpty(selExt) Then selExt = selExt.TrimStart("."c).ToLowerInvariant()
                 End If
                 Label3.Text = selExt
                 Label4.Text = selExt
+
+                UpdateDrawingExistsIndicator(filename)
             Else
-                ' 未选中任何对象，保持 TextBox1 为空
-                RichTextBox1.Text = ""
-                Label3.Text = ""
+                Dim docName As String = modelDoc.GetPathName()
+                Dim defaultName As String = If(String.IsNullOrEmpty(docName), "", Path.GetFileNameWithoutExtension(docName))
+                TextBox1.Text = defaultName
+                TextBox2.Text = defaultName
+                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).TrimStart("."c).ToLowerInvariant())
+                Label3.Text = docExt
+                Label4.Text = docExt
+                UpdateDrawingExistsIndicator(docName)
             End If
         Catch
-            ' 忽略异常，保持现有显示
+        Finally
+            _suppressNameCheck = False
+            Label6.Visible = False
         End Try
     End Sub
 
-    Private Sub TextBox1_TextChanged(sender As Object, e As EventArgs)
+    Private Sub UpdateDrawingExistsIndicator(modelPath As String)
+        If String.IsNullOrEmpty(modelPath) Then
+            Label5.Visible = False
+            Return
+        End If
 
+        Try
+            Dim dir As String = Path.GetDirectoryName(modelPath)
+            Dim baseName As String = Path.GetFileNameWithoutExtension(modelPath)
+            If String.IsNullOrEmpty(dir) OrElse String.IsNullOrEmpty(baseName) Then
+                Label5.Visible = False
+                Return
+            End If
+
+            Dim drawingPath As String = Path.Combine(dir, baseName & ".SLDDRW")
+            If System.IO.File.Exists(drawingPath) Then
+                Label5.Text = "存在工程图"
+                Label5.BackColor = System.Drawing.Color.LimeGreen
+                Label5.Visible = True
+            Else
+                Label5.Text = "无工程图"
+                Label5.BackColor = System.Drawing.Color.Red
+                Label5.Visible = True
+            End If
+        Catch
+            Label5.Visible = False
+        End Try
     End Sub
 
-    Private Sub Label3_Click(sender As Object, e As EventArgs) Handles Label3.Click
+    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+        Dim newName As String = TextBox2.Text.Trim()
+        If String.IsNullOrEmpty(newName) Then
+            MessageBox.Show("请输入新文件名", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
 
+        Try
+            Dim swApp As SldWorks.SldWorks = _swAppField
+            If swApp Is Nothing Then
+                MessageBox.Show("未连接到SolidWorks", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim modelDoc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then
+                MessageBox.Show("没有打开的文档", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim docToSave As SldWorks.ModelDoc2 = GetDocumentToSave(modelDoc)
+            If docToSave Is Nothing Then
+                MessageBox.Show("无法确定要另存的文档", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim oldPath As String = docToSave.GetPathName()
+            If String.IsNullOrEmpty(oldPath) Then
+                MessageBox.Show("请先保存文档后再另存", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                Return
+            End If
+
+            Dim dir As String = Path.GetDirectoryName(oldPath)
+            Dim ext As String = Path.GetExtension(oldPath)
+            Dim newPath As String = Path.Combine(dir, newName & ext)
+
+            If String.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase) Then
+                MessageBox.Show("新文件名与当前文件名相同", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                Return
+            End If
+
+            If System.IO.File.Exists(newPath) Then
+                Dim overwriteResult As DialogResult = MessageBox.Show(newPath & " 已存在，是否覆盖？", "询问", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                If overwriteResult <> DialogResult.Yes Then Return
+            End If
+
+            Dim docs As Object = swApp.GetDocuments()
+            If docs IsNot Nothing Then
+                For Each doc As SldWorks.ModelDoc2 In docs
+                    Dim docPath As String = doc.GetPathName()
+                    If Not String.IsNullOrEmpty(docPath) AndAlso _
+                       Not String.Equals(oldPath, docPath, StringComparison.OrdinalIgnoreCase) Then
+                        If String.Equals(Path.GetFileName(docPath), newName & ext, StringComparison.OrdinalIgnoreCase) Then
+                            MessageBox.Show("名称为 " & newName & ext & " 的文件已经打开，请修改为不同的名称", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                            Return
+                        End If
+                    End If
+                Next
+            End If
+
+            Dim saveResult As Integer = docToSave.SaveAs3(newPath, 0, 0)
+            If saveResult <> 0 Then
+                MessageBox.Show("另存失败", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim config As Object = docToSave.GetActiveConfiguration
+            Dim cusPropMgr As Object = config.CustomPropertyManager
+            cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            cusPropMgr.Add3("图号编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+
+            If CheckBox1.Checked Then
+                Dim oldBaseName As String = Path.GetFileNameWithoutExtension(oldPath)
+                Dim oldDrawingPath As String = Path.Combine(dir, oldBaseName & ".SLDDRW")
+                If System.IO.File.Exists(oldDrawingPath) Then
+                    Dim newDrawingPath As String = Path.Combine(dir, newName & ".SLDDRW")
+                    System.IO.File.Copy(oldDrawingPath, newDrawingPath)
+                    swApp.ReplaceReferencedDocument(newDrawingPath, oldPath, newPath)
+                    System.IO.File.Delete(oldDrawingPath)
+                End If
+            End If
+
+            System.IO.File.Delete(oldPath)
+
+            UpdateSelectionInfo()
+        Catch ex As Exception
+            MessageBox.Show("另存失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
     End Sub
 
-    Private Sub Label4_Click(sender As Object, e As EventArgs) Handles Label4.Click
+    Private Function GetDocumentToSave(modelDoc As SldWorks.ModelDoc2) As SldWorks.ModelDoc2
+        Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
+        Dim selCount As Integer = 0
+        Try
+            selCount = selMgr.GetSelectedObjectCount2(-1)
+        Catch
+            Return modelDoc
+        End Try
 
+        If selCount < 1 Then Return modelDoc
+
+        Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
+        If TypeOf selObj Is SldWorks.Component2 Then
+            Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
+            Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
+            If refModel IsNot Nothing Then Return refModel
+        End If
+
+        Return modelDoc
+    End Function
+
+    Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged
+        If Not _suppressNameCheck Then CheckNewNameConflict()
     End Sub
 
-    Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs)
+    Private Sub CheckNewNameConflict()
+        Dim newName As String = TextBox2.Text.Trim()
+        If String.IsNullOrEmpty(newName) Then
+            ResetNewNameIndicators()
+            Label6.Visible = False
+            Return
+        End If
 
+        Try
+            Dim swApp As SldWorks.SldWorks = _swAppField
+            If swApp Is Nothing Then Return
+
+            Dim modelDoc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then Return
+
+            Dim docPath As String = modelDoc.GetPathName()
+            If String.IsNullOrEmpty(docPath) Then Return
+
+            Dim dir As String = Path.GetDirectoryName(docPath)
+            Dim ext As String = Label4.Text.Trim()
+
+            Dim fileExists As Boolean = False
+            If Not String.IsNullOrEmpty(ext) Then
+                Dim newFilePath As String = Path.Combine(dir, newName & "." & ext)
+                fileExists = System.IO.File.Exists(newFilePath)
+            End If
+
+            Dim existsInAssembly As Boolean = CheckNameExistsInAssembly(modelDoc, newName)
+
+            If fileExists OrElse existsInAssembly Then
+                TextBox2.BackColor = System.Drawing.Color.MistyRose
+                Label6.ForeColor = System.Drawing.Color.Red
+                If existsInAssembly AndAlso fileExists Then
+                    Label6.Text = "装配体及本地均存在同名文件"
+                ElseIf existsInAssembly Then
+                    Label6.Text = "装配体中存在同名文件"
+                Else
+                    Label6.Text = "本地存在同名文件"
+                End If
+                Label6.Visible = True
+            Else
+                TextBox2.BackColor = System.Drawing.Color.LightGreen
+                Label6.Text = "可以保存"
+                Label6.ForeColor = System.Drawing.Color.Green
+                Label6.BackColor = System.Drawing.SystemColors.Control
+                Label6.Visible = True
+                UpdateNewNameDrawingIndicator(dir, newName)
+            End If
+        Catch
+        End Try
     End Sub
 
-    Private Sub RichTextBox1_TextChanged(sender As Object, e As EventArgs) Handles RichTextBox1.TextChanged
+    Private Function CheckNameExistsInAssembly(modelDoc As SldWorks.ModelDoc2, newName As String) As Boolean
+        Try
+            Dim docType As Integer = modelDoc.GetType()
+            If docType <> CInt(swDocumentTypes_e.swDocASSEMBLY) Then
+                Return False
+            End If
 
+            Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc, SldWorks.AssemblyDoc)
+            Dim comps As Object = assemblyDoc.GetComponents(False)
+            If comps Is Nothing Then Return False
+
+            For Each comp As SldWorks.Component2 In comps
+                Dim compPath As String = comp.GetPathName()
+                If Not String.IsNullOrEmpty(compPath) Then
+                    Dim compName As String = Path.GetFileNameWithoutExtension(compPath)
+                    If String.Equals(compName, newName, StringComparison.OrdinalIgnoreCase) Then
+                        Return True
+                    End If
+                End If
+            Next
+
+            Return False
+        Catch
+            Return False
+        End Try
+    End Function
+
+    Private Sub ResetNewNameIndicators()
+        TextBox2.BackColor = System.Drawing.SystemColors.Window
+        TextBox2.ForeColor = System.Drawing.SystemColors.WindowText
+        Label6.ForeColor = System.Drawing.SystemColors.ControlText
+    End Sub
+
+    Private Sub UpdateNewNameDrawingIndicator(dir As String, newName As String)
+        If String.IsNullOrEmpty(dir) OrElse String.IsNullOrEmpty(newName) Then
+            Return
+        End If
+
+        Try
+            Dim drawingPath As String = Path.Combine(dir, newName & ".SLDDRW")
+            If System.IO.File.Exists(drawingPath) Then
+                Label6.Text &= "，存在工程图"
+            End If
+        Catch
+        End Try
+    End Sub
+
+    Private Sub EnableDrag()
+        AddHandler MouseDown, AddressOf DragForm_MouseDown
+        AttachDragHandlers(Me)
+    End Sub
+
+    Private Sub AttachDragHandlers(ctrl As Control)
+        For Each child As Control In ctrl.Controls
+            If TypeOf child Is TextBox OrElse
+               TypeOf child Is Button OrElse
+               TypeOf child Is CheckBox Then Continue For
+            AddHandler child.MouseDown, AddressOf DragForm_MouseDown
+            If child.HasChildren Then
+                AttachDragHandlers(child)
+            End If
+        Next
+    End Sub
+
+    Private Sub DragForm_MouseDown(sender As Object, e As MouseEventArgs)
+        If e.Button = MouseButtons.Left Then
+            ReleaseCapture()
+            SendMessage(Handle, WmNclbuttondown, New IntPtr(HtCaption), IntPtr.Zero)
+        End If
     End Sub
 End Class
