@@ -6,6 +6,9 @@ Partial Class Form1
     <System.Diagnostics.DebuggerNonUserCode()>
     Protected Overrides Sub Dispose(ByVal disposing As Boolean)
         Try
+            If disposing AndAlso StatusStrip1 IsNot Nothing Then
+                StatusStrip1.Dispose()
+            End If
             If disposing AndAlso components IsNot Nothing Then
                 components.Dispose()
             End If
@@ -35,14 +38,23 @@ Partial Class Form1
         Me.Button7 = New System.Windows.Forms.Button()
         Me.Button8 = New System.Windows.Forms.Button()
         Me.GroupBox1 = New System.Windows.Forms.GroupBox()
+        Me.Button18 = New System.Windows.Forms.Button()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
+        Me.Button17 = New System.Windows.Forms.Button()
         Me.Button6 = New System.Windows.Forms.Button()
         Me.Button10 = New System.Windows.Forms.Button()
         Me.Button14 = New System.Windows.Forms.Button()
-        Me.ComboBox1 = New System.Windows.Forms.ComboBox()
-        Me.Button15 = New System.Windows.Forms.Button()
         Me.Button16 = New System.Windows.Forms.Button()
-        Me.Button17 = New System.Windows.Forms.Button()
+        Me.StatusStrip1 = New System.Windows.Forms.StatusStrip()
+        Me.refreshBtn = New System.Windows.Forms.ToolStripButton()
+        Me.swProcessCombo = New System.Windows.Forms.ToolStripComboBox()
+        Me.separator1 = New System.Windows.Forms.ToolStripSeparator()
+        Me.filePrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
+        Me.fileNameLabel = New System.Windows.Forms.ToolStripStatusLabel()
+        Me.separator2 = New System.Windows.Forms.ToolStripSeparator()
+        Me.dirPrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
+        Me.dirPathLabel = New System.Windows.Forms.ToolStripStatusLabel()
+        Me.StatusStrip1.SuspendLayout()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.SuspendLayout()
@@ -115,6 +127,7 @@ Partial Class Form1
         '
         'GroupBox1
         '
+        Me.GroupBox1.Controls.Add(Me.Button18)
         Me.GroupBox1.Controls.Add(Me.Button1)
         Me.GroupBox1.Controls.Add(Me.Button8)
         Me.GroupBox1.Controls.Add(Me.Button2)
@@ -122,6 +135,12 @@ Partial Class Form1
         resources.ApplyResources(Me.GroupBox1, "GroupBox1")
         Me.GroupBox1.Name = "GroupBox1"
         Me.GroupBox1.TabStop = False
+        '
+        'Button18
+        '
+        resources.ApplyResources(Me.Button18, "Button18")
+        Me.Button18.Name = "Button18"
+        Me.Button18.UseVisualStyleBackColor = True
         '
         'GroupBox2
         '
@@ -132,6 +151,12 @@ Partial Class Form1
         resources.ApplyResources(Me.GroupBox2, "GroupBox2")
         Me.GroupBox2.Name = "GroupBox2"
         Me.GroupBox2.TabStop = False
+        '
+        'Button17
+        '
+        resources.ApplyResources(Me.Button17, "Button17")
+        Me.Button17.Name = "Button17"
+        Me.Button17.UseVisualStyleBackColor = True
         '
         'Button6
         '
@@ -151,37 +176,18 @@ Partial Class Form1
         Me.Button14.Name = "Button14"
         Me.Button14.UseVisualStyleBackColor = True
         '
-        'ComboBox1
-        '
-        Me.ComboBox1.FormattingEnabled = True
-        resources.ApplyResources(Me.ComboBox1, "ComboBox1")
-        Me.ComboBox1.Name = "ComboBox1"
-        '
-        'Button15
-        '
-        resources.ApplyResources(Me.Button15, "Button15")
-        Me.Button15.Name = "Button15"
-        Me.Button15.UseVisualStyleBackColor = True
-        '
         'Button16
         '
         resources.ApplyResources(Me.Button16, "Button16")
         Me.Button16.Name = "Button16"
         Me.Button16.UseVisualStyleBackColor = True
         '
-        'Button17
-        '
-        resources.ApplyResources(Me.Button17, "Button17")
-        Me.Button17.Name = "Button17"
-        Me.Button17.UseVisualStyleBackColor = True
-        '
         'Form1
         '
         resources.ApplyResources(Me, "$this")
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
+        Me.Controls.Add(Me.StatusStrip1)
         Me.Controls.Add(Me.Button16)
-        Me.Controls.Add(Me.Button15)
-        Me.Controls.Add(Me.ComboBox1)
         Me.Controls.Add(Me.Button14)
         Me.Controls.Add(Me.Button10)
         Me.Controls.Add(Me.GroupBox2)
@@ -192,9 +198,70 @@ Partial Class Form1
         Me.Controls.Add(Me.Button4)
         Me.Controls.Add(Me.Button3)
         Me.Name = "Form1"
+        '
+        'StatusStrip1
+        '
+        Me.StatusStrip1.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.refreshBtn, Me.swProcessCombo, Me.separator1, Me.filePrefixLabel, Me.fileNameLabel, Me.separator2, Me.dirPrefixLabel, Me.dirPathLabel})
+        Me.StatusStrip1.Location = New System.Drawing.Point(0, 454)
+        Me.StatusStrip1.Name = "StatusStrip1"
+        Me.StatusStrip1.Size = New System.Drawing.Size(1264, 26)
+        Me.StatusStrip1.TabIndex = 16
+        Me.StatusStrip1.Text = "StatusStrip1"
+        '
+        'refreshBtn
+        '
+        Me.refreshBtn.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.refreshBtn.Name = "refreshBtn"
+        Me.refreshBtn.Size = New System.Drawing.Size(36, 23)
+        Me.refreshBtn.Text = "刷新"
+        '
+        'swProcessCombo
+        '
+        Me.swProcessCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.swProcessCombo.Name = "swProcessCombo"
+        Me.swProcessCombo.Size = New System.Drawing.Size(260, 25)
+        '
+        'separator1
+        '
+        Me.separator1.Name = "separator1"
+        Me.separator1.Size = New System.Drawing.Size(6, 26)
+        '
+        'filePrefixLabel
+        '
+        Me.filePrefixLabel.Name = "filePrefixLabel"
+        Me.filePrefixLabel.Size = New System.Drawing.Size(72, 21)
+        Me.filePrefixLabel.Text = "选中文件:"
+        '
+        'fileNameLabel
+        '
+        Me.fileNameLabel.Name = "fileNameLabel"
+        Me.fileNameLabel.Size = New System.Drawing.Size(100, 21)
+        Me.fileNameLabel.Spring = True
+        Me.fileNameLabel.Text = ""
+        '
+        'separator2
+        '
+        Me.separator2.Name = "separator2"
+        Me.separator2.Size = New System.Drawing.Size(6, 26)
+        '
+        'dirPrefixLabel
+        '
+        Me.dirPrefixLabel.Name = "dirPrefixLabel"
+        Me.dirPrefixLabel.Size = New System.Drawing.Size(72, 21)
+        Me.dirPrefixLabel.Text = "工作目录:"
+        '
+        'dirPathLabel
+        '
+        Me.dirPathLabel.Name = "dirPathLabel"
+        Me.dirPathLabel.Size = New System.Drawing.Size(300, 21)
+        Me.dirPathLabel.Spring = True
+        Me.dirPathLabel.Text = ""
+        Me.StatusStrip1.ResumeLayout(False)
+        Me.StatusStrip1.PerformLayout()
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox2.ResumeLayout(False)
         Me.ResumeLayout(False)
+        Me.PerformLayout()
 
     End Sub
     Friend WithEvents Button3 As Button
@@ -213,8 +280,16 @@ Partial Class Form1
     Friend WithEvents Button10 As Button
     Friend WithEvents Button6 As Button
     Friend WithEvents Button14 As Button
-    Friend WithEvents ComboBox1 As ComboBox
-    Friend WithEvents Button15 As Button
     Friend WithEvents Button16 As Button
     Friend WithEvents Button17 As Button
+    Friend WithEvents Button18 As Button
+    Friend WithEvents StatusStrip1 As StatusStrip
+    Friend WithEvents refreshBtn As ToolStripButton
+    Friend WithEvents swProcessCombo As ToolStripComboBox
+    Friend WithEvents separator1 As ToolStripSeparator
+    Friend WithEvents filePrefixLabel As ToolStripStatusLabel
+    Friend WithEvents fileNameLabel As ToolStripStatusLabel
+    Friend WithEvents separator2 As ToolStripSeparator
+    Friend WithEvents dirPrefixLabel As ToolStripStatusLabel
+    Friend WithEvents dirPathLabel As ToolStripStatusLabel
 End Class
