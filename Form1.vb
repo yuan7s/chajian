@@ -406,7 +406,7 @@ Public Class Form1
 
         configuration = asmDoc.GetActiveConfiguration
         rootComponent = configuration.GetRootComponent
-        Components = rootComponent.GetChildren  ‘’获取目录树
+        comps = rootComponent.GetChildren  ‘’获取目录树
 
         For Each child In comps
             childModel = child.GetModelDoc
@@ -918,7 +918,7 @@ Public Class Form1
 
         configuration = asmDoc.GetConfigurationByName(confString)
         rootComponent = configuration.GetRootComponent
-        Components = rootComponent.GetChildren  ''获取目录树
+        comps = rootComponent.GetChildren  ''获取目录树
 
         For Each child In comps
             childModel = child.GetModelDoc
