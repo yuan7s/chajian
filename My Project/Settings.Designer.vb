@@ -53,6 +53,90 @@ Namespace My
                 Return defaultInstance
             End Get
         End Property
+        
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0")>  _
+        Public Property DefaultSwProcessId() As Integer
+            Get
+                Return CType(Me("DefaultSwProcessId"), Integer)
+            End Get
+            Set
+                Me("DefaultSwProcessId") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+        Public Property CodingCleanup_NameFilter() As String
+            Get
+                Return CType(Me("CodingCleanup_NameFilter"), String)
+            End Get
+            Set
+                Me("CodingCleanup_NameFilter") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property CodingCleanup_ProcessAsm() As Boolean
+            Get
+                Return CType(Me("CodingCleanup_ProcessAsm"), Boolean)
+            End Get
+            Set
+                Me("CodingCleanup_ProcessAsm") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property CodingCleanup_ProcessPart() As Boolean
+            Get
+                Return CType(Me("CodingCleanup_ProcessPart"), Boolean)
+            End Get
+            Set
+                Me("CodingCleanup_ProcessPart") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property CodingCleanup_ExcludeVirtual() As Boolean
+            Get
+                Return CType(Me("CodingCleanup_ExcludeVirtual"), Boolean)
+            End Get
+            Set
+                Me("CodingCleanup_ExcludeVirtual") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property CodingCleanup_ExcludeStandard() As Boolean
+            Get
+                Return CType(Me("CodingCleanup_ExcludeStandard"), Boolean)
+            End Get
+            Set
+                Me("CodingCleanup_ExcludeStandard") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property CodingCleanup_ExcludePurchased() As Boolean
+            Get
+                Return CType(Me("CodingCleanup_ExcludePurchased"), Boolean)
+            End Get
+            Set
+                Me("CodingCleanup_ExcludePurchased") = value
+            End Set
+        End Property
     End Class
 End Namespace
 
