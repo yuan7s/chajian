@@ -1,4 +1,5 @@
 Imports System.Runtime.InteropServices
+Imports System.Runtime.InteropServices.ComTypes
 Imports System.Diagnostics
 Imports SwConst
 
@@ -981,19 +982,13 @@ Public Class Form1
             _selectedSwProcess = Nothing
         End Try
 
-        ' 激活所选进程窗口并连接 COM
-        Try
-            If _selectedSwProcess IsNot Nothing Then
-                Dim h = _selectedSwProcess.MainWindowHandle
-                If h <> IntPtr.Zero Then
-                    ShowWindow(h, SwRestore)
-                    SetForegroundWindow(h)
-                End If
-            End If
-            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
-        Catch
-            _swApp = Nothing
-        End Try
+        ' 通过 ROT 查找所选进程的 SW COM 实例
+        Dim targetApp As SldWorks.SldWorks = FindSwAppByPid(info.ProcessId)
+        If targetApp IsNot Nothing Then
+            _swApp = targetApp
+        Else
+            ConnectToSw()
+        End If
         AttachDocEvents()
         UpdateStatusBar()
     End Sub
@@ -1030,6 +1025,64 @@ Public Class Form1
             _swApp = Nothing
         End Try
     End Sub
+
+    Private Function FindSwAppByPid(pid As Integer) As SldWorks.SldWorks
+        Dim rot As IRunningObjectTable = Nothing
+        Dim enumMoniker As IEnumMoniker = Nothing
+        Try
+            GetRunningObjectTable(0, rot)
+            rot.EnumRunning(enumMoniker)
+            Dim monikers(0) As IMoniker
+            Dim fetched As IntPtr = IntPtr.Zero
+
+            While enumMoniker.Next(1, monikers, fetched) = 0
+                Dim ctx As IBindCtx = Nothing
+                CreateBindCtx(0, ctx)
+                Dim displayName As String = Nothing
+                monikers(0).GetDisplayName(ctx, Nothing, displayName)
+
+                If displayName IsNot Nothing AndAlso displayName.ToLower().Contains("sldworks.application") Then
+                    Dim obj As Object = Nothing
+                    Try
+                        rot.GetObject(monikers(0), obj)
+                        If obj IsNot Nothing Then
+                            Dim swApp As SldWorks.SldWorks = CType(obj, SldWorks.SldWorks)
+                            Dim activeDoc As SldWorks.ModelDoc2 = TryCast(swApp.ActiveDoc, SldWorks.ModelDoc2)
+                            If activeDoc IsNot Nothing Then
+                                Dim docPath As String = activeDoc.GetPathName()
+                                Dim docTitle As String = If(String.IsNullOrEmpty(docPath),
+                                    activeDoc.GetTitle(), IO.Path.GetFileNameWithoutExtension(docPath))
+                                ' Match by title that was stored in combo box
+                                Dim comboInfo As SwProcessInfo = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+                                If comboInfo IsNot Nothing AndAlso String.Equals(docTitle, comboInfo.Title, StringComparison.OrdinalIgnoreCase) Then
+                                    Return swApp
+                                End If
+                            End If
+                        End If
+                    Catch
+                    Finally
+                        If obj IsNot Nothing AndAlso Marshal.IsComObject(obj) Then
+                            ' Keep reference if returning, otherwise release
+                        End If
+                    End Try
+                End If
+                If monikers(0) IsNot Nothing Then Marshal.ReleaseComObject(monikers(0))
+            End While
+        Catch
+        Finally
+            If enumMoniker IsNot Nothing Then Marshal.ReleaseComObject(enumMoniker)
+            If rot IsNot Nothing Then Marshal.ReleaseComObject(rot)
+        End Try
+        Return Nothing
+    End Function
+
+    <DllImport("ole32.dll")>
+    Private Shared Function GetRunningObjectTable(reserved As UInteger, ByRef prot As IRunningObjectTable) As Integer
+    End Function
+
+    <DllImport("ole32.dll")>
+    Private Shared Function CreateBindCtx(reserved As UInteger, ByRef ppbc As IBindCtx) As Integer
+    End Function
 
     Private Function _swApp_ActiveDocChangeNotify() As Integer Handles _swApp.ActiveDocChangeNotify
         RefreshProcessList()
