@@ -103,7 +103,7 @@ Public Class Form4
         SyncTitleToCustomProperties(modelDoc, confString)
     End Sub
 
-    Private Sub ExecuteCodingCleanup(swApp As SldWorks.SldWorks, comp As SldWorks.Component2)
+    Private Overloads Sub ExecuteCodingCleanup(swApp As SldWorks.SldWorks, comp As SldWorks.Component2)
         If ShouldSkip(comp) Then Return
 
         Dim childModel As SldWorks.ModelDoc2 = comp.GetModelDoc

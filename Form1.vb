@@ -1317,7 +1317,7 @@ Public Class Form1
             Return Nothing
         Catch ex As Exception
             Return Nothing
-        End Try1
+        End Try
     End Function
 
     Private Sub PopulateSolidWorksProcesses()
