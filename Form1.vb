@@ -975,13 +975,25 @@ Public Class Form1
             Return
         End If
 
-        ' 保存或使用所选 SolidWorks 进程
         Try
             _selectedSwProcess = Process.GetProcessById(info.ProcessId)
         Catch ex As Exception
             _selectedSwProcess = Nothing
         End Try
-        ConnectToSw()
+
+        ' 激活所选进程窗口并连接 COM
+        Try
+            If _selectedSwProcess IsNot Nothing Then
+                Dim h = _selectedSwProcess.MainWindowHandle
+                If h <> IntPtr.Zero Then
+                    ShowWindow(h, SwRestore)
+                    SetForegroundWindow(h)
+                End If
+            End If
+            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+        Catch
+            _swApp = Nothing
+        End Try
         AttachDocEvents()
         UpdateStatusBar()
     End Sub
@@ -1013,7 +1025,7 @@ Public Class Form1
 
     Private Sub ConnectToSw()
         Try
-            _swApp = CType(GetSelectedSwApp(), SldWorks.SldWorks)
+            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
         Catch
             _swApp = Nothing
         End Try
