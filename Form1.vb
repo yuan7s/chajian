@@ -1013,7 +1013,7 @@ Public Class Form1
 
     Private Sub ConnectToSw()
         Try
-            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+            _swApp = CType(GetSelectedSwApp(), SldWorks.SldWorks)
         Catch
             _swApp = Nothing
         End Try
