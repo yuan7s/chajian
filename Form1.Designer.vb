@@ -51,9 +51,6 @@ Partial Class Form1
         Me.separator1 = New System.Windows.Forms.ToolStripSeparator()
         Me.filePrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
         Me.fileNameLabel = New System.Windows.Forms.ToolStripStatusLabel()
-        Me.separator2 = New System.Windows.Forms.ToolStripSeparator()
-        Me.dirPrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
-        Me.dirPathLabel = New System.Windows.Forms.ToolStripStatusLabel()
         Me.StatusStrip1.SuspendLayout()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
@@ -127,7 +124,6 @@ Partial Class Form1
         '
         'GroupBox1
         '
-        Me.GroupBox1.Controls.Add(Me.Button18)
         Me.GroupBox1.Controls.Add(Me.Button1)
         Me.GroupBox1.Controls.Add(Me.Button8)
         Me.GroupBox1.Controls.Add(Me.Button2)
@@ -145,6 +141,7 @@ Partial Class Form1
         'GroupBox2
         '
         Me.GroupBox2.Controls.Add(Me.Button17)
+        Me.GroupBox2.Controls.Add(Me.Button18)
         Me.GroupBox2.Controls.Add(Me.Button6)
         Me.GroupBox2.Controls.Add(Me.Button13)
         Me.GroupBox2.Controls.Add(Me.Button11)
@@ -201,7 +198,7 @@ Partial Class Form1
         '
         'StatusStrip1
         '
-        Me.StatusStrip1.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.refreshBtn, Me.swProcessCombo, Me.separator1, Me.filePrefixLabel, Me.fileNameLabel, Me.separator2, Me.dirPrefixLabel, Me.dirPathLabel})
+        Me.StatusStrip1.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.refreshBtn, Me.swProcessCombo, Me.separator1, Me.filePrefixLabel, Me.fileNameLabel})
         Me.StatusStrip1.Location = New System.Drawing.Point(0, 454)
         Me.StatusStrip1.Name = "StatusStrip1"
         Me.StatusStrip1.Size = New System.Drawing.Size(1264, 26)
@@ -219,8 +216,7 @@ Partial Class Form1
         '
         Me.swProcessCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
         Me.swProcessCombo.Name = "swProcessCombo"
-        Me.swProcessCombo.Size = New System.Drawing.Size(260, 25)
-        '
+        Me.swProcessCombo.Size = New System.Drawing.Size(420, 25)
         'separator1
         '
         Me.separator1.Name = "separator1"
@@ -237,23 +233,7 @@ Partial Class Form1
         Me.fileNameLabel.Name = "fileNameLabel"
         Me.fileNameLabel.Size = New System.Drawing.Size(160, 21)
         Me.fileNameLabel.Text = ""
-        '
-        'separator2
-        '
-        Me.separator2.Name = "separator2"
-        Me.separator2.Size = New System.Drawing.Size(6, 26)
-        '
-        'dirPrefixLabel
-        '
-        Me.dirPrefixLabel.Name = "dirPrefixLabel"
-        Me.dirPrefixLabel.Size = New System.Drawing.Size(72, 21)
-        Me.dirPrefixLabel.Text = "工作目录:"
-        '
-        'dirPathLabel
-        '
-        Me.dirPathLabel.Name = "dirPathLabel"
-        Me.dirPathLabel.Size = New System.Drawing.Size(400, 21)
-        Me.dirPathLabel.Text = ""
+        
         Me.StatusStrip1.ResumeLayout(False)
         Me.StatusStrip1.PerformLayout()
         Me.GroupBox1.ResumeLayout(False)
@@ -287,7 +267,4 @@ Partial Class Form1
     Friend WithEvents separator1 As ToolStripSeparator
     Friend WithEvents filePrefixLabel As ToolStripStatusLabel
     Friend WithEvents fileNameLabel As ToolStripStatusLabel
-    Friend WithEvents separator2 As ToolStripSeparator
-    Friend WithEvents dirPrefixLabel As ToolStripStatusLabel
-    Friend WithEvents dirPathLabel As ToolStripStatusLabel
 End Class

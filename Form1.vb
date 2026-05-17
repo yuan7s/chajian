@@ -5,6 +5,7 @@ Imports SwConst
 
 Public Class Form1
 
+    Private _statusTimer As Timer
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
 
@@ -24,32 +25,38 @@ Public Class Form1
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         RefreshProcessList()
-        ConnectToSw()
-        AttachDocEvents()
-        UpdateStatusBar()
-        Dim timer As New Timer() With {.Interval = 3000}
-        AddHandler timer.Tick, AddressOf ProcessTimer_Tick
-        timer.Start()
+        ConnectToSelectedSw()
+        _statusTimer = New Timer() With {.Interval = 1000}
+        AddHandler _statusTimer.Tick, AddressOf StatusTimer_Tick
+        _statusTimer.Start()
     End Sub
-    
 
-    Private Sub ProcessTimer_Tick(sender As Object, e As EventArgs)
-        Try
-            If _swApp IsNot Nothing Then
-                Dim unused = _swApp.ActiveDoc
-            End If
-        Catch
-            ConnectToSw()
-            AttachDocEvents()
-        End Try
-        RefreshProcessList()
+    Private Sub StatusTimer_Tick(sender As Object, e As EventArgs)
         UpdateStatusBar()
+    End Sub
+
+    Private Sub Form1_FormClosed(sender As Object, e As FormClosedEventArgs) Handles Me.FormClosed
+        If _statusTimer IsNot Nothing Then
+            _statusTimer.Stop()
+            _statusTimer.Dispose()
+            _statusTimer = Nothing
+        End If
     End Sub
 
     Private Sub RefreshProcessList()
         Dim prevInfo = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+        Dim preferredPid As Integer = If(My.Settings.DefaultSwProcessId > 0, My.Settings.DefaultSwProcessId, -1)
         PopulateSolidWorksProcesses()
         If swProcessCombo.Items.Count = 0 Then Return
+        If preferredPid > 0 Then
+            For i As Integer = 0 To swProcessCombo.Items.Count - 1
+                Dim preferred = TryCast(swProcessCombo.Items(i), SwProcessInfo)
+                If preferred IsNot Nothing AndAlso preferred.ProcessId = preferredPid Then
+                    swProcessCombo.SelectedIndex = i
+                    Return
+                End If
+            Next
+        End If
         If swProcessCombo.Items.Count = 1 Then
             swProcessCombo.SelectedIndex = 0
             Return
@@ -69,13 +76,11 @@ Public Class Form1
         Try
             If _swApp Is Nothing Then
                 fileNameLabel.Text = "未连接"
-                dirPathLabel.Text = ""
                 Return
             End If
             Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
             If modelDoc Is Nothing Then
                 fileNameLabel.Text = "无文档"
-                dirPathLabel.Text = ""
                 Return
             End If
 
@@ -96,14 +101,12 @@ Public Class Form1
                         Dim fp As String = refModel.GetPathName()
                         If Not String.IsNullOrEmpty(fp) Then
                             fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
-                            dirPathLabel.Text = System.IO.Path.GetDirectoryName(fp)
                             Return
                         End If
                     End If
                     Dim cp As String = comp.GetPathName()
                     If Not String.IsNullOrEmpty(cp) Then
                         fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(cp)
-                        dirPathLabel.Text = System.IO.Path.GetDirectoryName(cp)
                         Return
                     End If
                 ElseIf TypeOf selObj Is SldWorks.ModelDoc2 Then
@@ -111,7 +114,6 @@ Public Class Form1
                     Dim fp As String = selModel.GetPathName()
                     If Not String.IsNullOrEmpty(fp) Then
                         fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(fp)
-                        dirPathLabel.Text = System.IO.Path.GetDirectoryName(fp)
                         Return
                     End If
                 End If
@@ -121,15 +123,11 @@ Public Class Form1
             Dim docPath As String = modelDoc.GetPathName()
             If Not String.IsNullOrEmpty(docPath) Then
                 fileNameLabel.Text = System.IO.Path.GetFileNameWithoutExtension(docPath)
-                Dim dirName As String = System.IO.Path.GetDirectoryName(docPath)
-                dirPathLabel.Text = If(String.IsNullOrEmpty(dirName), docPath, dirName)
             Else
                 fileNameLabel.Text = modelDoc.GetTitle()
-                dirPathLabel.Text = "(未保存)"
             End If
         Catch
             fileNameLabel.Text = "错误"
-            dirPathLabel.Text = ""
         End Try
     End Sub
 
@@ -973,6 +971,9 @@ Public Class Form1
     Private Sub swProcessCombo_SelectedIndexChanged(sender As Object, e As EventArgs) Handles swProcessCombo.SelectedIndexChanged
         Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
         If info Is Nothing Then
+            _selectedSwProcess = Nothing
+            _swApp = Nothing
+            UpdateStatusBar()
             Return
         End If
 
@@ -981,16 +982,11 @@ Public Class Form1
         Catch ex As Exception
             _selectedSwProcess = Nothing
         End Try
+        My.Settings.DefaultSwProcessId = info.ProcessId
+        My.Settings.Save()
+        ConnectToSelectedSw()
 
         ' 通过 ROT 查找所选进程的 SW COM 实例
-        Dim targetApp As SldWorks.SldWorks = FindSwAppByPid(info.ProcessId)
-        If targetApp IsNot Nothing Then
-            _swApp = targetApp
-        Else
-            ConnectToSw()
-        End If
-        AttachDocEvents()
-        UpdateStatusBar()
     End Sub
 
     Private _selectedSwProcess As Process = Nothing
@@ -1016,6 +1012,10 @@ Public Class Form1
     Private Shared Function GetWindowTextLength(hWnd As IntPtr) As Integer
     End Function
 
+    <DllImport("user32.dll", SetLastError:=True)>
+    Private Shared Function GetWindowThreadProcessId(hWnd As IntPtr, ByRef lpdwProcessId As Integer) As Integer
+    End Function
+
     Private Const SwRestore As Integer = 9
 
     Private Sub ConnectToSw()
@@ -1026,7 +1026,41 @@ Public Class Form1
         End Try
     End Sub
 
+    Private Sub ConnectToSelectedSw()
+        Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+        If info Is Nothing Then
+            DetachDocEvents()
+            _swApp = Nothing
+            UpdateStatusBar()
+            Return
+        End If
+        Try
+            _selectedSwProcess = Process.GetProcessById(info.ProcessId)
+        Catch
+            _selectedSwProcess = Nothing
+        End Try
+
+        DetachDocEvents()
+        _swApp = Nothing
+        _attachedDocPath = Nothing
+        _swApp = TryCast(GetSelectedSwApp(True), SldWorks.SldWorks)
+        AttachDocEvents()
+        UpdateStatusBar()
+    End Sub
+
     Private Function FindSwAppByPid(pid As Integer) As SldWorks.SldWorks
+        Dim targetTitle As String = Nothing
+        Try
+            For Each item As Object In swProcessCombo.Items
+                Dim info As SwProcessInfo = TryCast(item, SwProcessInfo)
+                If info IsNot Nothing AndAlso info.ProcessId = pid Then
+                    targetTitle = info.WindowTitle
+                    Exit For
+                End If
+            Next
+        Catch
+        End Try
+
         Dim rot As IRunningObjectTable = Nothing
         Dim enumMoniker As IEnumMoniker = Nothing
         Try
@@ -1043,26 +1077,34 @@ Public Class Form1
 
                 If displayName IsNot Nothing AndAlso displayName.ToLower().Contains("sldworks.application") Then
                     Dim obj As Object = Nothing
+                    Dim returning As Boolean = False
                     Try
                         rot.GetObject(monikers(0), obj)
                         If obj IsNot Nothing Then
                             Dim swApp As SldWorks.SldWorks = CType(obj, SldWorks.SldWorks)
-                            Dim activeDoc As SldWorks.ModelDoc2 = TryCast(swApp.ActiveDoc, SldWorks.ModelDoc2)
-                            If activeDoc IsNot Nothing Then
-                                Dim docPath As String = activeDoc.GetPathName()
-                                Dim docTitle As String = If(String.IsNullOrEmpty(docPath),
-                                    activeDoc.GetTitle(), IO.Path.GetFileNameWithoutExtension(docPath))
-                                ' Match by title that was stored in combo box
-                                Dim comboInfo As SwProcessInfo = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
-                                If comboInfo IsNot Nothing AndAlso String.Equals(docTitle, comboInfo.Title, StringComparison.OrdinalIgnoreCase) Then
+                            Dim swPid As Integer = GetSwProcessId(swApp)
+                            Dim appTitle As String = GetSwMainWindowTitle(swApp)
+                            Dim targetNorm As String = NormalizeWindowTitle(targetTitle)
+                            Dim appNorm As String = NormalizeWindowTitle(appTitle)
+
+                            If swPid = pid Then
+                                If String.IsNullOrWhiteSpace(targetNorm) OrElse String.Equals(appNorm, targetNorm, StringComparison.OrdinalIgnoreCase) Then
+                                    returning = True
                                     Return swApp
                                 End If
+                            End If
+
+                            ' 某些环境下 SW COM 返回的 PID 不可靠，增加窗体标题兜底匹配。
+                            If Not String.IsNullOrWhiteSpace(targetNorm) AndAlso
+                               String.Equals(appNorm, targetNorm, StringComparison.OrdinalIgnoreCase) Then
+                                returning = True
+                                Return swApp
                             End If
                         End If
                     Catch
                     Finally
-                        If obj IsNot Nothing AndAlso Marshal.IsComObject(obj) Then
-                            ' Keep reference if returning, otherwise release
+                        If Not returning AndAlso obj IsNot Nothing AndAlso Marshal.IsComObject(obj) Then
+                            Marshal.ReleaseComObject(obj)
                         End If
                     End Try
                 End If
@@ -1076,6 +1118,86 @@ Public Class Form1
         Return Nothing
     End Function
 
+    Private Function GetSwProcessId(swApp As SldWorks.SldWorks) As Integer
+        If swApp Is Nothing Then Return 0
+
+        Try
+            Dim pidFromApi As Integer = swApp.GetProcessID()
+            If pidFromApi > 0 Then Return pidFromApi
+        Catch
+        End Try
+
+        Try
+            Dim frame As SldWorks.Frame = swApp.Frame()
+            If frame IsNot Nothing Then
+                Dim hwnd As Integer = frame.GetHWnd()
+                If hwnd <> 0 Then
+                    Dim pidFromHwnd As Integer = 0
+                    GetWindowThreadProcessId(New IntPtr(hwnd), pidFromHwnd)
+                    If pidFromHwnd > 0 Then Return pidFromHwnd
+                End If
+            End If
+        Catch
+        End Try
+
+        Return 0
+    End Function
+
+    Private Function GetSwMainWindowTitle(swApp As SldWorks.SldWorks) As String
+        If swApp Is Nothing Then Return ""
+        Try
+            Dim frame As SldWorks.Frame = swApp.Frame()
+            If frame Is Nothing Then Return ""
+            Dim hwnd As Integer = frame.GetHWnd()
+            If hwnd = 0 Then Return ""
+            Dim len As Integer = GetWindowTextLength(New IntPtr(hwnd))
+            If len <= 0 Then Return ""
+            Dim sb As New Text.StringBuilder(len + 1)
+            GetWindowText(New IntPtr(hwnd), sb, sb.Capacity)
+            Return sb.ToString()
+        Catch
+            Return ""
+        End Try
+    End Function
+
+    Private Function NormalizeWindowTitle(value As String) As String
+        If String.IsNullOrWhiteSpace(value) Then Return ""
+        Dim title As String = value.Trim()
+        Dim idx As Integer = title.IndexOf(" - ", StringComparison.Ordinal)
+        If idx >= 0 Then title = title.Substring(0, idx).Trim()
+        If title.StartsWith("[") AndAlso title.EndsWith("]") AndAlso title.Length > 2 Then
+            title = title.Substring(1, title.Length - 2).Trim()
+        End If
+        Return title
+    End Function
+
+    Private Function TryGetActiveSwByPid(pid As Integer) As SldWorks.SldWorks
+        Try
+            Dim p As Process = Process.GetProcessById(pid)
+            If p IsNot Nothing Then
+                Dim h As IntPtr = p.MainWindowHandle
+                If h <> IntPtr.Zero Then
+                    ShowWindow(h, SwRestore)
+                    SetForegroundWindow(h)
+                End If
+            End If
+        Catch
+        End Try
+
+        Try
+            Dim app As SldWorks.SldWorks = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+            If app IsNot Nothing Then
+                Dim resolvedPid As Integer = GetSwProcessId(app)
+                If resolvedPid = pid OrElse resolvedPid = 0 Then
+                    Return app
+                End If
+            End If
+        Catch
+        End Try
+
+        Return Nothing
+    End Function
+
     <DllImport("ole32.dll")>
     Private Shared Function GetRunningObjectTable(reserved As UInteger, ByRef prot As IRunningObjectTable) As Integer
     End Function
@@ -1085,14 +1207,12 @@ Public Class Form1
     End Function
 
     Private Function _swApp_ActiveDocChangeNotify() As Integer Handles _swApp.ActiveDocChangeNotify
-        RefreshProcessList()
         UpdateStatusBar()
         AttachDocEvents()
         Return 0
     End Function
 
     Private Function _swApp_ActiveModelDocChangeNotify() As Integer Handles _swApp.ActiveModelDocChangeNotify
-        RefreshProcessList()
         UpdateStatusBar()
         AttachDocEvents()
         Return 0
@@ -1104,16 +1224,13 @@ Public Class Form1
                 Dim doc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
                 If doc Is Nothing Then
                     fileNameLabel.Text = "无文档"
-                    dirPathLabel.Text = ""
                 ElseIf String.Equals(doc.GetPathName(), fileName, StringComparison.OrdinalIgnoreCase) Then
                     fileNameLabel.Text = "无文档"
-                    dirPathLabel.Text = ""
                 Else
                     UpdateStatusBar()
                 End If
             Else
                 fileNameLabel.Text = "未连接"
-                dirPathLabel.Text = ""
             End If
         Catch
             UpdateStatusBar()
@@ -1170,23 +1287,37 @@ Public Class Form1
     End Function
 
     ' 尝试根据选定的进程返回对应的 SolidWorks COM 对象
-    Public Function GetSelectedSwApp() As Object
+    Public Function GetSelectedSwApp(Optional bringToFront As Boolean = False) As Object
         Try
-            If _selectedSwProcess IsNot Nothing Then
+            Dim targetPid As Integer = If(_selectedSwProcess IsNot Nothing, _selectedSwProcess.Id, 0)
+
+            If bringToFront AndAlso _selectedSwProcess IsNot Nothing Then
                 Dim h = _selectedSwProcess.MainWindowHandle
                 If h <> IntPtr.Zero Then
-                    ' 恢复并置前窗口，随后从 ROT 获取当前活动 SolidWorks 对象
                     ShowWindow(h, SwRestore)
                     SetForegroundWindow(h)
                 End If
             End If
 
-            ' 这是常用的获取 SolidWorks COM 对象方法（如果有多个实例，通常返回当前活动项）
-            Dim swApp = Marshal.GetActiveObject("SldWorks.Application")
-            Return swApp
+            If targetPid > 0 Then
+                Dim strictApp As SldWorks.SldWorks = FindSwAppByPid(targetPid)
+                If strictApp IsNot Nothing Then Return strictApp
+            End If
+
+            If bringToFront Then
+                Dim app As SldWorks.SldWorks = TryCast(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+                If app IsNot Nothing Then
+                    If targetPid <= 0 Then Return app
+                    Dim resolvedPid As Integer = GetSwProcessId(app)
+                    If resolvedPid = targetPid OrElse resolvedPid = 0 Then Return app
+                    Debug.WriteLine($"GetSelectedSwApp: GetActiveObject returned PID {resolvedPid}, expected {targetPid}. Discarding.")
+                    Return Nothing
+                End If
+            End If
+            Return Nothing
         Catch ex As Exception
             Return Nothing
-        End Try
+        End Try1
     End Function
 
     Private Sub PopulateSolidWorksProcesses()
@@ -1199,6 +1330,7 @@ Public Class Form1
 
                 ' 首先尝试常规属性
                 Dim title As String = p.MainWindowTitle
+                Dim rawWindowTitle As String = title
 
                 ' 如果为空，尝试使用 Win32 API 直接读取窗口文本
                 If String.IsNullOrWhiteSpace(title) AndAlso h <> IntPtr.Zero Then
@@ -1208,6 +1340,7 @@ Public Class Form1
                             Dim sb As New Text.StringBuilder(len + 1)
                             GetWindowText(h, sb, sb.Capacity)
                             title = sb.ToString()
+                            rawWindowTitle = title
                         End If
                     Catch
                         ' 忽略
@@ -1217,18 +1350,7 @@ Public Class Form1
                 ' 如果仍然为空，尝试将该实例置前并通过 COM 获取活动文档名作为标题
                 If String.IsNullOrWhiteSpace(title) AndAlso h <> IntPtr.Zero Then
                     Try
-                        ShowWindow(h, SwRestore)
-                        SetForegroundWindow(h)
-                        Dim swApp = Marshal.GetActiveObject("SldWorks.Application")
-                        If swApp IsNot Nothing Then
-                            Dim doc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
-                            If doc IsNot Nothing Then
-                                Dim path As String = doc.GetPathName()
-                                If Not String.IsNullOrWhiteSpace(path) Then
-                                    title = IO.Path.GetFileNameWithoutExtension(path)
-                                End If
-                            End If
-                        End If
+                        ' no-op
                     Catch
                         ' 忽略
                     End Try
@@ -1241,7 +1363,7 @@ Public Class Form1
                     Dim sep As String = " - "
                     Dim idx As Integer = title.IndexOf(sep, StringComparison.Ordinal)
                     If idx >= 0 Then
-                        title = title.Substring(idx + sep.Length).Trim()
+                        title = title.Substring(0, idx).Trim()
                     End If
 
                     ' 去除可能的方括号包围（例如："[name.SLDASM]")
@@ -1250,7 +1372,7 @@ Public Class Form1
                     End If
                 End If
 
-                swProcessCombo.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id})
+                swProcessCombo.Items.Add(New SwProcessInfo With {.Title = title, .ProcessId = p.Id, .WindowTitle = rawWindowTitle})
             Next
 
         Catch ex As Exception
@@ -1261,14 +1383,77 @@ Public Class Form1
     Private Class SwProcessInfo
         Public Property Title As String
         Public Property ProcessId As Integer
+        Public Property WindowTitle As String
         Public Overrides Function ToString() As String
-            Return ProcessId.ToString() & ": " & Title
+            Dim displayTitle As String = "未打开文档"
+            Dim sourceTitle As String = If(String.IsNullOrWhiteSpace(WindowTitle), "", WindowTitle)
+            Dim leftBracket As Integer = sourceTitle.IndexOf("["c)
+            Dim rightBracket As Integer = sourceTitle.IndexOf("]"c)
+            If leftBracket >= 0 AndAlso rightBracket > leftBracket + 1 Then
+                displayTitle = sourceTitle.Substring(leftBracket + 1, rightBracket - leftBracket - 1).Trim()
+            End If
+            Return ProcessId.ToString() & ":" & displayTitle
         End Function
     End Class
 
     Private Sub refreshBtn_Click(sender As Object, e As EventArgs) Handles refreshBtn.Click
         RefreshProcessList()
-        UpdateStatusBar()
+        ConnectToSelectedSw()
+    End Sub
+
+    Private Sub connectBtn_Click(sender As Object, e As EventArgs)
+        Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+        If info Is Nothing Then
+            MsgBox("请先在下拉列表中选择 SolidWorks 实例。")
+            Return
+        End If
+
+        My.Settings.DefaultSwProcessId = info.ProcessId
+        My.Settings.Save()
+        ConnectToSelectedSw()
+        ShowConnectionDiagnostics(info.ProcessId)
+    End Sub
+
+    Private Sub ShowConnectionDiagnostics(targetPid As Integer)
+        Dim lines As New List(Of String)
+        lines.Add("目标 PID: " & targetPid.ToString())
+        lines.Add("当前选中进程 PID: " & If(_selectedSwProcess Is Nothing, "null", _selectedSwProcess.Id.ToString()))
+        lines.Add("_swApp 是否为空: " & If(_swApp Is Nothing, "是", "否"))
+
+        If _swApp IsNot Nothing Then
+            Dim resolvedPid As Integer = GetSwProcessId(_swApp)
+            lines.Add("COM 解析 PID: " & resolvedPid.ToString())
+            Try
+                Dim doc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
+                If doc Is Nothing Then
+                    lines.Add("ActiveDoc: null")
+                Else
+                    lines.Add("ActiveDoc 标题: " & doc.GetTitle())
+                    Dim selCount As Integer = 0
+                    Try
+                        Dim selMgr As SldWorks.SelectionMgr = doc.SelectionManager
+                        If selMgr IsNot Nothing Then selCount = selMgr.GetSelectedObjectCount2(-1)
+                    Catch
+                    End Try
+                    lines.Add("SelectionCount: " & selCount.ToString())
+                End If
+            Catch ex As Exception
+                lines.Add("读取 ActiveDoc 异常: " & ex.Message)
+            End Try
+        End If
+
+        Try
+            Dim direct As Object = Marshal.GetActiveObject("SldWorks.Application")
+            lines.Add("GetActiveObject: 成功")
+            Dim directSw As SldWorks.SldWorks = TryCast(direct, SldWorks.SldWorks)
+            If directSw IsNot Nothing Then lines.Add("GetActiveObject PID: " & GetSwProcessId(directSw).ToString())
+        Catch ex As Exception
+            lines.Add("GetActiveObject: 失败 - " & ex.Message)
+        End Try
+
+        Dim report As String = String.Join(Environment.NewLine, lines)
+        Debug.WriteLine(report)
+        MessageBox.Show(report, "连接诊断", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
 
     Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
@@ -1362,6 +1547,13 @@ Public Class Form1
     End Function
 
     Private Sub Button18_Click(sender As Object, e As EventArgs) Handles Button18.Click
-
+        Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+        Dim f4 As New Form4()
+        f4.SwApp = swApp
+        f4.Show()
     End Sub
 End Class
