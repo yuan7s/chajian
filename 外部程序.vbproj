@@ -176,24 +176,14 @@
     </BootstrapperPackage>
   </ItemGroup>
   <ItemGroup>
-    <COMReference Include="SldWorks">
-      <Guid>{83A33D31-27C5-11CE-BFD4-00400513BB57}</Guid>
-      <VersionMajor>30</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Isolated>False</Isolated>
+    <Reference Include="Interop.SldWorks">
+      <HintPath>lib\Interop.SldWorks.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
-    <COMReference Include="SwConst">
-      <Guid>{4687F359-55D0-4CD3-B6CF-2EB42C11F989}</Guid>
-      <VersionMajor>30</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Isolated>False</Isolated>
+    </Reference>
+    <Reference Include="Interop.SwConst">
+      <HintPath>lib\Interop.SwConst.dll</HintPath>
       <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="log1.txt" />

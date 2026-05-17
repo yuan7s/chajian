@@ -1,0 +1,42 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release
+        run: msbuild 外部程序.vbproj -p:Configuration=Release -p:Platform="AnyCPU" -v:minimal -t:Build
+
+      - name: Package artifacts
+        run: |
+          mkdir publish
+          cp bin\Release\外部程序.exe publish\
+          cp bin\Release\外部程序.exe.config publish\
+          cp bin\Release\外部程序.pdb publish\
+          cp bin\Release\外部程序.xml publish\
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: 外部程序
+          path: publish\
+
+      - name: Create Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: publish\*
+          draft: false
+          prerelease: false
+          generate_release_notes: true
