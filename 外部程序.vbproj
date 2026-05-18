@@ -195,12 +195,11 @@
       <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="log1.txt" />
-  </ItemGroup>
+
   <PropertyGroup>
     <PostBuildEvent>if not exist "C:\Users\yuan7\OneDrive\软件包" mkdir "C:\Users\yuan7\OneDrive\软件包"
-xcopy /Y /D "$(TargetDir)*" "C:\Users\yuan7\OneDrive\软件包\"</PostBuildEvent>
+xcopy /Y /D "$(TargetDir)*" "C:\Users\yuan7\OneDrive\软件包\"
+exit 0</PostBuildEvent>
   </PropertyGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.VisualBasic.targets" />
 </Project>
