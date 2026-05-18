@@ -286,7 +286,7 @@ Public Class Form3
             Dim config As Object = docToSave.GetActiveConfiguration
             Dim cusPropMgr As Object = config.CustomPropertyManager
             cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            cusPropMgr.Add3("图号编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            cusPropMgr.Add3("物料编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
 
             If CheckBox3.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox3.Text) Then

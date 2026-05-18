@@ -51,9 +51,9 @@ Partial Class Form1
         Me.separator1 = New System.Windows.Forms.ToolStripSeparator()
         Me.filePrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
         Me.fileNameLabel = New System.Windows.Forms.ToolStripStatusLabel()
-        Me.StatusStrip1.SuspendLayout()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
+        Me.StatusStrip1.SuspendLayout()
         Me.SuspendLayout()
         '
         'Button9
@@ -179,6 +179,40 @@ Partial Class Form1
         Me.Button16.Name = "Button16"
         Me.Button16.UseVisualStyleBackColor = True
         '
+        'StatusStrip1
+        '
+        Me.StatusStrip1.ImageScalingSize = New System.Drawing.Size(24, 24)
+        Me.StatusStrip1.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.refreshBtn, Me.swProcessCombo, Me.separator1, Me.filePrefixLabel, Me.fileNameLabel})
+        resources.ApplyResources(Me.StatusStrip1, "StatusStrip1")
+        Me.StatusStrip1.Name = "StatusStrip1"
+        '
+        'refreshBtn
+        '
+        Me.refreshBtn.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
+        Me.refreshBtn.Name = "refreshBtn"
+        resources.ApplyResources(Me.refreshBtn, "refreshBtn")
+        '
+        'swProcessCombo
+        '
+        Me.swProcessCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.swProcessCombo.Name = "swProcessCombo"
+        resources.ApplyResources(Me.swProcessCombo, "swProcessCombo")
+        '
+        'separator1
+        '
+        Me.separator1.Name = "separator1"
+        resources.ApplyResources(Me.separator1, "separator1")
+        '
+        'filePrefixLabel
+        '
+        Me.filePrefixLabel.Name = "filePrefixLabel"
+        resources.ApplyResources(Me.filePrefixLabel, "filePrefixLabel")
+        '
+        'fileNameLabel
+        '
+        Me.fileNameLabel.Name = "fileNameLabel"
+        resources.ApplyResources(Me.fileNameLabel, "fileNameLabel")
+        '
         'Form1
         '
         resources.ApplyResources(Me, "$this")
@@ -195,49 +229,10 @@ Partial Class Form1
         Me.Controls.Add(Me.Button4)
         Me.Controls.Add(Me.Button3)
         Me.Name = "Form1"
-        '
-        'StatusStrip1
-        '
-        Me.StatusStrip1.Items.AddRange(New System.Windows.Forms.ToolStripItem() {Me.refreshBtn, Me.swProcessCombo, Me.separator1, Me.filePrefixLabel, Me.fileNameLabel})
-        Me.StatusStrip1.Location = New System.Drawing.Point(0, 454)
-        Me.StatusStrip1.Name = "StatusStrip1"
-        Me.StatusStrip1.Size = New System.Drawing.Size(1264, 26)
-        Me.StatusStrip1.TabIndex = 16
-        Me.StatusStrip1.Text = "StatusStrip1"
-        '
-        'refreshBtn
-        '
-        Me.refreshBtn.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text
-        Me.refreshBtn.Name = "refreshBtn"
-        Me.refreshBtn.Size = New System.Drawing.Size(36, 23)
-        Me.refreshBtn.Text = "刷新"
-        '
-        'swProcessCombo
-        '
-        Me.swProcessCombo.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
-        Me.swProcessCombo.Name = "swProcessCombo"
-        Me.swProcessCombo.Size = New System.Drawing.Size(420, 25)
-        'separator1
-        '
-        Me.separator1.Name = "separator1"
-        Me.separator1.Size = New System.Drawing.Size(6, 26)
-        '
-        'filePrefixLabel
-        '
-        Me.filePrefixLabel.Name = "filePrefixLabel"
-        Me.filePrefixLabel.Size = New System.Drawing.Size(72, 21)
-        Me.filePrefixLabel.Text = "选中文件:"
-        '
-        'fileNameLabel
-        '
-        Me.fileNameLabel.Name = "fileNameLabel"
-        Me.fileNameLabel.Size = New System.Drawing.Size(160, 21)
-        Me.fileNameLabel.Text = ""
-        
-        Me.StatusStrip1.ResumeLayout(False)
-        Me.StatusStrip1.PerformLayout()
         Me.GroupBox1.ResumeLayout(False)
         Me.GroupBox2.ResumeLayout(False)
+        Me.StatusStrip1.ResumeLayout(False)
+        Me.StatusStrip1.PerformLayout()
         Me.ResumeLayout(False)
         Me.PerformLayout()
 
