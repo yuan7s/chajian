@@ -7,6 +7,7 @@ Public Class Form1
 
     Private _statusTimer As Timer
 
+    ' 另存为 DWG
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
 
         Dim swApp As Object = GetSelectedSwApp()
@@ -133,6 +134,7 @@ Public Class Form1
         End Try
     End Sub
 
+    ' 另存为 PDF
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -148,6 +150,7 @@ Public Class Form1
         part.SaveAs3(fileName2, 0, 2)
     End Sub
 
+    ' 在资源管理器中打开文件位置
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -175,6 +178,7 @@ Public Class Form1
         End If
     End Sub
 
+    ' 写入下料尺寸属性
     Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
         ' 使用下拉选择的 SolidWorks 实例
         Dim swApp As Object
@@ -239,6 +243,7 @@ Public Class Form1
 
     End Sub
 
+    ' 设置绘图标准为 ISO
     Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -252,6 +257,7 @@ Public Class Form1
         part.SketchManager.Insert3DSketch(True)
     End Sub
 
+    ' 选中工程图中所有悬空标注
     Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -289,6 +295,7 @@ Public Class Form1
         End If
     End Sub
 
+    ' 旋转选中工程图视图 90°
     Private Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -325,6 +332,7 @@ Public Class Form1
         part.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
     End Sub
 
+    ' 同步物料编码/零件图号/文件名称属性
     Private Sub Button9_Click(sender As Object, e As EventArgs) Handles Button9.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -367,6 +375,7 @@ Public Class Form1
     End Sub
 
     
+    ' FeatureManager 显示设置（隐藏配置/显示状态名称，递归）
     Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
@@ -437,6 +446,7 @@ Public Class Form1
         Return True
     End Function
 
+    ' 切换窗口置顶
     Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
         TopMost = Not TopMost
 
@@ -448,6 +458,7 @@ Public Class Form1
         End If
     End Sub
 
+    ' 设计树排序（文件夹分组 + 递归子装配体）
     Private Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
@@ -860,10 +871,12 @@ Public Class Form1
 
     End Sub
 
+    ' 强制结束所有 SolidWorks 进程
     Private Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
         Shell("cmd.exe /c taskkill /F /IM sldworks.exe ", AppWinStyle.Hide)
     End Sub
 
+    ' 删除自定义属性（递归子件）
     Private Sub Button6_Click_1(sender As Object, e As EventArgs) Handles Button6.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
@@ -967,6 +980,7 @@ Public Class Form1
         Return True
     End Function
 
+    ' 打开绘图标准设置（Form2）
     Private Sub Button14_Click_1(sender As Object, e As EventArgs) Handles Button14.Click
         ' 仅打开 Form2（刷新由单独刷新按钮处理）
         Form2.Show()
@@ -1459,6 +1473,7 @@ Public Class Form1
         MessageBox.Show(report, "连接诊断", MessageBoxButtons.OK, MessageBoxIcon.Information)
     End Sub
 
+    ' 打开重命名工具（Form3）
     Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
@@ -1470,6 +1485,7 @@ Public Class Form1
         f3.Show()
     End Sub
 
+    ' 删除配置属性（递归子件）
     Private Sub Button17_Click(sender As Object, e As EventArgs) Handles Button17.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
@@ -1556,6 +1572,7 @@ Public Class Form1
         Return True
     End Function
 
+    ' 打开编码整理工具（Form4）
     Private Sub Button18_Click(sender As Object, e As EventArgs) Handles Button18.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
