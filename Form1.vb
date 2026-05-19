@@ -24,6 +24,8 @@ Public Class Form1
     End Sub
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+        TopMost = True
+        Button12.Text = "取消置顶"
         RefreshProcessList()
         ConnectToSelectedSw()
         _statusTimer = New Timer() With {.Interval = 1000}
@@ -364,8 +366,7 @@ Public Class Form1
 
     End Sub
 
-
-
+    
     Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
