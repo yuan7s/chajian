@@ -448,9 +448,12 @@ Public Class Form1
     End Sub
 
     Private Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
-        Dim swApp As Object
+        Dim swApp As Object = GetSelectedSwApp()
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
 
-        swApp = Marshal.GetActiveObject("SldWorks.Application")
         Dim Part As SldWorks.ModelDoc2
         Part = swApp.ActiveDoc
 
@@ -1457,7 +1460,14 @@ Public Class Form1
     End Sub
 
     Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
-        Form3.Show()
+        Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+        Dim f3 As New Form3()
+        f3.SwApp = swApp
+        f3.Show()
     End Sub
 
     Private Sub Button17_Click(sender As Object, e As EventArgs) Handles Button17.Click

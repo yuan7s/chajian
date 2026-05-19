@@ -25,7 +25,6 @@ Public Class Form3
         TopMost = True
         TextBox1.ReadOnly = True
         EnableDrag()
-        ConnectToSw()
         _suppressNameCheck = True
         UpdateSelectionInfo()
         _suppressNameCheck = False
@@ -36,13 +35,14 @@ Public Class Form3
         _swAppField = Nothing
     End Sub
 
-    Private Sub ConnectToSw()
-        Try
-            _swAppField = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
-        Catch
-            _swAppField = Nothing
-        End Try
-    End Sub
+    Public Property SwApp As SldWorks.SldWorks
+        Get
+            Return _swAppField
+        End Get
+        Set(value As SldWorks.SldWorks)
+            _swAppField = value
+        End Set
+    End Property
 
     Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
         UpdateSelectionInfo()
