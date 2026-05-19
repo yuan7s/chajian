@@ -699,6 +699,7 @@ Public Class Form1
     ''' <summary>
     ''' 收集 Reference 特征中的零件/装配体名称
     ''' </summary>
+    
     Private Sub CollectComponent(swFeat As Object, ByRef compNames() As String, ByRef b As Long, ByRef assNames() As String, ByRef d As Long)
         Dim swty As SldWorks.Component2
         swty = swFeat.GetSpecificFeature2
@@ -1308,15 +1309,13 @@ Public Class Form1
                 If strictApp IsNot Nothing Then Return strictApp
             End If
 
-            If bringToFront Then
-                Dim app As SldWorks.SldWorks = TryCast(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
-                If app IsNot Nothing Then
-                    If targetPid <= 0 Then Return app
-                    Dim resolvedPid As Integer = GetSwProcessId(app)
-                    If resolvedPid = targetPid OrElse resolvedPid = 0 Then Return app
-                    Debug.WriteLine($"GetSelectedSwApp: GetActiveObject returned PID {resolvedPid}, expected {targetPid}. Discarding.")
-                    Return Nothing
-                End If
+            ' ROT 查找失败时，回退到 GetActiveObject 并校验 PID
+            Dim app As SldWorks.SldWorks = TryCast(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
+            If app IsNot Nothing Then
+                If targetPid <= 0 Then Return app
+                Dim resolvedPid As Integer = GetSwProcessId(app)
+                If resolvedPid = targetPid OrElse resolvedPid = 0 Then Return app
+                Debug.WriteLine($"GetSelectedSwApp: GetActiveObject returned PID {resolvedPid}, expected {targetPid}. Discarding.")
             End If
             Return Nothing
         Catch ex As Exception
