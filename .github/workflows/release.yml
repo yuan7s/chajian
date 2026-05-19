@@ -30,6 +30,10 @@ jobs:
           cp bin/Release/外部程序.pdb publish/
           cp bin/Release/外部程序.xml publish/
 
+      - name: Create zip
+        shell: pwsh
+        run: Compress-Archive -Path publish\* -DestinationPath 外部程序.zip
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -40,7 +44,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: publish/*
+          files: |
+            publish/*
+            外部程序.zip
           draft: false
           prerelease: false
           generate_release_notes: true
