@@ -44,9 +44,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            publish/*
-            外部程序.zip
+          files: 外部程序.zip
           draft: false
           prerelease: false
           generate_release_notes: true
