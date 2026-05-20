@@ -177,7 +177,7 @@ Public Class Form4
         If CheckBox4.Checked Then
             Try
                 Dim partType As String = compModel.GetCustomInfoValue(comp.ReferencedConfiguration, "零件类型")
-                If String.Equals(partType, "标准件", StringComparison.OrdinalIgnoreCase) Then Return True
+                If Not String.IsNullOrEmpty(partType) AndAlso partType.Contains("标准件") Then Return True
             Catch
             End Try
         End If
@@ -186,7 +186,7 @@ Public Class Form4
         If CheckBox5.Checked Then
             Try
                 Dim partType As String = compModel.GetCustomInfoValue(comp.ReferencedConfiguration, "零件类型")
-                If String.Equals(partType, "外购件", StringComparison.OrdinalIgnoreCase) Then Return True
+                If Not String.IsNullOrEmpty(partType) AndAlso partType.Contains("外购") Then Return True
             Catch
             End Try
         End If
