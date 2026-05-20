@@ -9,6 +9,7 @@ Public Class Form3
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _suppressNameCheck As Boolean
+    Private _nameCheckTimer As Timer
 
     Private Const WmNclbuttondown As Integer = &HA1
     Private Const HtCaption As Integer = &H2
@@ -25,6 +26,8 @@ Public Class Form3
         TopMost = True
         TextBox1.ReadOnly = True
         EnableDrag()
+        _nameCheckTimer = New Timer() With {.Interval = 500}
+        AddHandler _nameCheckTimer.Tick, AddressOf NameCheckTimer_Tick
         _suppressNameCheck = True
         UpdateSelectionInfo()
         _suppressNameCheck = False
@@ -32,6 +35,11 @@ Public Class Form3
     End Sub
 
     Private Sub Form3_FormClosing(sender As Object, e As FormClosingEventArgs) Handles MyBase.FormClosing
+        If _nameCheckTimer IsNot Nothing Then
+            _nameCheckTimer.Stop()
+            _nameCheckTimer.Dispose()
+            _nameCheckTimer = Nothing
+        End If
         _swAppField = Nothing
     End Sub
 
@@ -344,7 +352,15 @@ Public Class Form3
     End Function
 
     Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged
-        If Not _suppressNameCheck Then CheckNewNameConflict()
+        ' 防抖：重置定时器，用户停顿时才检查
+        If _suppressNameCheck Then Return
+        _nameCheckTimer.Stop()
+        _nameCheckTimer.Start()
+    End Sub
+
+    Private Sub NameCheckTimer_Tick(sender As Object, e As EventArgs)
+        _nameCheckTimer.Stop()
+        CheckNewNameConflict()
     End Sub
 
     Private Sub CheckNewNameConflict()
@@ -411,6 +427,13 @@ Public Class Form3
             If comps Is Nothing Then Return False
 
             For Each comp As SldWorks.Component2 In comps
+                ' 先用 Name2 快速过滤，避免每次调用 GetPathName (COM 开销)
+                Dim refName As String = comp.Name2
+                If Not String.IsNullOrEmpty(refName) AndAlso
+                   String.Equals(refName, newName, StringComparison.OrdinalIgnoreCase) Then
+                    Return True
+                End If
+                ' Name2 可能带实例号，再通过路径名兜底匹配
                 Dim compPath As String = comp.GetPathName()
                 If Not String.IsNullOrEmpty(compPath) Then
                     Dim compName As String = Path.GetFileNameWithoutExtension(compPath)
