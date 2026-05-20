@@ -218,6 +218,9 @@ Public Class Form4
     Private Sub EnableDrag()
         AddHandler MouseDown, AddressOf DragForm_MouseDown
         For Each child As Control In Controls
+            If TypeOf child Is CheckBox OrElse
+               TypeOf child Is Button OrElse
+               TypeOf child Is TextBox Then Continue For
             AddHandler child.MouseDown, AddressOf DragForm_MouseDown
         Next
     End Sub
