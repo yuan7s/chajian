@@ -222,6 +222,7 @@ Partial Class Form3
         Me.Controls.Add(Me.Label1)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog
         Me.MaximizeBox = False
+        Me.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen
         Me.Name = "Form3"
         Me.Text = "重命名"
         Me.ResumeLayout(False)
