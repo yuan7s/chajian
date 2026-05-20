@@ -58,14 +58,18 @@ Public Class Form1
         }
         AddHandler _trayIcon.DoubleClick, AddressOf TrayShow_Click
 
-        ' 注册全局热键 Ctrl+F1
-        RegisterHotKey(Me.Handle, HOTKEY_ID, MOD_CONTROL, VK_F1)
-
         RefreshProcessList()
         ConnectToSelectedSw()
         _statusTimer = New Timer() With {.Interval = 1000}
         AddHandler _statusTimer.Tick, AddressOf StatusTimer_Tick
         _statusTimer.Start()
+    End Sub
+
+    Private Sub Form1_Shown(sender As Object, e As EventArgs) Handles Me.Shown
+        ' 窗口句柄就绪后再注册热键
+        If Not RegisterHotKey(Me.Handle, HOTKEY_ID, MOD_CONTROL, VK_F1) Then
+            MsgBox("快捷键 Ctrl+F1 注册失败，可能已被其他程序占用。")
+        End If
     End Sub
 
     Private Sub StatusTimer_Tick(sender As Object, e As EventArgs)
