@@ -6,6 +6,22 @@ Imports SwConst
 Public Class Form1
 
     Private _statusTimer As Timer
+    Private _trayIcon As NotifyIcon
+    Private _trayMenu As ContextMenuStrip
+
+    ' 全局热键
+    Private Const MOD_CONTROL As Integer = &H2
+    Private Const VK_F1 As Integer = &H70
+    Private Const WM_HOTKEY As Integer = &H312
+    Private Const HOTKEY_ID As Integer = 1
+
+    <DllImport("user32.dll")>
+    Private Shared Function RegisterHotKey(hWnd As IntPtr, id As Integer, fsModifiers As Integer, vk As Integer) As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function UnregisterHotKey(hWnd As IntPtr, id As Integer) As Boolean
+    End Function
 
     ' 另存为 DWG
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
@@ -27,6 +43,24 @@ Public Class Form1
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         TopMost = True
         Button12.Text = "取消置顶"
+
+        ' 初始化托盘图标
+        _trayMenu = New ContextMenuStrip()
+        _trayMenu.Items.Add("显示主窗口", Nothing, AddressOf TrayShow_Click)
+        _trayMenu.Items.Add("-")
+        _trayMenu.Items.Add("退出", Nothing, AddressOf TrayExit_Click)
+
+        _trayIcon = New NotifyIcon() With {
+            .Icon = Me.Icon,
+            .Text = "外部程序",
+            .Visible = True,
+            .ContextMenuStrip = _trayMenu
+        }
+        AddHandler _trayIcon.DoubleClick, AddressOf TrayShow_Click
+
+        ' 注册全局热键 Ctrl+F1
+        RegisterHotKey(Me.Handle, HOTKEY_ID, MOD_CONTROL, VK_F1)
+
         RefreshProcessList()
         ConnectToSelectedSw()
         _statusTimer = New Timer() With {.Interval = 1000}
@@ -38,7 +72,29 @@ Public Class Form1
         UpdateStatusBar()
     End Sub
 
+    Private Sub Form1_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        ' 拦截关闭按钮，隐藏到托盘
+        If e.CloseReason = CloseReason.UserClosing Then
+            e.Cancel = True
+            Me.Hide()
+        End If
+    End Sub
+
     Private Sub Form1_FormClosed(sender As Object, e As FormClosedEventArgs) Handles Me.FormClosed
+        ' 清理热键
+        UnregisterHotKey(Me.Handle, HOTKEY_ID)
+
+        ' 清理托盘图标
+        If _trayIcon IsNot Nothing Then
+            _trayIcon.Visible = False
+            _trayIcon.Dispose()
+            _trayIcon = Nothing
+        End If
+        If _trayMenu IsNot Nothing Then
+            _trayMenu.Dispose()
+            _trayMenu = Nothing
+        End If
+
         If _statusTimer IsNot Nothing Then
             _statusTimer.Stop()
             _statusTimer.Dispose()
@@ -1412,6 +1468,36 @@ Public Class Form1
             Return ProcessId.ToString() & ":" & displayTitle
         End Function
     End Class
+
+    ' 全局热键处理
+    Protected Overrides Sub WndProc(ByRef m As Message)
+        If m.Msg = WM_HOTKEY AndAlso m.WParam.ToInt32() = HOTKEY_ID Then
+            ToggleVisibility()
+        End If
+        MyBase.WndProc(m)
+    End Sub
+
+    Private Sub ToggleVisibility()
+        If Me.Visible Then
+            Me.Hide()
+        Else
+            Me.Show()
+            Me.WindowState = FormWindowState.Normal
+            Me.BringToFront()
+        End If
+    End Sub
+
+    ' 托盘菜单 — 显示主窗口
+    Private Sub TrayShow_Click(sender As Object, e As EventArgs)
+        Me.Show()
+        Me.WindowState = FormWindowState.Normal
+        Me.BringToFront()
+    End Sub
+
+    ' 托盘菜单 — 退出
+    Private Sub TrayExit_Click(sender As Object, e As EventArgs)
+        Application.Exit()
+    End Sub
 
     Private Sub refreshBtn_Click(sender As Object, e As EventArgs) Handles refreshBtn.Click
         RefreshProcessList()
