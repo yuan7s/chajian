@@ -386,7 +386,7 @@ Public Class Form3
 
             Dim fileExists As Boolean = False
             If Not String.IsNullOrEmpty(ext) Then
-                Dim newFilePath As String = Path.Combine(dir, newName & "." & ext)
+                Dim newFilePath As String = Path.Combine(dir, newName & ext)
                 fileExists = System.IO.File.Exists(newFilePath)
             End If
 
