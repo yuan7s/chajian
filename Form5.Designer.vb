@@ -19,6 +19,7 @@ Partial Class Form5
     Private Sub InitializeComponent()
         Me.Label1 = New System.Windows.Forms.Label()
         Me.LblClose = New System.Windows.Forms.Label()
+        Me.CboConfig = New System.Windows.Forms.ComboBox()
         Me.BtnPropType = New System.Windows.Forms.Button()
         Me.DataGridView1 = New System.Windows.Forms.DataGridView()
         Me.ColName = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -47,6 +48,15 @@ Partial Class Form5
         Me.LblClose.Name = "LblClose"
         Me.LblClose.Size = New System.Drawing.Size(18, 20)
         Me.LblClose.Text = "X"
+        '
+        'CboConfig
+        '
+        Me.CboConfig.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.CboConfig.FormattingEnabled = True
+        Me.CboConfig.Location = New System.Drawing.Point(95, 7)
+        Me.CboConfig.Name = "CboConfig"
+        Me.CboConfig.Size = New System.Drawing.Size(155, 21)
+        Me.CboConfig.TabIndex = 0
         '
         'BtnPropType
         '
@@ -119,6 +129,7 @@ Partial Class Form5
         Me.Controls.Add(Me.BtnToggle)
         Me.Controls.Add(Me.DataGridView1)
         Me.Controls.Add(Me.BtnPropType)
+        Me.Controls.Add(Me.CboConfig)
         Me.Controls.Add(Me.LblClose)
         Me.Controls.Add(Me.Label1)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None
@@ -134,6 +145,7 @@ Partial Class Form5
 
     Friend WithEvents Label1 As System.Windows.Forms.Label
     Friend WithEvents LblClose As System.Windows.Forms.Label
+    Friend WithEvents CboConfig As System.Windows.Forms.ComboBox
     Friend WithEvents BtnPropType As System.Windows.Forms.Button
     Friend WithEvents DataGridView1 As System.Windows.Forms.DataGridView
     Friend WithEvents ColName As System.Windows.Forms.DataGridViewTextBoxColumn

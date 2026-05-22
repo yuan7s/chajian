@@ -27,11 +27,11 @@ Public Class Form5
 
     Private _showKeyOnly As Boolean
     Private _showCustomProps As Boolean
+    Private _suppressConfigChange As Boolean
     Private _attachedPartDoc As SldWorks.PartDoc
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _attachedDocPath As String
-    Private _refreshTimer As Timer
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         ApplyOpacity()
@@ -44,10 +44,6 @@ Public Class Form5
 
         EnableDrag()
 
-        _refreshTimer = New Timer() With {.Interval = 500}
-        AddHandler _refreshTimer.Tick, AddressOf RefreshTimer_Tick
-        _refreshTimer.Start()
-
         If _swAppField IsNot Nothing Then
             AttachDocEvents()
             RefreshProperties()
@@ -55,11 +51,6 @@ Public Class Form5
     End Sub
 
     Private Sub Form5_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
-        If _refreshTimer IsNot Nothing Then
-            _refreshTimer.Stop()
-            _refreshTimer.Dispose()
-            _refreshTimer = Nothing
-        End If
         DetachDocEvents()
         _swAppField = Nothing
     End Sub
@@ -72,16 +63,8 @@ Public Class Form5
     Private Sub BtnPropType_Click(sender As Object, e As EventArgs) Handles BtnPropType.Click
         _showCustomProps = Not _showCustomProps
         BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
+        CboConfig.Visible = Not _showCustomProps
         RefreshProperties()
-    End Sub
-
-    Private Sub RefreshTimer_Tick(sender As Object, e As EventArgs)
-        Try
-            If _swAppField IsNot Nothing AndAlso _swAppField.ActiveDoc IsNot Nothing Then
-                RefreshProperties()
-            End If
-        Catch
-        End Try
     End Sub
 
     Private Sub RefreshProperties()
@@ -100,15 +83,16 @@ Public Class Form5
                 Label1.Text = targetDoc.GetTitle()
             End If
 
+            ' 填充配置下拉框
+            PopulateConfigCombo(targetDoc)
+
             Dim confString As String = ""
             Dim nameArr As Object = Nothing
 
-            If _showCustomProps Then
-                ' 文档级自定义属性
+            If _showCustomProps OrElse CboConfig.SelectedItem Is Nothing Then
                 nameArr = targetDoc.GetCustomInfoNames()
             Else
-                ' 配置特定属性
-                confString = GetTargetConf(targetDoc)
+                confString = CboConfig.SelectedItem.ToString()
                 nameArr = targetDoc.GetCustomInfoNames2(confString)
             End If
             If nameArr Is Nothing Then Return
@@ -151,27 +135,34 @@ Public Class Form5
         Return modelDoc
     End Function
 
-    Private Function GetTargetConf(targetDoc As SldWorks.ModelDoc2) As String
+    Private Sub PopulateConfigCombo(doc As SldWorks.ModelDoc2)
+        _suppressConfigChange = True
+        Dim prevSel As String = If(CboConfig.SelectedItem, "")
+        CboConfig.Items.Clear()
         Try
-            If _swAppField IsNot Nothing Then
-                Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swAppField.ActiveDoc, SldWorks.ModelDoc2)
-                If modelDoc IsNot Nothing AndAlso modelDoc IsNot targetDoc Then
-                    Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
-                    Dim selCount As Integer = 0
-                    Try : selCount = selMgr.GetSelectedObjectCount2(-1) : Catch : End Try
-                    If selCount >= 1 Then
-                        Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
-                        If TypeOf selObj Is SldWorks.Component2 Then
-                            Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
-                            Return comp.ReferencedConfiguration
-                        End If
-                    End If
-                End If
+            Dim confNames As Object = doc.GetConfigurationNames()
+            If confNames IsNot Nothing Then
+                For Each cn As String In confNames
+                    CboConfig.Items.Add(cn)
+                Next
             End If
         Catch
         End Try
-        Return targetDoc.GetActiveConfiguration().Name
-    End Function
+        ' 恢复之前的选择
+        If Not String.IsNullOrEmpty(prevSel) Then
+            Dim idx As Integer = CboConfig.FindStringExact(prevSel)
+            If idx >= 0 Then CboConfig.SelectedIndex = idx
+        End If
+        If CboConfig.SelectedIndex < 0 AndAlso CboConfig.Items.Count > 0 Then
+            CboConfig.SelectedIndex = 0
+        End If
+        CboConfig.Visible = Not _showCustomProps
+        _suppressConfigChange = False
+    End Sub
+
+    Private Sub CboConfig_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboConfig.SelectedIndexChanged
+        If Not _suppressConfigChange Then RefreshProperties()
+    End Sub
 
     Private Function GetPropValue(doc As SldWorks.ModelDoc2, conf As String, propName As String) As String
         Try
