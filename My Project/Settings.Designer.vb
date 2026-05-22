@@ -176,7 +176,16 @@ Namespace My
 
         <Global.System.Configuration.UserScopedSettingAttribute(),  _
          Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
-         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.9")>  _
+        Public Property Form5_TextOpacity() As Double
+            Get
+                Return CType(Me("Form5_TextOpacity"), Double)
+            End Get
+            Set
+                Me("Form5_TextOpacity") = value
+            End Set
+        End Property
+
         Public Property Form5_KeyProperties() As String
             Get
                 Return CType(Me("Form5_KeyProperties"), String)

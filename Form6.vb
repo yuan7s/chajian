@@ -1,19 +1,32 @@
 Public Class Form6
 
     Private Sub Form6_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        TrackBarOpacity.Value = CInt(My.Settings.Form5_Opacity * 100)
-        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
+        TrackBarBgOpacity.Value = CInt(My.Settings.Form5_Opacity * 100)
+        LabelBgOpacity.Text = "背景透明度: " & TrackBarBgOpacity.Value & "%"
+
+        TrackBarTextOpacity.Value = CInt(My.Settings.Form5_TextOpacity * 100)
+        LabelTextOpacity.Text = "文字透明度: " & TrackBarTextOpacity.Value & "%"
+
         CboColorScheme.SelectedItem = My.Settings.Form5_ColorScheme
         ChkTopMost.Checked = My.Settings.Form5_TopMost
         LoadKeyProperties()
     End Sub
 
-    Private Sub TrackBarOpacity_Scroll(sender As Object, e As EventArgs) Handles TrackBarOpacity.Scroll
-        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
+    Private Sub TrackBarBgOpacity_Scroll(sender As Object, e As EventArgs) Handles TrackBarBgOpacity.Scroll
+        LabelBgOpacity.Text = "背景透明度: " & TrackBarBgOpacity.Value & "%"
     End Sub
 
-    Private Sub TrackBarOpacity_MouseUp(sender As Object, e As MouseEventArgs) Handles TrackBarOpacity.MouseUp
-        My.Settings.Form5_Opacity = TrackBarOpacity.Value / 100.0
+    Private Sub TrackBarBgOpacity_MouseUp(sender As Object, e As MouseEventArgs) Handles TrackBarBgOpacity.MouseUp
+        My.Settings.Form5_Opacity = TrackBarBgOpacity.Value / 100.0
+        My.Settings.Save()
+    End Sub
+
+    Private Sub TrackBarTextOpacity_Scroll(sender As Object, e As EventArgs) Handles TrackBarTextOpacity.Scroll
+        LabelTextOpacity.Text = "文字透明度: " & TrackBarTextOpacity.Value & "%"
+    End Sub
+
+    Private Sub TrackBarTextOpacity_MouseUp(sender As Object, e As MouseEventArgs) Handles TrackBarTextOpacity.MouseUp
+        My.Settings.Form5_TextOpacity = TrackBarTextOpacity.Value / 100.0
         My.Settings.Save()
     End Sub
 

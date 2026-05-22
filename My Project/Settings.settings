@@ -34,6 +34,9 @@
     <Setting Name="Form5_TopMost" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="Form5_TextOpacity" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">0.9</Value>
+    </Setting>
     <Setting Name="Form5_KeyProperties" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
