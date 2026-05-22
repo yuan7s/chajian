@@ -22,6 +22,7 @@ Public Class Form5
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _attachedDocPath As String
+    Private _refreshTimer As Timer
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         ' 加载设置
@@ -39,6 +40,11 @@ Public Class Form5
 
         EnableDrag()
 
+        ' 500ms 定时器兜底刷新
+        _refreshTimer = New Timer() With {.Interval = 500}
+        AddHandler _refreshTimer.Tick, AddressOf RefreshTimer_Tick
+        _refreshTimer.Start()
+
         _swAppField = SwApp
         If _swAppField IsNot Nothing Then
             AttachDocEvents()
@@ -47,8 +53,28 @@ Public Class Form5
     End Sub
 
     Private Sub Form5_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        If _refreshTimer IsNot Nothing Then
+            _refreshTimer.Stop()
+            _refreshTimer.Dispose()
+            _refreshTimer = Nothing
+        End If
         DetachDocEvents()
         _swAppField = Nothing
+    End Sub
+
+    ' 关闭按钮
+    Private Sub LblClose_Click(sender As Object, e As EventArgs) Handles LblClose.Click
+        Me.Close()
+    End Sub
+
+    ' 定时器兜底刷新
+    Private Sub RefreshTimer_Tick(sender As Object, e As EventArgs)
+        Try
+            If _swAppField IsNot Nothing AndAlso _swAppField.ActiveDoc IsNot Nothing Then
+                RefreshProperties()
+            End If
+        Catch
+        End Try
     End Sub
 
     Private Sub RefreshProperties()
@@ -256,6 +282,12 @@ Public Class Form5
 
     ' SW 事件
     Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
+        AttachDocEvents()
+        RefreshProperties()
+        Return 0
+    End Function
+
+    Private Function _swAppField_ActiveModelDocChangeNotify() As Integer Handles _swAppField.ActiveModelDocChangeNotify
         AttachDocEvents()
         RefreshProperties()
         Return 0

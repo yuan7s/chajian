@@ -18,6 +18,7 @@ Partial Class Form5
     <System.Diagnostics.DebuggerStepThrough()> _
     Private Sub InitializeComponent()
         Me.Label1 = New System.Windows.Forms.Label()
+        Me.LblClose = New System.Windows.Forms.Label()
         Me.DataGridView1 = New System.Windows.Forms.DataGridView()
         Me.ColName = New System.Windows.Forms.DataGridViewTextBoxColumn()
         Me.ColValue = New System.Windows.Forms.DataGridViewTextBoxColumn()
@@ -48,6 +49,17 @@ Partial Class Form5
         Me.Label1.Size = New System.Drawing.Size(80, 20)
         Me.Label1.TabIndex = 0
         Me.Label1.Text = "-"
+        '
+        'LblClose
+        '
+        Me.LblClose.AutoSize = True
+        Me.LblClose.Cursor = System.Windows.Forms.Cursors.Hand
+        Me.LblClose.Font = New System.Drawing.Font("Microsoft YaHei UI", 10.0!, System.Drawing.FontStyle.Bold)
+        Me.LblClose.Location = New System.Drawing.Point(362, 7)
+        Me.LblClose.Name = "LblClose"
+        Me.LblClose.Size = New System.Drawing.Size(18, 20)
+        Me.LblClose.TabIndex = 0
+        Me.LblClose.Text = "X"
         '
         'DataGridView1
         '
@@ -222,6 +234,7 @@ Partial Class Form5
         Me.Controls.Add(Me.BtnSettings)
         Me.Controls.Add(Me.BtnToggle)
         Me.Controls.Add(Me.DataGridView1)
+        Me.Controls.Add(Me.LblClose)
         Me.Controls.Add(Me.Label1)
         Me.FormBorderStyle = System.Windows.Forms.FormBorderStyle.None
         Me.Name = "Form5"
@@ -238,6 +251,7 @@ Partial Class Form5
     End Sub
 
     Friend WithEvents Label1 As System.Windows.Forms.Label
+    Friend WithEvents LblClose As System.Windows.Forms.Label
     Friend WithEvents DataGridView1 As System.Windows.Forms.DataGridView
     Friend WithEvents ColName As System.Windows.Forms.DataGridViewTextBoxColumn
     Friend WithEvents ColValue As System.Windows.Forms.DataGridViewTextBoxColumn
