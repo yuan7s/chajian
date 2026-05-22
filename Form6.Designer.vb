@@ -27,6 +27,7 @@ Partial Class Form6
         Me.LstKeyProps = New System.Windows.Forms.ListBox()
         Me.BtnDelKey = New System.Windows.Forms.Button()
         Me.ChkTopMost = New System.Windows.Forms.CheckBox()
+        Me.ChkMouseThrough = New System.Windows.Forms.CheckBox()
         Me.BtnClose = New System.Windows.Forms.Button()
         CType(Me.TrackBarOpacity, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
@@ -123,12 +124,22 @@ Partial Class Form6
         Me.ChkTopMost.Text = "始终置顶"
         Me.ChkTopMost.UseVisualStyleBackColor = True
         '
+        'ChkMouseThrough
+        '
+        Me.ChkMouseThrough.AutoSize = True
+        Me.ChkMouseThrough.Location = New System.Drawing.Point(103, 315)
+        Me.ChkMouseThrough.Name = "ChkMouseThrough"
+        Me.ChkMouseThrough.Size = New System.Drawing.Size(75, 21)
+        Me.ChkMouseThrough.TabIndex = 10
+        Me.ChkMouseThrough.Text = "鼠标穿透"
+        Me.ChkMouseThrough.UseVisualStyleBackColor = True
+        '
         'BtnClose
         '
         Me.BtnClose.Location = New System.Drawing.Point(188, 311)
         Me.BtnClose.Name = "BtnClose"
         Me.BtnClose.Size = New System.Drawing.Size(75, 30)
-        Me.BtnClose.TabIndex = 10
+        Me.BtnClose.TabIndex = 11
         Me.BtnClose.Text = "关闭"
         Me.BtnClose.UseVisualStyleBackColor = True
         '
@@ -138,6 +149,7 @@ Partial Class Form6
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(278, 353)
         Me.Controls.Add(Me.BtnClose)
+        Me.Controls.Add(Me.ChkMouseThrough)
         Me.Controls.Add(Me.ChkTopMost)
         Me.Controls.Add(Me.BtnDelKey)
         Me.Controls.Add(Me.LstKeyProps)
@@ -170,5 +182,6 @@ Partial Class Form6
     Friend WithEvents LstKeyProps As System.Windows.Forms.ListBox
     Friend WithEvents BtnDelKey As System.Windows.Forms.Button
     Friend WithEvents ChkTopMost As System.Windows.Forms.CheckBox
+    Friend WithEvents ChkMouseThrough As System.Windows.Forms.CheckBox
     Friend WithEvents BtnClose As System.Windows.Forms.Button
 End Class

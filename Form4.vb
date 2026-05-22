@@ -91,7 +91,7 @@ Public Class Form4
                 ExecuteCodingCleanup(SwApp, child)
             Next
 
-            MsgBox("编码整理完成。", vbInformation, "")
+            ShowAutoCloseNotice("编码整理完成")
         Catch ex As Exception
             MsgBox("执行出错: " & ex.Message, vbExclamation, "")
         Finally
@@ -230,5 +230,31 @@ Public Class Form4
             ReleaseCapture()
             SendMessage(Handle, WmNclbuttondown, New IntPtr(HtCaption), IntPtr.Zero)
         End If
+    End Sub
+
+    Private Sub ShowAutoCloseNotice(message As String, Optional title As String = "提示")
+        Try
+            Dim ni As New NotifyIcon()
+            ni.Icon = Me.Icon
+            ni.Visible = True
+            ni.BalloonTipTitle = title
+            ni.BalloonTipText = message
+            ni.BalloonTipIcon = ToolTipIcon.Info
+            ni.ShowBalloonTip(1800)
+
+            Dim t As New Timer() With {.Interval = 2200}
+            AddHandler t.Tick, Sub()
+                                   t.Stop()
+                                   t.Dispose()
+                                   ni.Visible = False
+                                   ni.Dispose()
+                               End Sub
+            t.Start()
+            Return
+        Catch
+        End Try
+
+        Dim tip As New ToolTip()
+        tip.Show(message, Me, Me.Width \ 2, Me.Height \ 2, 1800)
     End Sub
 End Class

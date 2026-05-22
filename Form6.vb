@@ -5,6 +5,7 @@ Public Class Form6
         LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
         CboColorScheme.SelectedItem = My.Settings.Form5_ColorScheme
         ChkTopMost.Checked = My.Settings.Form5_TopMost
+        ChkMouseThrough.Checked = My.Settings.Form5_MouseThrough
         LoadKeyProperties()
     End Sub
 
@@ -24,6 +25,11 @@ Public Class Form6
 
     Private Sub ChkTopMost_CheckedChanged(sender As Object, e As EventArgs) Handles ChkTopMost.CheckedChanged
         My.Settings.Form5_TopMost = ChkTopMost.Checked
+        My.Settings.Save()
+    End Sub
+
+    Private Sub ChkMouseThrough_CheckedChanged(sender As Object, e As EventArgs) Handles ChkMouseThrough.CheckedChanged
+        My.Settings.Form5_MouseThrough = ChkMouseThrough.Checked
         My.Settings.Save()
     End Sub
 

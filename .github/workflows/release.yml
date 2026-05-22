@@ -40,11 +40,16 @@ jobs:
           name: 外部程序
           path: publish/
 
-      - name: Create Release
+      - name: Create or Update Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
+        uses: ncipollo/release-action@v1
         with:
-          files: 外部程序.zip
+          artifacts: 外部程序.zip
+          artifactErrorsFailBuild: true
+          allowUpdates: true
+          updateOnlyUnreleased: false
           draft: false
           prerelease: false
-          generate_release_notes: true
+          generateReleaseNotes: true
+          omitBodyDuringUpdate: false
+          removeArtifacts: true

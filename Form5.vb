@@ -5,6 +5,12 @@ Public Class Form5
 
     Private Const WmNclbuttondown As Integer = &HA1
     Private Const HtCaption As Integer = &H2
+    Private Const WmHotkey As Integer = &H312
+    Private Const HotkeyIdClickThrough As Integer = 2
+    Private Const ModControl As Integer = &H2
+    Private Const VkF2 As Integer = &H71
+    Private Const GwlExstyle As Integer = -20
+    Private Const WsExTransparent As Integer = &H20
 
     <DllImport("user32.dll")>
     Private Shared Function ReleaseCapture() As Boolean
@@ -12,6 +18,22 @@ Public Class Form5
 
     <DllImport("user32.dll")>
     Private Shared Function SendMessage(hWnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As IntPtr) As IntPtr
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function RegisterHotKey(hWnd As IntPtr, id As Integer, fsModifiers As Integer, vk As Integer) As Boolean
+    End Function
+
+    <DllImport("user32.dll")>
+    Private Shared Function UnregisterHotKey(hWnd As IntPtr, id As Integer) As Boolean
+    End Function
+
+    <DllImport("user32.dll", EntryPoint:="GetWindowLong")>
+    Private Shared Function GetWindowLong32(hWnd As IntPtr, nIndex As Integer) As Integer
+    End Function
+
+    <DllImport("user32.dll", EntryPoint:="SetWindowLong")>
+    Private Shared Function SetWindowLong32(hWnd As IntPtr, nIndex As Integer, dwNewLong As Integer) As Integer
     End Function
 
     Private WithEvents _swAppField As SldWorks.SldWorks
@@ -31,17 +53,18 @@ Public Class Form5
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _attachedDocPath As String
+    Private _isRefreshing As Boolean
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         ApplyOpacity()
         ApplyColorScheme(My.Settings.Form5_ColorScheme)
         TopMost = My.Settings.Form5_TopMost
 
-        ' 窗口定位在屏幕右侧
         Dim workArea As Drawing.Rectangle = Screen.PrimaryScreen.WorkingArea
         Me.Location = New Drawing.Point(workArea.Right - Me.Width - 20, workArea.Top + 60)
 
         EnableDrag()
+        ApplyMouseThrough(My.Settings.Form5_MouseThrough)
 
         If _swAppField IsNot Nothing Then
             AttachDocEvents()
@@ -49,7 +72,12 @@ Public Class Form5
         End If
     End Sub
 
+    Private Sub Form5_Shown(sender As Object, e As EventArgs) Handles MyBase.Shown
+        RegisterHotKey(Me.Handle, HotkeyIdClickThrough, ModControl, VkF2)
+    End Sub
+
     Private Sub Form5_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+        UnregisterHotKey(Me.Handle, HotkeyIdClickThrough)
         DetachDocEvents()
         _swAppField = Nothing
     End Sub
@@ -58,16 +86,26 @@ Public Class Form5
         Me.Close()
     End Sub
 
-    ' 切换配置属性 / 自定义属性
     Private Sub BtnPropType_Click(sender As Object, e As EventArgs) Handles BtnPropType.Click
         _showCustomProps = Not _showCustomProps
         BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
         RefreshProperties()
     End Sub
 
+    Private Sub BtnToggle_Click(sender As Object, e As EventArgs) Handles BtnToggle.Click
+        _showKeyOnly = Not _showKeyOnly
+        BtnToggle.Text = If(_showKeyOnly, "关键属性", "全部属性")
+        RefreshProperties()
+    End Sub
+
     Private Sub RefreshProperties()
-        DataGridView1.Rows.Clear()
+        If _isRefreshing Then Return
+        If Me.IsDisposed OrElse Not Me.IsHandleCreated Then Return
+        If DataGridView1 Is Nothing OrElse DataGridView1.IsDisposed Then Return
+
+        _isRefreshing = True
         Try
+            DataGridView1.Rows.Clear()
             Dim targetDoc As SldWorks.ModelDoc2 = GetTargetDoc()
             If targetDoc Is Nothing Then
                 Label1.Text = "无文档"
@@ -83,11 +121,12 @@ Public Class Form5
 
             Dim confString As String = ""
             Dim nameArr As Object = Nothing
-
             If _showCustomProps Then
                 nameArr = targetDoc.GetCustomInfoNames()
             Else
-                confString = targetDoc.GetActiveConfiguration().Name
+                Dim activeConfig = targetDoc.GetActiveConfiguration()
+                If activeConfig Is Nothing Then Return
+                confString = activeConfig.Name
                 nameArr = targetDoc.GetCustomInfoNames2(confString)
             End If
             If nameArr Is Nothing Then Return
@@ -107,6 +146,8 @@ Public Class Form5
                 DataGridView1.Rows.Add(propName, If(propVal, ""))
             Next
         Catch
+        Finally
+            _isRefreshing = False
         End Try
     End Sub
 
@@ -116,15 +157,20 @@ Public Class Form5
         If modelDoc Is Nothing Then Return Nothing
 
         Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
-        Dim selCount As Integer = 0
-        Try : selCount = selMgr.GetSelectedObjectCount2(-1) : Catch : End Try
+        If selMgr IsNot Nothing Then
+            Dim selCount As Integer = 0
+            Try
+                selCount = selMgr.GetSelectedObjectCount2(-1)
+            Catch
+            End Try
 
-        If selCount >= 1 Then
-            Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
-            If TypeOf selObj Is SldWorks.Component2 Then
-                Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
-                Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
-                If refModel IsNot Nothing Then Return refModel
+            If selCount >= 1 Then
+                Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
+                If TypeOf selObj Is SldWorks.Component2 Then
+                    Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
+                    Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
+                    If refModel IsNot Nothing Then Return refModel
+                End If
             End If
         End If
 
@@ -139,26 +185,6 @@ Public Class Form5
             Return ""
         End Try
     End Function
-
-    ' 切换全部属性 / 关键属性
-    Private Sub BtnToggle_Click(sender As Object, e As EventArgs) Handles BtnToggle.Click
-        _showKeyOnly = Not _showKeyOnly
-        BtnToggle.Text = If(_showKeyOnly, "关键属性", "全部属性")
-        RefreshProperties()
-    End Sub
-
-    ' 打开设置
-    Private Sub BtnSettings_Click(sender As Object, e As EventArgs) Handles BtnSettings.Click
-        Dim wasTopMost As Boolean = Me.TopMost
-        Me.TopMost = False
-        Dim f6 As New Form6()
-        f6.Owner = Me
-        f6.ShowDialog()
-        Me.TopMost = wasTopMost
-        ApplyOpacity()
-        ApplyColorScheme(My.Settings.Form5_ColorScheme)
-        RefreshProperties()
-    End Sub
 
     Private Sub ApplyOpacity()
         Me.Opacity = My.Settings.Form5_Opacity
@@ -201,14 +227,32 @@ Public Class Form5
         Return raw.Split({","c}, StringSplitOptions.RemoveEmptyEntries)
     End Function
 
-    ' SW 事件
+    Private Sub ToggleMouseThrough()
+        Dim enabled As Boolean = Not My.Settings.Form5_MouseThrough
+        My.Settings.Form5_MouseThrough = enabled
+        My.Settings.Save()
+        ApplyMouseThrough(enabled)
+    End Sub
+
+    Private Sub ApplyMouseThrough(enabled As Boolean)
+        Dim exStyle As Integer = GetWindowLong32(Me.Handle, GwlExstyle)
+        If enabled Then
+            exStyle = exStyle Or WsExTransparent
+        Else
+            exStyle = exStyle And Not WsExTransparent
+        End If
+        SetWindowLong32(Me.Handle, GwlExstyle, exStyle)
+    End Sub
+
     Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
+        If Me.IsDisposed Then Return 0
         AttachDocEvents()
         RefreshProperties()
         Return 0
     End Function
 
     Private Function _swAppField_ActiveModelDocChangeNotify() As Integer Handles _swAppField.ActiveModelDocChangeNotify
+        If Me.IsDisposed Then Return 0
         AttachDocEvents()
         RefreshProperties()
         Return 0
@@ -238,10 +282,13 @@ Public Class Form5
                 DetachDocEvents()
                 Return
             End If
+
             Dim docPath As String = modelDoc.GetPathName()
             If String.Equals(docPath, _attachedDocPath, StringComparison.OrdinalIgnoreCase) Then Return
+
             DetachDocEvents()
             _attachedDocPath = docPath
+
             Dim docType As Integer = modelDoc.GetType()
             If docType = CInt(swDocumentTypes_e.swDocPART) Then
                 _attachedPartDoc = CType(modelDoc, SldWorks.PartDoc)
@@ -258,11 +305,11 @@ Public Class Form5
     End Sub
 
     Private Function Doc_SelectionChange() As Integer
+        If Me.IsDisposed Then Return 0
         RefreshProperties()
         Return 0
     End Function
 
-    ' 拖拽
     Private Sub EnableDrag()
         AddHandler MouseDown, AddressOf DragForm_MouseDown
         AddHandler Label1.MouseDown, AddressOf DragForm_MouseDown
@@ -270,9 +317,20 @@ Public Class Form5
     End Sub
 
     Private Sub DragForm_MouseDown(sender As Object, e As MouseEventArgs)
-        If e.Button = MouseButtons.Left Then
+        If e.Button = MouseButtons.Left AndAlso Not My.Settings.Form5_MouseThrough Then
             ReleaseCapture()
             SendMessage(Handle, WmNclbuttondown, New IntPtr(HtCaption), IntPtr.Zero)
         End If
+    End Sub
+
+    Protected Overrides Sub WndProc(ByRef m As Message)
+        If m.Msg = WmHotkey AndAlso m.WParam.ToInt32() = HotkeyIdClickThrough Then
+            ToggleMouseThrough()
+        End If
+        MyBase.WndProc(m)
+    End Sub
+
+    Private Sub DataGridView1_CellContentClick(sender As Object, e As DataGridViewCellEventArgs) Handles DataGridView1.CellContentClick
+
     End Sub
 End Class

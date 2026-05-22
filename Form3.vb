@@ -10,8 +10,10 @@ Public Class Form3
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _suppressNameCheck As Boolean
     Private _nameCheckTimer As Timer
+    Private _docWatchTimer As Timer
     Private _assemblyNameCache As HashSet(Of String)
     Private _cachedAssemblyPath As String
+    Private _lastActiveDocKey As String
 
     Private Const WmNclbuttondown As Integer = &HA1
     Private Const HtCaption As Integer = &H2
@@ -30,6 +32,9 @@ Public Class Form3
         EnableDrag()
         _nameCheckTimer = New Timer() With {.Interval = 500}
         AddHandler _nameCheckTimer.Tick, AddressOf NameCheckTimer_Tick
+        _docWatchTimer = New Timer() With {.Interval = 400}
+        AddHandler _docWatchTimer.Tick, AddressOf DocWatchTimer_Tick
+        _docWatchTimer.Start()
         _suppressNameCheck = True
         UpdateSelectionInfo()
         _suppressNameCheck = False
@@ -41,6 +46,11 @@ Public Class Form3
             _nameCheckTimer.Stop()
             _nameCheckTimer.Dispose()
             _nameCheckTimer = Nothing
+        End If
+        If _docWatchTimer IsNot Nothing Then
+            _docWatchTimer.Stop()
+            _docWatchTimer.Dispose()
+            _docWatchTimer = Nothing
         End If
         _swAppField = Nothing
     End Sub
@@ -124,6 +134,25 @@ Public Class Form3
         Return 0
     End Function
 
+    Private Sub DocWatchTimer_Tick(sender As Object, e As EventArgs)
+        Try
+            If _swAppField Is Nothing Then Return
+            Dim modelDoc As SldWorks.ModelDoc2 = TryCast(_swAppField.ActiveDoc, SldWorks.ModelDoc2)
+            Dim key As String = ""
+            If modelDoc IsNot Nothing Then
+                Dim p As String = modelDoc.GetPathName()
+                key = If(String.IsNullOrEmpty(p), modelDoc.GetTitle(), p)
+            End If
+            If Not String.Equals(_lastActiveDocKey, key, StringComparison.OrdinalIgnoreCase) Then
+                _lastActiveDocKey = key
+                InvalidateNameCache()
+                UpdateSelectionInfo()
+                AttachDocEvents()
+            End If
+        Catch
+        End Try
+    End Sub
+
     Private Sub UpdateSelectionInfo()
         _suppressNameCheck = True
         Try
@@ -193,6 +222,8 @@ Public Class Form3
                 Label4.Text = docExt
                 UpdateDrawingExistsIndicator(docName)
             End If
+            Dim activePath As String = modelDoc.GetPathName()
+            _lastActiveDocKey = If(String.IsNullOrEmpty(activePath), modelDoc.GetTitle(), activePath)
         Catch
         Finally
             _suppressNameCheck = False
@@ -284,20 +315,14 @@ Public Class Form3
                 If overwriteResult <> DialogResult.Yes Then Return
             End If
 
-            Dim docs As Object = swApp.GetDocuments()
-            If docs IsNot Nothing Then
-                For Each doc As SldWorks.ModelDoc2 In docs
-                    Dim docPath As String = doc.GetPathName()
-                    If Not String.IsNullOrEmpty(docPath) AndAlso
-                       Not String.Equals(oldPath, docPath, StringComparison.OrdinalIgnoreCase) Then
-                        If String.Equals(Path.GetFileName(docPath), newName & ext, StringComparison.OrdinalIgnoreCase) Then
-                            MessageBox.Show("名称为 " & newName & ext & " 的文件已经打开，请修改为不同的名称", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information)
-                            Return
-                        End If
-                    End If
-                Next
+            Dim openedDocFast As SldWorks.ModelDoc2 = TryCast(swApp.GetOpenDocumentByName(newPath), SldWorks.ModelDoc2)
+            If openedDocFast IsNot Nothing Then
+                Dim openedPathFast As String = openedDocFast.GetPathName()
+                If Not String.Equals(openedPathFast, oldPath, StringComparison.OrdinalIgnoreCase) Then
+                    MessageBox.Show("同名文件已在 SolidWorks 中打开，请修改名称", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                    Return
+                End If
             End If
-
             Dim saveResult As Integer = docToSave.SaveAs3(newPath, 0, 0)
             If saveResult <> 0 Then
                 MessageBox.Show("另存失败", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
@@ -338,12 +363,24 @@ Public Class Form3
             System.IO.File.Delete(oldPath)
 
             UpdateSelectionInfo()
+            ShowAutoCloseNotice("重命名完成")
         Catch ex As Exception
             MessageBox.Show("另存失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
-    Private Function GetDocumentToSave(modelDoc As SldWorks.ModelDoc2) As SldWorks.ModelDoc2
+    Private Function GetDocumentToSave(modelDoc As SldWorks.ModelDoc2, Optional allowSelectedComponent As Boolean = True) As SldWorks.ModelDoc2
+        If modelDoc Is Nothing Then Return Nothing
+
+        ' 单独打开零件/装配/工程图时，始终直接保存当前活动文档
+        Dim docType As Integer = modelDoc.GetType()
+        If docType = CInt(swDocumentTypes_e.swDocPART) OrElse
+           docType = CInt(swDocumentTypes_e.swDocDRAWING) Then
+            Return modelDoc
+        End If
+
+        If Not allowSelectedComponent Then Return modelDoc
+
         Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
         Dim selCount As Integer = 0
         Try
@@ -390,12 +427,14 @@ Public Class Form3
 
             Dim modelDoc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
             If modelDoc Is Nothing Then Return
+            Dim docToCheck As SldWorks.ModelDoc2 = GetDocumentToSave(modelDoc, False)
+            If docToCheck Is Nothing Then Return
 
-            Dim docPath As String = modelDoc.GetPathName()
+            Dim docPath As String = docToCheck.GetPathName()
             If String.IsNullOrEmpty(docPath) Then Return
 
             Dim dir As String = Path.GetDirectoryName(docPath)
-            Dim ext As String = Label4.Text.Trim()
+            Dim ext As String = Path.GetExtension(docPath)
 
             Dim fileExists As Boolean = False
             If Not String.IsNullOrEmpty(ext) Then
@@ -403,7 +442,7 @@ Public Class Form3
                 fileExists = System.IO.File.Exists(newFilePath)
             End If
 
-            Dim existsInAssembly As Boolean = CheckNameExistsInAssembly(modelDoc, newName)
+            Dim existsInAssembly As Boolean = CheckNameExistsInAssembly(docToCheck, newName)
 
             If fileExists OrElse existsInAssembly Then
                 TextBox2.BackColor = System.Drawing.Color.MistyRose
@@ -453,15 +492,27 @@ Public Class Form3
     Private Sub BuildAssemblyNameCache(modelDoc As SldWorks.ModelDoc2)
         _assemblyNameCache = New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
         Try
-            Dim vFeats As Object = modelDoc.FeatureManager.GetFeatures(True)
-            If vFeats Is Nothing Then Return
+            Dim asmDoc As SldWorks.AssemblyDoc = TryCast(modelDoc, SldWorks.AssemblyDoc)
+            If asmDoc Is Nothing Then Return
 
-            For i As Integer = 0 To UBound(vFeats)
-                If vFeats(i).GetTypeName2 = "Reference" Then
-                    Dim comp As SldWorks.Component2 = TryCast(vFeats(i).GetSpecificFeature2, SldWorks.Component2)
-                    If comp IsNot Nothing AndAlso Not String.IsNullOrEmpty(comp.Name2) Then
-                        _assemblyNameCache.Add(comp.Name2)
-                    End If
+            Dim comps As Object = asmDoc.GetComponents(False)
+            If comps Is Nothing Then Return
+
+            For Each obj As Object In CType(comps, Object())
+                Dim comp As SldWorks.Component2 = TryCast(obj, SldWorks.Component2)
+                If comp Is Nothing Then Continue For
+
+                If Not String.IsNullOrEmpty(comp.Name2) Then
+                    _assemblyNameCache.Add(comp.Name2)
+                    Dim instBase As String = comp.Name2
+                    Dim dashIdx As Integer = instBase.LastIndexOf("-"c)
+                    If dashIdx > 0 Then instBase = instBase.Substring(0, dashIdx)
+                    If Not String.IsNullOrWhiteSpace(instBase) Then _assemblyNameCache.Add(instBase.Trim())
+                End If
+
+                Dim compPath As String = comp.GetPathName()
+                If Not String.IsNullOrEmpty(compPath) Then
+                    _assemblyNameCache.Add(Path.GetFileNameWithoutExtension(compPath))
                 End If
             Next
         Catch
@@ -548,11 +599,44 @@ Public Class Form3
         Dim cusPropMgr As Object = config.CustomPropertyManager
         cusPropMgr.Add3("下料尺寸", SwConst.swCustomInfoType_e.swCustomInfoText, c, SwConst.swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
 
-        doc.SketchManager.Insert3DSketch(True)
-        doc.SketchManager.Insert3DSketch(True)
+        MarkDocDirty(doc)
     End Sub
 
     Private Sub TextBox4_TextChanged(sender As Object, e As EventArgs) Handles TextBox4.TextChanged
 
+    End Sub
+
+    Private Sub MarkDocDirty(doc As SldWorks.ModelDoc2)
+        If doc Is Nothing Then Return
+        Try
+            doc.SetSaveFlag()
+        Catch
+        End Try
+    End Sub
+
+    Private Sub ShowAutoCloseNotice(message As String, Optional title As String = "提示")
+        Try
+            Dim ni As New NotifyIcon()
+            ni.Icon = Me.Icon
+            ni.Visible = True
+            ni.BalloonTipTitle = title
+            ni.BalloonTipText = message
+            ni.BalloonTipIcon = ToolTipIcon.Info
+            ni.ShowBalloonTip(1800)
+
+            Dim t As New Timer() With {.Interval = 2200}
+            AddHandler t.Tick, Sub()
+                                   t.Stop()
+                                   t.Dispose()
+                                   ni.Visible = False
+                                   ni.Dispose()
+                               End Sub
+            t.Start()
+            Return
+        Catch
+        End Try
+
+        Dim tip As New ToolTip()
+        tip.Show(message, Me, Me.Width \ 2, Me.Height \ 2, 1800)
     End Sub
 End Class

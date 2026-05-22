@@ -298,8 +298,7 @@ Public Class Form1
         cusPropMgr = config.CustomPropertyManager
         cusPropMgr.Add3("下料尺寸", swCustomInfoType_e.swCustomInfoText, c, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
 
-        part.SketchManager.Insert3DSketch(True)
-        part.SketchManager.Insert3DSketch(True)
+        MarkDocDirty(part)
 
     End Sub
 
@@ -313,8 +312,7 @@ Public Class Form1
         Dim part As SldWorks.ModelDoc2
         part = swApp.ActiveDoc
         part.Extension.SetUserPreferenceInteger(swUserPreferenceIntegerValue_e.swDetailingDimensionStandard, 0, swDetailingStandard_e.swDetailingStandardISO)
-        part.SketchManager.Insert3DSketch(True)
-        part.SketchManager.Insert3DSketch(True)
+        MarkDocDirty(part)
     End Sub
 
     ' 选中工程图中所有悬空标注
@@ -427,8 +425,7 @@ Public Class Form1
             cusPropMgr.Add3("物料编码", swCustomInfoType_e.swCustomInfoText, c, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, c, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
             cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, c, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            part.SketchManager.Insert3DSketch(True)
-            part.SketchManager.Insert3DSketch(True)
+            MarkDocDirty(part)
         End If
 
 
@@ -459,7 +456,7 @@ Public Class Form1
             swFeatMgr.ShowComponentConfigurationDescriptions = False
             swFeatMgr.ShowDisplayStateNames = False
             SubAsmsjs(swApp, part)
-            MessageBox.Show("完成", "", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly)
+            ShowAutoCloseNotice("完成")
         End If
 
     End Sub
@@ -967,7 +964,7 @@ Public Class Form1
 
         Dim topConfString As String = part.GetActiveConfiguration.Name
         SubAsm(swApp, part, topConfString)
-        MessageBox.Show("完成", "", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly)
+        ShowAutoCloseNotice("完成")
     End Sub
 
     Function SubAsm(swApp As SldWorks.SldWorks, asmDoc As SldWorks.ModelDoc2, confString As String) As Object
@@ -1084,7 +1081,7 @@ Public Class Form1
     End Function
 
     <DllImport("user32.dll", CharSet:=CharSet.Auto, SetLastError:=True)>
-    Private Shared Function GetWindowText(hWnd As IntPtr, lpString As Text.StringBuilder, nMaxCount As Integer) As Integer
+    Private Shared Function GetWindowText(hWnd As IntPtr, lpString As System.Text.StringBuilder, nMaxCount As Integer) As Integer
     End Function
 
     <DllImport("user32.dll", SetLastError:=True)>
@@ -1128,20 +1125,9 @@ Public Class Form1
     End Sub
 
     Private Function FindSwAppByPid(pid As Integer) As SldWorks.SldWorks
-        Dim targetTitle As String = Nothing
-        Try
-            For Each item As Object In swProcessCombo.Items
-                Dim info As SwProcessInfo = TryCast(item, SwProcessInfo)
-                If info IsNot Nothing AndAlso info.ProcessId = pid Then
-                    targetTitle = info.WindowTitle
-                    Exit For
-                End If
-            Next
-        Catch
-        End Try
-
         Dim rot As IRunningObjectTable = Nothing
         Dim enumMoniker As IEnumMoniker = Nothing
+        Dim expectedMoniker As String = "solidworks_pid_" & pid.ToString()
         Try
             GetRunningObjectTable(0, rot)
             rot.EnumRunning(enumMoniker)
@@ -1154,7 +1140,7 @@ Public Class Form1
                 Dim displayName As String = Nothing
                 monikers(0).GetDisplayName(ctx, Nothing, displayName)
 
-                If displayName IsNot Nothing AndAlso displayName.ToLower().Contains("sldworks.application") Then
+                If displayName IsNot Nothing AndAlso displayName.ToLower().Contains(expectedMoniker) Then
                     Dim obj As Object = Nothing
                     Dim returning As Boolean = False
                     Try
@@ -1162,23 +1148,12 @@ Public Class Form1
                         If obj IsNot Nothing Then
                             Dim swApp As SldWorks.SldWorks = CType(obj, SldWorks.SldWorks)
                             Dim swPid As Integer = GetSwProcessId(swApp)
-                            Dim appTitle As String = GetSwMainWindowTitle(swApp)
-                            Dim targetNorm As String = NormalizeWindowTitle(targetTitle)
-                            Dim appNorm As String = NormalizeWindowTitle(appTitle)
 
                             If swPid = pid Then
-                                If String.IsNullOrWhiteSpace(targetNorm) OrElse String.Equals(appNorm, targetNorm, StringComparison.OrdinalIgnoreCase) Then
-                                    returning = True
-                                    Return swApp
-                                End If
-                            End If
-
-                            ' 某些环境下 SW COM 返回的 PID 不可靠，增加窗体标题兜底匹配。
-                            If Not String.IsNullOrWhiteSpace(targetNorm) AndAlso
-                               String.Equals(appNorm, targetNorm, StringComparison.OrdinalIgnoreCase) Then
                                 returning = True
                                 Return swApp
                             End If
+
                         End If
                     Catch
                     Finally
@@ -1231,7 +1206,7 @@ Public Class Form1
             If hwnd = 0 Then Return ""
             Dim len As Integer = GetWindowTextLength(New IntPtr(hwnd))
             If len <= 0 Then Return ""
-            Dim sb As New Text.StringBuilder(len + 1)
+            Dim sb As New System.Text.StringBuilder(len + 1)
             GetWindowText(New IntPtr(hwnd), sb, sb.Capacity)
             Return sb.ToString()
         Catch
@@ -1383,14 +1358,6 @@ Public Class Form1
                 If strictApp IsNot Nothing Then Return strictApp
             End If
 
-            ' ROT 查找失败时，回退到 GetActiveObject 并校验 PID
-            Dim app As SldWorks.SldWorks = TryCast(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
-            If app IsNot Nothing Then
-                If targetPid <= 0 Then Return app
-                Dim resolvedPid As Integer = GetSwProcessId(app)
-                If resolvedPid = targetPid OrElse resolvedPid = 0 Then Return app
-                Debug.WriteLine($"GetSelectedSwApp: GetActiveObject returned PID {resolvedPid}, expected {targetPid}. Discarding.")
-            End If
             Return Nothing
         Catch ex As Exception
             Return Nothing
@@ -1414,7 +1381,7 @@ Public Class Form1
                     Try
                         Dim len As Integer = GetWindowTextLength(h)
                         If len > 0 Then
-                            Dim sb As New Text.StringBuilder(len + 1)
+                            Dim sb As New System.Text.StringBuilder(len + 1)
                             GetWindowText(h, sb, sb.Capacity)
                             title = sb.ToString()
                             rawWindowTitle = title
@@ -1606,7 +1573,7 @@ Public Class Form1
 
         Dim topConfString As String = part.GetActiveConfiguration.Name
         DelConfProps(swApp, part, topConfString)
-        MessageBox.Show("完成", "", MessageBoxButtons.OK, MessageBoxIcon.Information, MessageBoxDefaultButton.Button1, MessageBoxOptions.DefaultDesktopOnly)
+        ShowAutoCloseNotice("完成")
     End Sub
 
     Function DelConfProps(swApp As SldWorks.SldWorks, asmDoc As SldWorks.ModelDoc2, confString As String) As Object
@@ -1684,5 +1651,33 @@ Public Class Form1
         Dim f5 As New Form5()
         f5.SwApp = swApp
         f5.Show()
+    End Sub
+    Private Sub Button20_Click(sender As Object, e As EventArgs) Handles Button20.Click
+        Dim f6 As New Form6()
+        f6.ShowDialog(Me)
+    End Sub
+
+    Private Sub ShowAutoCloseNotice(message As String, Optional title As String = "提示")
+        Try
+            If _trayIcon IsNot Nothing Then
+                _trayIcon.BalloonTipTitle = title
+                _trayIcon.BalloonTipText = message
+                _trayIcon.BalloonTipIcon = ToolTipIcon.Info
+                _trayIcon.ShowBalloonTip(1800)
+                Return
+            End If
+        Catch
+        End Try
+
+        Dim tip As New ToolTip()
+        tip.Show(message, Me, Me.Width \ 2, Me.Height \ 2, 1800)
+    End Sub
+
+    Private Sub MarkDocDirty(doc As SldWorks.ModelDoc2)
+        If doc Is Nothing Then Return
+        Try
+            doc.SetSaveFlag()
+        Catch
+        End Try
     End Sub
 End Class

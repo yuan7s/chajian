@@ -52,6 +52,7 @@ Partial Class Form1
         Me.separator1 = New System.Windows.Forms.ToolStripSeparator()
         Me.filePrefixLabel = New System.Windows.Forms.ToolStripStatusLabel()
         Me.fileNameLabel = New System.Windows.Forms.ToolStripStatusLabel()
+        Me.Button20 = New System.Windows.Forms.Button()
         Me.GroupBox1.SuspendLayout()
         Me.GroupBox2.SuspendLayout()
         Me.StatusStrip1.SuspendLayout()
@@ -149,7 +150,6 @@ Partial Class Form1
         '
         Me.GroupBox2.Controls.Add(Me.Button17)
         Me.GroupBox2.Controls.Add(Me.Button18)
-        Me.GroupBox2.Controls.Add(Me.Button19)
         Me.GroupBox2.Controls.Add(Me.Button6)
         Me.GroupBox2.Controls.Add(Me.Button13)
         Me.GroupBox2.Controls.Add(Me.Button11)
@@ -221,11 +221,19 @@ Partial Class Form1
         Me.fileNameLabel.Name = "fileNameLabel"
         resources.ApplyResources(Me.fileNameLabel, "fileNameLabel")
         '
+        'Button20
+        '
+        resources.ApplyResources(Me.Button20, "Button20")
+        Me.Button20.Name = "Button20"
+        Me.Button20.UseVisualStyleBackColor = True
+        '
         'Form1
         '
         resources.ApplyResources(Me, "$this")
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.Controls.Add(Me.StatusStrip1)
+        Me.Controls.Add(Me.Button20)
+        Me.Controls.Add(Me.Button19)
         Me.Controls.Add(Me.Button16)
         Me.Controls.Add(Me.Button14)
         Me.Controls.Add(Me.Button10)
@@ -271,4 +279,5 @@ Partial Class Form1
     Friend WithEvents separator1 As ToolStripSeparator
     Friend WithEvents filePrefixLabel As ToolStripStatusLabel
     Friend WithEvents fileNameLabel As ToolStripStatusLabel
+    Friend WithEvents Button20 As Button
 End Class

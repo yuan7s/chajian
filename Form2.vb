@@ -6,7 +6,10 @@
 
     Private Sub Form2_FormClosed(sender As Object, e As FormClosedEventArgs) Handles MyBase.FormClosed
         ' 当 Form2 关闭时，重新显示 Form1
-        Application.OpenForms("Form1")?.Show()
+        Dim f1 As Form = Application.OpenForms("Form1")
+        If f1 IsNot Nothing Then
+            f1.Show()
+        End If
     End Sub
 
     Private Sub Form2_Load(sender As Object, e As EventArgs) Handles MyBase.Load
