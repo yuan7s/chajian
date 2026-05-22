@@ -105,7 +105,8 @@ Public Class Form5
                 Next
             End If
 
-            For Each propName As String In nameArr
+            For i As Integer = 0 To UBound(nameArr)
+                Dim propName As String = nameArr(i).ToString()
                 If _showKeyOnly AndAlso Not keySet.Contains(propName) Then Continue For
                 Dim propVal As String = GetPropValue(targetDoc, confString, propName)
                 DataGridView1.Rows.Add(propName, If(propVal, ""))
@@ -142,8 +143,8 @@ Public Class Form5
         Try
             Dim confNames As Object = doc.GetConfigurationNames()
             If confNames IsNot Nothing Then
-                For Each cn As String In confNames
-                    CboConfig.Items.Add(cn)
+                For i As Integer = 0 To UBound(confNames)
+                    CboConfig.Items.Add(confNames(i).ToString())
                 Next
             End If
         Catch
