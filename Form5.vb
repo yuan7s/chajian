@@ -14,8 +14,16 @@ Public Class Form5
     Private Shared Function SendMessage(hWnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As IntPtr) As IntPtr
     End Function
 
-    Public Property SwApp As SldWorks.SldWorks
     Private WithEvents _swAppField As SldWorks.SldWorks
+
+    Public Property SwApp As SldWorks.SldWorks
+        Get
+            Return _swAppField
+        End Get
+        Set(value As SldWorks.SldWorks)
+            _swAppField = value
+        End Set
+    End Property
 
     Private _showKeyOnly As Boolean
     Private _attachedPartDoc As SldWorks.PartDoc
@@ -25,27 +33,16 @@ Public Class Form5
     Private _refreshTimer As Timer
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        ' 加载设置
-        TrackBarOpacity.Value = CInt(My.Settings.Form5_Opacity * 100)
-        Me.Opacity = My.Settings.Form5_Opacity
-        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
-
-        CboColorScheme.SelectedItem = My.Settings.Form5_ColorScheme
+        ApplyOpacity()
         ApplyColorScheme(My.Settings.Form5_ColorScheme)
-
-        ChkTopMost.Checked = My.Settings.Form5_TopMost
-        Me.TopMost = My.Settings.Form5_TopMost
-
-        LoadKeyProperties()
+        TopMost = My.Settings.Form5_TopMost
 
         EnableDrag()
 
-        ' 500ms 定时器兜底刷新
         _refreshTimer = New Timer() With {.Interval = 500}
         AddHandler _refreshTimer.Tick, AddressOf RefreshTimer_Tick
         _refreshTimer.Start()
 
-        _swAppField = SwApp
         If _swAppField IsNot Nothing Then
             AttachDocEvents()
             RefreshProperties()
@@ -62,12 +59,10 @@ Public Class Form5
         _swAppField = Nothing
     End Sub
 
-    ' 关闭按钮
     Private Sub LblClose_Click(sender As Object, e As EventArgs) Handles LblClose.Click
         Me.Close()
     End Sub
 
-    ' 定时器兜底刷新
     Private Sub RefreshTimer_Tick(sender As Object, e As EventArgs)
         Try
             If _swAppField IsNot Nothing AndAlso _swAppField.ActiveDoc IsNot Nothing Then
@@ -121,10 +116,7 @@ Public Class Form5
 
         Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
         Dim selCount As Integer = 0
-        Try
-            selCount = selMgr.GetSelectedObjectCount2(-1)
-        Catch
-        End Try
+        Try : selCount = selMgr.GetSelectedObjectCount2(-1) : Catch : End Try
 
         If selCount >= 1 Then
             Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
@@ -145,10 +137,7 @@ Public Class Form5
                 If modelDoc IsNot Nothing AndAlso modelDoc IsNot targetDoc Then
                     Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
                     Dim selCount As Integer = 0
-                    Try
-                        selCount = selMgr.GetSelectedObjectCount2(-1)
-                    Catch
-                    End Try
+                    Try : selCount = selMgr.GetSelectedObjectCount2(-1) : Catch : End Try
                     If selCount >= 1 Then
                         Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
                         If TypeOf selObj Is SldWorks.Component2 Then
@@ -178,33 +167,19 @@ Public Class Form5
         RefreshProperties()
     End Sub
 
-    ' 设置面板
+    ' 打开设置
     Private Sub BtnSettings_Click(sender As Object, e As EventArgs) Handles BtnSettings.Click
-        PanelSettings.Visible = Not PanelSettings.Visible
-        If PanelSettings.Visible Then
-            Me.Height = Me.ClientSize.Height + PanelSettings.Height
-        Else
-            Me.Height = BtnToggle.Bottom + 50
-        End If
+        Dim f6 As New Form6()
+        f6.ShowDialog()
+        ' 设置窗口关闭后刷新外观
+        ApplyOpacity()
+        ApplyColorScheme(My.Settings.Form5_ColorScheme)
+        TopMost = My.Settings.Form5_TopMost
+        RefreshProperties()
     End Sub
 
-    ' 透明度
-    Private Sub TrackBarOpacity_Scroll(sender As Object, e As EventArgs) Handles TrackBarOpacity.Scroll
-        Me.Opacity = TrackBarOpacity.Value / 100.0
-        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
-    End Sub
-
-    Private Sub TrackBarOpacity_MouseUp(sender As Object, e As MouseEventArgs) Handles TrackBarOpacity.MouseUp
-        My.Settings.Form5_Opacity = Me.Opacity
-        My.Settings.Save()
-    End Sub
-
-    ' 颜色方案
-    Private Sub CboColorScheme_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboColorScheme.SelectedIndexChanged
-        Dim scheme As String = CboColorScheme.SelectedItem.ToString()
-        ApplyColorScheme(scheme)
-        My.Settings.Form5_ColorScheme = scheme
-        My.Settings.Save()
+    Private Sub ApplyOpacity()
+        Me.Opacity = My.Settings.Form5_Opacity
     End Sub
 
     Private Sub ApplyColorScheme(scheme As String)
@@ -236,14 +211,6 @@ Public Class Form5
         End Select
     End Sub
 
-    ' 关键属性列表
-    Private Sub LoadKeyProperties()
-        LstKeyProps.Items.Clear()
-        For Each k In GetKeyProperties()
-            LstKeyProps.Items.Add(k)
-        Next
-    End Sub
-
     Private Function GetKeyProperties() As String()
         Dim raw As String = My.Settings.Form5_KeyProperties
         If String.IsNullOrWhiteSpace(raw) Then
@@ -251,34 +218,6 @@ Public Class Form5
         End If
         Return raw.Split({","c}, StringSplitOptions.RemoveEmptyEntries)
     End Function
-
-    Private Sub SaveKeyProperties()
-        Dim items = LstKeyProps.Items.Cast(Of String)().ToArray()
-        My.Settings.Form5_KeyProperties = String.Join(",", items)
-        My.Settings.Save()
-    End Sub
-
-    Private Sub BtnAddKey_Click(sender As Object, e As EventArgs) Handles BtnAddKey.Click
-        Dim newKey As String = TxtNewKey.Text.Trim()
-        If String.IsNullOrEmpty(newKey) Then Return
-        If LstKeyProps.Items.Contains(newKey) Then Return
-        LstKeyProps.Items.Add(newKey)
-        TxtNewKey.Clear()
-        SaveKeyProperties()
-    End Sub
-
-    Private Sub BtnDelKey_Click(sender As Object, e As EventArgs) Handles BtnDelKey.Click
-        If LstKeyProps.SelectedIndex < 0 Then Return
-        LstKeyProps.Items.RemoveAt(LstKeyProps.SelectedIndex)
-        SaveKeyProperties()
-    End Sub
-
-    ' 始终置顶
-    Private Sub ChkTopMost_CheckedChanged(sender As Object, e As EventArgs) Handles ChkTopMost.CheckedChanged
-        Me.TopMost = ChkTopMost.Checked
-        My.Settings.Form5_TopMost = ChkTopMost.Checked
-        My.Settings.Save()
-    End Sub
 
     ' SW 事件
     Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
