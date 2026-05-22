@@ -40,6 +40,24 @@ jobs:
           name: 外部程序
           path: publish/
 
+      - name: Generate Release Notes
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: release_notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NOTES=$(gh api \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/releases/generate-notes \
+            -f tag_name="${{ github.ref_name }}" \
+            -f target_commitish="${{ github.sha }}" \
+            --jq '.body')
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Create or Update Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
@@ -50,6 +68,5 @@ jobs:
           updateOnlyUnreleased: false
           draft: false
           prerelease: false
-          generateReleaseNotes: true
-          omitBodyDuringUpdate: false
+          body: ${{ steps.release_notes.outputs.notes }}
           removeArtifacts: true
