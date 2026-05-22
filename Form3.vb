@@ -143,13 +143,6 @@ Public Class Form3
                 Return
             End If
 
-            Dim activePath As String = modelDoc.GetPathName()
-            Dim activeExt As String = ""
-            If Not String.IsNullOrEmpty(activePath) Then
-                activeExt = Path.GetExtension(activePath)
-                If Not String.IsNullOrEmpty(activeExt) Then activeExt = activeExt.TrimStart("."c).ToLowerInvariant()
-            End If
-
             Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
             Dim selCount As Integer = 0
             Try
@@ -179,13 +172,15 @@ Public Class Form3
                 TextBox1.Text = If(String.IsNullOrEmpty(filename), "", Path.GetFileNameWithoutExtension(filename))
                 TextBox2.Text = If(String.IsNullOrEmpty(filename), "", Path.GetFileNameWithoutExtension(filename))
 
-                Dim selExt As String = ""
-                If Not String.IsNullOrEmpty(filename) Then
-                    selExt = Path.GetExtension(filename)
-                    If Not String.IsNullOrEmpty(selExt) Then selExt = selExt.TrimStart("."c).ToLowerInvariant()
+                Dim selDocType As Integer = modelDoc.GetType()
+                If TypeOf selObj Is SldWorks.Component2 Then
+                    Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
+                    Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
+                    If refModel IsNot Nothing Then selDocType = refModel.GetType()
                 End If
-                Label3.Text = If(String.IsNullOrEmpty(selExt), "", "." & selExt)
-                Label4.Text = If(String.IsNullOrEmpty(selExt), "", "." & selExt)
+                Dim selExt As String = DocTypeToExtension(selDocType)
+                Label3.Text = selExt
+                Label4.Text = selExt
 
                 UpdateDrawingExistsIndicator(filename)
             Else
@@ -193,9 +188,9 @@ Public Class Form3
                 Dim defaultName As String = If(String.IsNullOrEmpty(docName), "", Path.GetFileNameWithoutExtension(docName))
                 TextBox1.Text = defaultName
                 TextBox2.Text = defaultName
-                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).TrimStart("."c).ToLowerInvariant())
-                Label3.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
-                Label4.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
+                Dim docExt As String = DocTypeToExtension(modelDoc.GetType())
+                Label3.Text = docExt
+                Label4.Text = docExt
                 UpdateDrawingExistsIndicator(docName)
             End If
         Catch
@@ -204,6 +199,15 @@ Public Class Form3
             Label6.Visible = False
         End Try
     End Sub
+
+    Private Function DocTypeToExtension(docType As Integer) As String
+        Select Case docType
+            Case SwConst.swDocumentTypes_e.swDocPART : Return ".sldprt"
+            Case SwConst.swDocumentTypes_e.swDocASSEMBLY : Return ".sldasm"
+            Case SwConst.swDocumentTypes_e.swDocDRAWING : Return ".slddrw"
+            Case Else : Return ""
+        End Select
+    End Function
 
     Private Sub UpdateDrawingExistsIndicator(modelPath As String)
         If String.IsNullOrEmpty(modelPath) Then
