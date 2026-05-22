@@ -27,7 +27,6 @@ Public Class Form5
 
     Private _showKeyOnly As Boolean
     Private _showCustomProps As Boolean
-    Private _suppressConfigChange As Boolean
     Private _attachedPartDoc As SldWorks.PartDoc
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
@@ -63,7 +62,6 @@ Public Class Form5
     Private Sub BtnPropType_Click(sender As Object, e As EventArgs) Handles BtnPropType.Click
         _showCustomProps = Not _showCustomProps
         BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
-        CboConfig.Visible = Not _showCustomProps
         RefreshProperties()
     End Sub
 
@@ -83,16 +81,13 @@ Public Class Form5
                 Label1.Text = targetDoc.GetTitle()
             End If
 
-            ' 填充配置下拉框
-            PopulateConfigCombo(targetDoc)
-
             Dim confString As String = ""
             Dim nameArr As Object = Nothing
 
-            If _showCustomProps OrElse CboConfig.SelectedItem Is Nothing Then
+            If _showCustomProps Then
                 nameArr = targetDoc.GetCustomInfoNames()
             Else
-                confString = CboConfig.SelectedItem.ToString()
+                confString = targetDoc.GetActiveConfiguration().Name
                 nameArr = targetDoc.GetCustomInfoNames2(confString)
             End If
             If nameArr Is Nothing Then Return
@@ -136,35 +131,6 @@ Public Class Form5
         Return modelDoc
     End Function
 
-    Private Sub PopulateConfigCombo(doc As SldWorks.ModelDoc2)
-        _suppressConfigChange = True
-        Dim prevSel As String = If(CboConfig.SelectedItem, "")
-        CboConfig.Items.Clear()
-        Try
-            Dim confNames As Object = doc.GetConfigurationNames()
-            If confNames IsNot Nothing Then
-                For i As Integer = 0 To UBound(confNames)
-                    CboConfig.Items.Add(confNames(i).ToString())
-                Next
-            End If
-        Catch
-        End Try
-        ' 恢复之前的选择
-        If Not String.IsNullOrEmpty(prevSel) Then
-            Dim idx As Integer = CboConfig.FindStringExact(prevSel)
-            If idx >= 0 Then CboConfig.SelectedIndex = idx
-        End If
-        If CboConfig.SelectedIndex < 0 AndAlso CboConfig.Items.Count > 0 Then
-            CboConfig.SelectedIndex = 0
-        End If
-        CboConfig.Visible = Not _showCustomProps
-        _suppressConfigChange = False
-    End Sub
-
-    Private Sub CboConfig_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboConfig.SelectedIndexChanged
-        If Not _suppressConfigChange Then RefreshProperties()
-    End Sub
-
     Private Function GetPropValue(doc As SldWorks.ModelDoc2, conf As String, propName As String) As String
         Try
             Dim v As String = doc.GetCustomInfoValue(conf, propName)
@@ -177,7 +143,7 @@ Public Class Form5
     ' 切换全部属性 / 关键属性
     Private Sub BtnToggle_Click(sender As Object, e As EventArgs) Handles BtnToggle.Click
         _showKeyOnly = Not _showKeyOnly
-        BtnToggle.Text = If(_showKeyOnly, "全部属性", "关键属性")
+        BtnToggle.Text = If(_showKeyOnly, "关键属性", "全部属性")
         RefreshProperties()
     End Sub
 
