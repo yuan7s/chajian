@@ -10,6 +10,7 @@ permissions:
 
 env:
   PROJECT_NAME: chajian
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build:
@@ -17,6 +18,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
@@ -35,13 +38,7 @@ jobs:
 
       - name: Create zip
         shell: pwsh
-        run: Compress-Archive -Path publish\* -DestinationPath $env:PROJECT_NAME.zip -Force
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ env.PROJECT_NAME }}
-          path: ${{ env.PROJECT_NAME }}.zip
+        run: Compress-Archive -Path publish\* -DestinationPath "${env:PROJECT_NAME}.zip" -Force
 
       - name: Prepare release notes
         if: startsWith(github.ref, 'refs/tags/v')
@@ -59,7 +56,12 @@ jobs:
           }
 
           if ($start -lt 0) {
-            $notes = "Full Changelog: https://github.com/${{ github.repository }}/compare/v1.0.10...$tag"
+            $previousTag = git describe --tags --abbrev=0 "$tag^{}^" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousTag) {
+              $notes = "Full Changelog: https://github.com/${{ github.repository }}/compare/$previousTag...$tag"
+            } else {
+              $notes = "Release: https://github.com/${{ github.repository }}/releases/tag/$tag"
+            }
           } else {
             $end = $lines.Count
             for ($i = $start + 1; $i -lt $lines.Count; $i++) {
@@ -76,13 +78,17 @@ jobs:
 
       - name: Create or Update Release
         if: startsWith(github.ref, 'refs/tags/v')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ github.ref_name }}
-          files: ${{ env.PROJECT_NAME }}.zip
-          body_path: release-notes.md
-          draft: false
-          prerelease: false
-          fail_on_unmatched_files: true
-          overwrite_files: true
-          token: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = '${{ github.ref_name }}'
+          $asset = "${env:PROJECT_NAME}.zip#${env:PROJECT_NAME}.zip"
+
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) {
+            gh release edit $tag --title $tag --notes-file release-notes.md
+            gh release upload $tag $asset --clobber
+          } else {
+            gh release create $tag $asset --title $tag --notes-file release-notes.md --target '${{ github.sha }}'
+          }

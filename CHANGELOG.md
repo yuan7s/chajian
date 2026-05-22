@@ -1,5 +1,14 @@
 # 更新日志
 
+## v1.0.12 - 2026-05-23
+
+### 修复
+
+- 修复 GitHub Actions 因第三方 Release action 的 Node 运行时限制导致发布失败的问题。
+- 发布 Release 改为使用 GitHub-hosted runner 自带的 `gh release` 命令。
+- 移除不必要的 workflow artifact 上传步骤，Release 页面只保留明确命名的 `chajian.zip`。
+- 增加 `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true`，让仍然需要的官方 JavaScript action 使用 Node 24。
+
 ## v1.0.11 - 2026-05-23
 
 ### 修复
