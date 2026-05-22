@@ -10,6 +10,8 @@ Public Class Form3
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _suppressNameCheck As Boolean
     Private _nameCheckTimer As Timer
+    Private _assemblyNameCache As HashSet(Of String)
+    Private _cachedAssemblyPath As String
 
     Private Const WmNclbuttondown As Integer = &HA1
     Private Const HtCaption As Integer = &H2
@@ -53,16 +55,23 @@ Public Class Form3
     End Property
 
     Private Function _swAppField_ActiveDocChangeNotify() As Integer Handles _swAppField.ActiveDocChangeNotify
+        InvalidateNameCache()
         UpdateSelectionInfo()
         AttachDocEvents()
         Return 0
     End Function
 
     Private Function _swAppField_ActiveModelDocChangeNotify() As Integer Handles _swAppField.ActiveModelDocChangeNotify
+        InvalidateNameCache()
         UpdateSelectionInfo()
         AttachDocEvents()
         Return 0
     End Function
+
+    Private Sub InvalidateNameCache()
+        _assemblyNameCache = Nothing
+        _cachedAssemblyPath = Nothing
+    End Sub
 
     Private Sub DetachDocEvents()
         If _attachedPartDoc IsNot Nothing Then
@@ -422,32 +431,37 @@ Public Class Form3
                 Return False
             End If
 
-            Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc, SldWorks.AssemblyDoc)
-            Dim comps As Object = assemblyDoc.GetComponents(False)
-            If comps Is Nothing Then Return False
+            ' 缓存失效时重建组件名 HashSet
+            Dim docPath As String = modelDoc.GetPathName()
+            If _assemblyNameCache Is Nothing OrElse
+               Not String.Equals(docPath, _cachedAssemblyPath, StringComparison.OrdinalIgnoreCase) Then
+                BuildAssemblyNameCache(modelDoc)
+                _cachedAssemblyPath = docPath
+            End If
 
-            For Each comp As SldWorks.Component2 In comps
-                ' 先用 Name2 快速过滤，避免每次调用 GetPathName (COM 开销)
-                Dim refName As String = comp.Name2
-                If Not String.IsNullOrEmpty(refName) AndAlso
-                   String.Equals(refName, newName, StringComparison.OrdinalIgnoreCase) Then
-                    Return True
-                End If
-                ' Name2 可能带实例号，再通过路径名兜底匹配
-                Dim compPath As String = comp.GetPathName()
-                If Not String.IsNullOrEmpty(compPath) Then
-                    Dim compName As String = Path.GetFileNameWithoutExtension(compPath)
-                    If String.Equals(compName, newName, StringComparison.OrdinalIgnoreCase) Then
-                        Return True
-                    End If
-                End If
-            Next
-
-            Return False
+            Return _assemblyNameCache IsNot Nothing AndAlso
+                   _assemblyNameCache.Contains(If(newName, ""))
         Catch
             Return False
         End Try
     End Function
+
+    Private Sub BuildAssemblyNameCache(modelDoc As SldWorks.ModelDoc2)
+        _assemblyNameCache = New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+        Try
+            Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc, SldWorks.AssemblyDoc)
+            Dim comps As Object = assemblyDoc.GetComponents(False)
+            If comps Is Nothing Then Return
+
+            For Each comp As SldWorks.Component2 In comps
+                Dim refName As String = comp.Name2
+                If Not String.IsNullOrEmpty(refName) Then
+                    _assemblyNameCache.Add(refName)
+                End If
+            Next
+        Catch
+        End Try
+    End Sub
 
     Private Sub ResetNewNameIndicators()
         TextBox2.BackColor = System.Drawing.SystemColors.Window
