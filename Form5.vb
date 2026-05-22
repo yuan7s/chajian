@@ -33,7 +33,7 @@ Public Class Form5
     Private _attachedDocPath As String
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        ApplyTransparency()
+        ApplyOpacity()
         ApplyColorScheme(My.Settings.Form5_ColorScheme)
         TopMost = My.Settings.Form5_TopMost
 
@@ -155,67 +155,42 @@ Public Class Form5
         f6.Owner = Me
         f6.ShowDialog()
         Me.TopMost = wasTopMost
-        ApplyTransparency()
+        ApplyOpacity()
         ApplyColorScheme(My.Settings.Form5_ColorScheme)
         RefreshProperties()
     End Sub
 
-    Private Const KEY_COLOR As Integer = &HFF00FF  ' Fuchsia
-
-    Private Sub ApplyTransparency()
-        Me.Opacity = 1.0
-        Me.BackColor = Drawing.Color.FromArgb(KEY_COLOR)
-        Me.TransparencyKey = Drawing.Color.FromArgb(KEY_COLOR)
-    End Sub
-
-    Private Function TextAlpha() As Integer
-        Return CInt(Math.Max(10, Math.Min(255, My.Settings.Form5_TextOpacity * 255)))
-    End Function
-
-    Protected Overrides Sub OnPaintBackground(e As System.Windows.Forms.PaintEventArgs)
-        MyBase.OnPaintBackground(e)
-        Dim bgAlpha As Integer = CInt(Math.Max(5, Math.Min(255, My.Settings.Form5_Opacity * 255)))
-        Using brush As New Drawing.SolidBrush(Drawing.Color.FromArgb(bgAlpha, 0, 0, 0))
-            e.Graphics.FillRectangle(brush, Me.ClientRectangle)
-        End Using
+    Private Sub ApplyOpacity()
+        Me.Opacity = My.Settings.Form5_Opacity
     End Sub
 
     Private Sub ApplyColorScheme(scheme As String)
-        Dim alpha As Integer = TextAlpha()
-        Dim foreColor As Drawing.Color
-        Dim gridBackColor As Drawing.Color
-        Dim gridForeColor As Drawing.Color
-        Dim headerBackColor As Drawing.Color
-        Dim headerForeColor As Drawing.Color
-
         Select Case scheme
             Case "终端绿"
-                foreColor = Drawing.Color.FromArgb(alpha, Drawing.Color.Lime)
-                gridBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                gridForeColor = Drawing.Color.FromArgb(alpha, Drawing.Color.Lime)
-                headerBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                headerForeColor = Drawing.Color.FromArgb(alpha, Drawing.Color.Lime)
+                Me.BackColor = Drawing.Color.Black
+                Me.ForeColor = Drawing.Color.Lime
+                DataGridView1.BackgroundColor = Drawing.Color.Black
+                DataGridView1.DefaultCellStyle.BackColor = Drawing.Color.Black
+                DataGridView1.DefaultCellStyle.ForeColor = Drawing.Color.Lime
+                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = Drawing.Color.Black
+                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = Drawing.Color.Lime
             Case "白字"
-                foreColor = Drawing.Color.FromArgb(alpha, Drawing.Color.White)
-                gridBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                gridForeColor = Drawing.Color.FromArgb(alpha, Drawing.Color.White)
-                headerBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                headerForeColor = Drawing.Color.FromArgb(alpha, Drawing.Color.White)
+                Me.BackColor = Drawing.Color.FromArgb(30, 30, 30)
+                Me.ForeColor = Drawing.Color.White
+                DataGridView1.BackgroundColor = Drawing.Color.FromArgb(30, 30, 30)
+                DataGridView1.DefaultCellStyle.BackColor = Drawing.Color.FromArgb(30, 30, 30)
+                DataGridView1.DefaultCellStyle.ForeColor = Drawing.Color.White
+                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = Drawing.Color.FromArgb(30, 30, 30)
+                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = Drawing.Color.White
             Case Else
-                foreColor = Drawing.Color.FromArgb(alpha, System.Drawing.SystemColors.ControlText)
-                gridBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                gridForeColor = Drawing.Color.FromArgb(alpha, System.Drawing.SystemColors.WindowText)
-                headerBackColor = Drawing.Color.FromArgb(KEY_COLOR)
-                headerForeColor = Drawing.Color.FromArgb(alpha, System.Drawing.SystemColors.ControlText)
+                Me.BackColor = System.Drawing.SystemColors.Control
+                Me.ForeColor = System.Drawing.SystemColors.ControlText
+                DataGridView1.BackgroundColor = System.Drawing.SystemColors.Control
+                DataGridView1.DefaultCellStyle.BackColor = System.Drawing.SystemColors.Window
+                DataGridView1.DefaultCellStyle.ForeColor = System.Drawing.SystemColors.WindowText
+                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.SystemColors.Control
+                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = System.Drawing.SystemColors.ControlText
         End Select
-
-        Me.ForeColor = foreColor
-        DataGridView1.BackgroundColor = Drawing.Color.FromArgb(KEY_COLOR)
-        DataGridView1.DefaultCellStyle.BackColor = Drawing.Color.FromArgb(KEY_COLOR)
-        DataGridView1.DefaultCellStyle.ForeColor = gridForeColor
-        DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = headerBackColor
-        DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = headerForeColor
-        DataGridView1.EnableHeadersVisualStyles = False
     End Sub
 
     Private Function GetKeyProperties() As String()
