@@ -187,12 +187,14 @@ Public Class Form5
 
     ' 打开设置
     Private Sub BtnSettings_Click(sender As Object, e As EventArgs) Handles BtnSettings.Click
+        Dim wasTopMost As Boolean = Me.TopMost
+        Me.TopMost = False
         Dim f6 As New Form6()
+        f6.Owner = Me
         f6.ShowDialog()
-        ' 设置窗口关闭后刷新外观
+        Me.TopMost = wasTopMost
         ApplyOpacity()
         ApplyColorScheme(My.Settings.Form5_ColorScheme)
-        TopMost = My.Settings.Form5_TopMost
         RefreshProperties()
     End Sub
 
