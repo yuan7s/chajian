@@ -323,49 +323,39 @@ Public Class Form3
                     Return
                 End If
             End If
-            Dim saveResult As Integer = docToSave.SaveAs3(newPath, 0, 0)
-            If saveResult <> 0 Then
-                MessageBox.Show("另存失败", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            Dim renameResult As Integer = RenameModelWithSolidWorks(modelDoc, docToSave, oldPath, newName)
+            If renameResult <> 0 Then
+                MessageBox.Show("SolidWorks 重命名失败，错误码: " & renameResult, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
                 Return
             End If
 
-            Dim config As Object = docToSave.GetActiveConfiguration
-            Dim cusPropMgr As Object = config.CustomPropertyManager
-            cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            cusPropMgr.Add3("物料编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-
-            If CheckBox3.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox3.Text) Then
-                cusPropMgr.Add3("版本", swCustomInfoType_e.swCustomInfoText, TextBox3.Text.Trim(), swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            End If
-
-            If CheckBox4.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox4.Text) Then
-                Dim designInfo As String = TextBox4.Text.Trim()
-                cusPropMgr.Add3("设计", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-                cusPropMgr.Add3("出图", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-            End If
+            WriteRenameProperties(docToSave, newName)
 
             If CheckBox2.Checked Then
                 SetBlankSize(docToSave)
             End If
 
             If CheckBox1.Checked Then
-                Dim oldBaseName As String = Path.GetFileNameWithoutExtension(oldPath)
-                Dim oldDrawingPath As String = Path.Combine(dir, oldBaseName & ".SLDDRW")
-                If System.IO.File.Exists(oldDrawingPath) Then
-                    Dim newDrawingPath As String = Path.Combine(dir, newName & ".SLDDRW")
-                    System.IO.File.Copy(oldDrawingPath, newDrawingPath)
-                    swApp.ReplaceReferencedDocument(newDrawingPath, oldPath, newPath)
-                    System.IO.File.Delete(oldDrawingPath)
-                End If
+                RenameDrawingForRenamedDocument(swApp, oldPath, newPath)
             End If
 
-            System.IO.File.Delete(oldPath)
+            Dim errors As Integer = 0
+            Dim warnings As Integer = 0
+            Dim saveOptions As Integer = swSaveAsOptions_e.swSaveAsOptions_Silent + swSaveAsOptions_e.swSaveAsOptions_SaveReferenced
+            Dim saveStatus As Boolean = modelDoc.Save3(saveOptions, errors, warnings)
+            If Not saveStatus Then
+                MessageBox.Show("SolidWorks 重命名已完成，但保存失败，错误码: " & errors, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            If Not Object.ReferenceEquals(modelDoc, docToSave) Then
+                docToSave.Save3(swSaveAsOptions_e.swSaveAsOptions_Silent, errors, warnings)
+            End If
 
             UpdateSelectionInfo()
             ShowAutoCloseNotice("重命名完成")
         Catch ex As Exception
-            MessageBox.Show("另存失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+            MessageBox.Show("重命名失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
         End Try
     End Sub
 
@@ -400,6 +390,45 @@ Public Class Form3
 
         Return modelDoc
     End Function
+
+    Private Function RenameModelWithSolidWorks(activeDoc As SldWorks.ModelDoc2, targetDoc As SldWorks.ModelDoc2, oldPath As String, newName As String) As Integer
+        If activeDoc Is Nothing OrElse targetDoc Is Nothing Then Return -1
+
+        Dim activeType As Integer = activeDoc.GetType()
+        If Not Object.ReferenceEquals(activeDoc, targetDoc) AndAlso activeType = CInt(swDocumentTypes_e.swDocASSEMBLY) Then
+            SelectComponentByPath(activeDoc, oldPath)
+            Return activeDoc.Extension.RenameDocument(newName)
+        End If
+
+        Return targetDoc.Extension.RenameDocument(newName)
+    End Function
+
+    Private Sub SelectComponentByPath(activeDoc As SldWorks.ModelDoc2, componentPath As String)
+        If activeDoc Is Nothing OrElse String.IsNullOrEmpty(componentPath) Then Return
+        If activeDoc.GetType() <> CInt(swDocumentTypes_e.swDocASSEMBLY) Then Return
+
+        Try
+            activeDoc.ClearSelection2(True)
+
+            Dim asmDoc As SldWorks.AssemblyDoc = TryCast(activeDoc, SldWorks.AssemblyDoc)
+            If asmDoc Is Nothing Then Return
+
+            Dim comps As Object = asmDoc.GetComponents(False)
+            If comps Is Nothing Then Return
+
+            For Each obj As Object In CType(comps, Object())
+                Dim comp As SldWorks.Component2 = TryCast(obj, SldWorks.Component2)
+                If comp Is Nothing Then Continue For
+
+                Dim compPath As String = comp.GetPathName()
+                If String.Equals(compPath, componentPath, StringComparison.OrdinalIgnoreCase) Then
+                    comp.Select4(False, Nothing, False)
+                    Return
+                End If
+            Next
+        Catch
+        End Try
+    End Sub
 
     Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged
         ' 防抖：重置定时器，用户停顿时才检查
@@ -442,15 +471,20 @@ Public Class Form3
                 fileExists = System.IO.File.Exists(newFilePath)
             End If
 
-            Dim existsInAssembly As Boolean = CheckNameExistsInAssembly(docToCheck, newName)
+            Dim openedDoc As SldWorks.ModelDoc2 = Nothing
+            If Not String.IsNullOrEmpty(ext) Then
+                Dim newFilePath As String = Path.Combine(dir, newName & ext)
+                openedDoc = TryCast(swApp.GetOpenDocumentByName(newFilePath), SldWorks.ModelDoc2)
+            End If
+            Dim existsInOpenDocs As Boolean = openedDoc IsNot Nothing
 
-            If fileExists OrElse existsInAssembly Then
+            If fileExists OrElse existsInOpenDocs Then
                 TextBox2.BackColor = System.Drawing.Color.MistyRose
                 Label6.ForeColor = System.Drawing.Color.Red
-                If existsInAssembly AndAlso fileExists Then
-                    Label6.Text = "重名(装配体+本地)"
-                ElseIf existsInAssembly Then
-                    Label6.Text = "重名(装配体)"
+                If existsInOpenDocs AndAlso fileExists Then
+                    Label6.Text = "重名(已打开+本地)"
+                ElseIf existsInOpenDocs Then
+                    Label6.Text = "重名(已打开)"
                 Else
                     Label6.Text = "重名(本地)"
                 End If
@@ -604,6 +638,183 @@ Public Class Form3
 
     Private Sub TextBox4_TextChanged(sender As Object, e As EventArgs) Handles TextBox4.TextChanged
 
+    End Sub
+
+    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
+        SaveAsNewDocumentAndOpen()
+    End Sub
+
+    Private Sub SaveAsNewDocumentAndOpen()
+        Dim newName As String = TextBox2.Text.Trim()
+        If String.IsNullOrEmpty(newName) Then
+            MessageBox.Show("请输入新文件名", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            Return
+        End If
+
+        Try
+            Dim swApp As SldWorks.SldWorks = _swAppField
+            If swApp Is Nothing Then
+                MessageBox.Show("未连接到SolidWorks", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim modelDoc As SldWorks.ModelDoc2 = CType(swApp.ActiveDoc, SldWorks.ModelDoc2)
+            If modelDoc Is Nothing Then
+                MessageBox.Show("没有打开的文档", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim docToSave As SldWorks.ModelDoc2 = GetDocumentToSave(modelDoc)
+            If docToSave Is Nothing Then
+                MessageBox.Show("无法确定要另存的文档", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim oldPath As String = docToSave.GetPathName()
+            If String.IsNullOrEmpty(oldPath) Then
+                MessageBox.Show("请先保存文档后再另存", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                Return
+            End If
+
+            Dim dir As String = Path.GetDirectoryName(oldPath)
+            Dim ext As String = Path.GetExtension(oldPath)
+            Dim newPath As String = Path.Combine(dir, newName & ext)
+
+            If String.Equals(oldPath, newPath, StringComparison.OrdinalIgnoreCase) Then
+                MessageBox.Show("新文件名与当前文件名相同", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+                Return
+            End If
+
+            If System.IO.File.Exists(newPath) Then
+                Dim overwriteResult As DialogResult = MessageBox.Show(newPath & " 已存在，是否覆盖？", "询问", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                If overwriteResult <> DialogResult.Yes Then Return
+            End If
+
+            Dim openedDocFast As SldWorks.ModelDoc2 = TryCast(swApp.GetOpenDocumentByName(newPath), SldWorks.ModelDoc2)
+            If openedDocFast IsNot Nothing Then
+                Dim openedPathFast As String = openedDocFast.GetPathName()
+                If Not String.Equals(openedPathFast, oldPath, StringComparison.OrdinalIgnoreCase) Then
+                    MessageBox.Show("同名文件已在 SolidWorks 中打开，请修改名称", "信息", MessageBoxButtons.OK, MessageBoxIcon.Information)
+                    Return
+                End If
+            End If
+
+            Dim copyErrors As Integer = 0
+            Dim copyWarnings As Integer = 0
+            Dim saveCopyResult As Boolean = docToSave.Extension.SaveAs(
+                newPath,
+                swSaveAsVersion_e.swSaveAsCurrentVersion,
+                swSaveAsOptions_e.swSaveAsOptions_Silent + swSaveAsOptions_e.swSaveAsOptions_Copy,
+                Nothing,
+                copyErrors,
+                copyWarnings)
+            If Not saveCopyResult Then
+                MessageBox.Show("另存副本失败，错误码: " & copyErrors, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            Dim openErrors As Integer = 0
+            Dim openWarnings As Integer = 0
+            Dim docType As Integer = docToSave.GetType()
+            Dim savedDoc As SldWorks.ModelDoc2 = TryCast(swApp.OpenDoc6(newPath, docType, swOpenDocOptions_e.swOpenDocOptions_Silent, "", openErrors, openWarnings), SldWorks.ModelDoc2)
+            If savedDoc Is Nothing Then
+                MessageBox.Show("副本已生成，但打开失败，错误码: " & openErrors, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                Return
+            End If
+
+            WriteRenameProperties(savedDoc, newName)
+            If CheckBox2.Checked Then
+                SetBlankSize(savedDoc)
+            End If
+
+            CopyDrawingForSavedDocument(swApp, oldPath, newPath)
+
+            savedDoc.Save3(0, 0, 0)
+            swApp.ActivateDoc3(Path.GetFileName(newPath), False, swRebuildOnActivation_e.swUserDecision, 0)
+
+            UpdateSelectionInfo()
+            ShowAutoCloseNotice("另存完成")
+        Catch ex As Exception
+            MessageBox.Show("另存失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        End Try
+    End Sub
+
+    Private Sub WriteRenameProperties(doc As SldWorks.ModelDoc2, newName As String)
+        If doc Is Nothing Then Return
+
+        Dim config As Object = doc.GetActiveConfiguration
+        Dim cusPropMgr As Object = config.CustomPropertyManager
+
+        If CheckBox5.Checked Then
+            cusPropMgr.Add3("文件名称", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+        End If
+
+        If CheckBox6.Checked Then
+            cusPropMgr.Add3("物料编码", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+        End If
+
+        If CheckBox7.Checked Then
+            cusPropMgr.Add3("零件图号", swCustomInfoType_e.swCustomInfoText, newName, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+        End If
+
+        If CheckBox3.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox3.Text) Then
+            cusPropMgr.Add3("版本", swCustomInfoType_e.swCustomInfoText, TextBox3.Text.Trim(), swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+        End If
+
+        If CheckBox4.Checked AndAlso Not String.IsNullOrWhiteSpace(TextBox4.Text) Then
+            Dim designInfo As String = TextBox4.Text.Trim()
+            cusPropMgr.Add3("设计", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+            cusPropMgr.Add3("出图", swCustomInfoType_e.swCustomInfoText, designInfo, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
+        End If
+    End Sub
+
+    Private Sub CopyDrawingForSavedDocument(swApp As SldWorks.SldWorks, oldModelPath As String, newModelPath As String)
+        If swApp Is Nothing OrElse String.IsNullOrEmpty(oldModelPath) OrElse String.IsNullOrEmpty(newModelPath) Then Return
+
+        Try
+            Dim dir As String = Path.GetDirectoryName(oldModelPath)
+            Dim oldBaseName As String = Path.GetFileNameWithoutExtension(oldModelPath)
+            Dim newBaseName As String = Path.GetFileNameWithoutExtension(newModelPath)
+            Dim oldDrawingPath As String = Path.Combine(dir, oldBaseName & ".SLDDRW")
+
+            If Not System.IO.File.Exists(oldDrawingPath) Then Return
+
+            Dim newDrawingPath As String = Path.Combine(dir, newBaseName & ".SLDDRW")
+            If System.IO.File.Exists(newDrawingPath) Then
+                Dim overwriteResult As DialogResult = MessageBox.Show(newDrawingPath & " 已存在，是否覆盖？", "询问", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                If overwriteResult <> DialogResult.Yes Then Return
+            End If
+
+            System.IO.File.Copy(oldDrawingPath, newDrawingPath, True)
+            swApp.ReplaceReferencedDocument(newDrawingPath, oldModelPath, newModelPath)
+        Catch ex As Exception
+            MessageBox.Show("工程图复制或关联更新失败: " & ex.Message, "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
+    End Sub
+
+    Private Sub RenameDrawingForRenamedDocument(swApp As SldWorks.SldWorks, oldModelPath As String, newModelPath As String)
+        If swApp Is Nothing OrElse String.IsNullOrEmpty(oldModelPath) OrElse String.IsNullOrEmpty(newModelPath) Then Return
+
+        Try
+            Dim dir As String = Path.GetDirectoryName(oldModelPath)
+            Dim oldBaseName As String = Path.GetFileNameWithoutExtension(oldModelPath)
+            Dim newBaseName As String = Path.GetFileNameWithoutExtension(newModelPath)
+            Dim oldDrawingPath As String = Path.Combine(dir, oldBaseName & ".SLDDRW")
+
+            If Not System.IO.File.Exists(oldDrawingPath) Then Return
+
+            Dim newDrawingPath As String = Path.Combine(dir, newBaseName & ".SLDDRW")
+            If System.IO.File.Exists(newDrawingPath) Then
+                Dim overwriteResult As DialogResult = MessageBox.Show(newDrawingPath & " 已存在，是否覆盖？", "询问", MessageBoxButtons.YesNo, MessageBoxIcon.Question)
+                If overwriteResult <> DialogResult.Yes Then Return
+                System.IO.File.Delete(newDrawingPath)
+            End If
+
+            System.IO.File.Move(oldDrawingPath, newDrawingPath)
+            swApp.ReplaceReferencedDocument(newDrawingPath, oldModelPath, newModelPath)
+        Catch ex As Exception
+            MessageBox.Show("工程图重命名或关联更新失败: " & ex.Message, "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+        End Try
     End Sub
 
     Private Sub MarkDocDirty(doc As SldWorks.ModelDoc2)

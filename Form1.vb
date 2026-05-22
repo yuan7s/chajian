@@ -8,6 +8,8 @@ Public Class Form1
     Private _statusTimer As Timer
     Private _trayIcon As NotifyIcon
     Private _trayMenu As ContextMenuStrip
+    Private _sortProgressForm As Form
+    Private _sortProgressLabel As Label
 
     ' 全局热键
     Private Const MOD_CONTROL As Integer = &H2
@@ -534,9 +536,10 @@ Public Class Form1
             Exit Sub
         End If
 
+        ShowSortProgress("正在准备装配体排序...")
+        Try
         Dim Configuration As SldWorks.Configuration
         Configuration = Part.GetConfigurationByName(Part.GetActiveConfiguration.Name)
-        CType(Part, SldWorks.AssemblyDoc).ResolveAllLightWeightComponents(True) '把所有的轻化零件还原
 
         Dim c As String
         c = Part.GetTitle()
@@ -545,17 +548,10 @@ Public Class Form1
         End If
 
         ' === 单次遍历，按文件夹开始/结束标记分组 ===
+        UpdateSortProgress("正在读取设计树...")
         Dim vFeats As Object = Part.FeatureManager.GetFeatures(True)
-        Debug.Print("=== GetFeatures(True) 原始数据，共 " & (UBound(vFeats) + 1) & " 条 ===")
-        For i = 0 To UBound(vFeats)
-            Debug.Print("[" & i & "] Name=" & vFeats(i).Name & ", Type=" & vFeats(i).GetTypeName2)
-        Next
-        Debug.Print("=== 原始数据结束 ===")
-
         Dim modelDoc2 As SldWorks.ModelDoc2 = swApp.ActiveDoc
         Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc2, SldWorks.AssemblyDoc)
-        Dim modelDocExt As SldWorks.ModelDocExtension = modelDoc2.Extension
-        Dim selectionMgr As SldWorks.SelectionMgr = modelDoc2.SelectionManager
 
         Dim folders As New List(Of SldWorks.Feature)()
         Dim folderComponents As New List(Of List(Of SldWorks.Feature))()
@@ -573,18 +569,15 @@ Public Class Form1
         Next
         If startIdx < 0 Then startIdx = 0
 
-        Debug.Print("=== 遍历特征 [" & startIdx & ".." & endIdx & "] ===")
+        UpdateSortProgress("正在分组组件...")
         For i = startIdx To endIdx
             Dim featType As String = vFeats(i).GetTypeName2
-            Debug.Print("Feature[" & i & "]: Name=" & vFeats(i).Name & ", Type=" & featType)
             If featType = "FtrFolder" Then
                 If Not vFeats(i).Name.Contains("___EndTag___") Then
                     folders.Add(vFeats(i))
                     currentFolderComps = New List(Of SldWorks.Feature)()
                     folderComponents.Add(currentFolderComps)
-                    Debug.Print("  -> 文件夹开始: " & vFeats(i).Name)
                 Else
-                    Debug.Print("  -> 文件夹结束: " & vFeats(i).Name)
                     currentFolderComps = Nothing
                 End If
             ElseIf featType = "Reference" Then
@@ -599,116 +592,76 @@ Public Class Form1
                 If isSupOrEnv Then
                     If currentFolderComps IsNot Nothing Then
                         currentFolderComps.Add(vFeats(i))
-                        Debug.Print("    文件夹内封套/压缩: " & vFeats(i).Name)
                     Else
                         suppressedEnvFeats.Add(vFeats(i))
-                        Debug.Print("  顶层封套/压缩: " & vFeats(i).Name)
                     End If
                 ElseIf currentFolderComps IsNot Nothing Then
                     currentFolderComps.Add(vFeats(i))
-                    Debug.Print("    文件夹内组件: " & vFeats(i).Name)
                 Else
                     topLevelFeats.Add(vFeats(i))
-                    Debug.Print("  顶层组件: " & vFeats(i).Name)
                 End If
             End If
         Next i
 
-        Debug.Print("=== 分组结果 ===")
-        For fi = 0 To folders.Count - 1
-            Debug.Print("  " & folders(fi).Name & " 内含 " & folderComponents(fi).Count & " 个组件")
-        Next
-        Debug.Print("  顶层组件: " & topLevelFeats.Count & " 个")
-
         ' 收集顶层组件名称
-        Dim b As Long = 0
-        Dim d As Long = 0
-        Dim compNames() As String = Nothing
-        Dim assNames() As String = Nothing
+        Dim partComps As New List(Of SldWorks.Component2)()
+        Dim asmComps As New List(Of SldWorks.Component2)()
         For Each feat In topLevelFeats
-            CollectComponent(feat, compNames, b, assNames, d)
+            CollectComponent(feat, partComps, asmComps)
         Next
 
         ' 收集封套/压缩组件名称
-        Dim sb As Long = 0
-        Dim sd As Long = 0
-        Dim supCompNames() As String = Nothing
-        Dim supAssNames() As String = Nothing
-        If suppressedEnvFeats.Count > 0 Then
-            Debug.Print("=== 封套/压缩组件 (" & suppressedEnvFeats.Count & " 个) ===")
-            For Each feat In suppressedEnvFeats
-                Debug.Print("  " & feat.Name)
-                CollectComponent(feat, supCompNames, sb, supAssNames, sd)
-            Next
-        End If
-
-        Debug.Print("=== compNames (零件) ===")
-        If compNames IsNot Nothing Then
-            For i = 0 To UBound(compNames)
-                Debug.Print("  " & compNames(i))
-            Next
-        End If
-
-        Debug.Print("=== assNames (装配体) ===")
-        If assNames IsNot Nothing Then
-            For i = 0 To UBound(assNames)
-                Debug.Print("  " & assNames(i))
-            Next
-        End If
+        Dim supPartComps As New List(Of SldWorks.Component2)()
+        Dim supAsmComps As New List(Of SldWorks.Component2)()
+        For Each feat In suppressedEnvFeats
+            CollectComponent(feat, supPartComps, supAsmComps)
+        Next
 
         ' === 排序顶层组件，放到最后一个文件夹后面 ===
-        If compNames IsNot Nothing Then Array.Sort(compNames)
-        If assNames IsNot Nothing Then Array.Sort(assNames)
-        If supCompNames IsNot Nothing Then Array.Sort(supCompNames)
-        If supAssNames IsNot Nothing Then Array.Sort(supAssNames)
+        UpdateSortProgress("正在排序顶层组件...")
+        SortComponentsByName(asmComps)
+        SortComponentsByName(partComps)
+        SortComponentsByName(supAsmComps)
+        SortComponentsByName(supPartComps)
 
-        Dim combinedArray As List(Of String) = New List(Of String)()
-        If assNames IsNot Nothing Then combinedArray.AddRange(assNames)
-        If compNames IsNot Nothing Then combinedArray.AddRange(compNames)
-        If supAssNames IsNot Nothing Then combinedArray.AddRange(supAssNames)
-        If supCompNames IsNot Nothing Then combinedArray.AddRange(supCompNames)
+        Dim componentsToMove As New List(Of SldWorks.Component2)(asmComps)
+        componentsToMove.AddRange(partComps)
+        componentsToMove.AddRange(supAsmComps)
+        componentsToMove.AddRange(supPartComps)
 
-        Dim combinedArr() As String = If(combinedArray.Count > 0, combinedArray.ToArray(), Nothing)
-
-        Debug.Print("=== combinedArray (最终排序结果) ===")
-        If combinedArr IsNot Nothing Then
-            For i = 0 To UBound(combinedArr)
-                Debug.Print("  " & combinedArr(i))
-            Next
-        End If
-
-    If combinedArr IsNot Nothing AndAlso combinedArr.Length > 0 Then
-            Dim componentsToMove() As Object
-            ReDim componentsToMove(UBound(combinedArr))
-
-            For i = 0 To UBound(combinedArr)
-                modelDocExt.SelectByID2(combinedArr(i) & "@" & c, "COMPONENT", 0, 0, 0, False, 0, Nothing, 0)
-                componentsToMove(i) = selectionMgr.GetSelectedObjectsComponent4(1, 0)
-            Next i
-
+        If componentsToMove.Count > 0 Then
             Dim lastFolder As SldWorks.Feature = If(folders.Count > 0, folders(folders.Count - 1), Nothing)
             If lastFolder IsNot Nothing Then
                 assemblyDoc.ReorderComponents(componentsToMove(0), lastFolder, SwConst.swReorderComponentsWhere_e.swReorderComponents_after)
             End If
-            For i = 1 To UBound(combinedArr)
+            For i = 1 To componentsToMove.Count - 1
                 assemblyDoc.ReorderComponents(componentsToMove(i), componentsToMove(i - 1), 1) ' Below
             Next i
         End If
 
         ' === 排序每个文件夹内的组件 ===
+        UpdateSortProgress("正在排序文件夹内组件...")
         For Each f As SldWorks.Feature In folders
             SortComponentsInFolder(f, c, assemblyDoc)
         Next
 
         ' === 递归处理子装配体 ===
+        UpdateSortProgress("正在排序子装配体...")
         Dim processedPaths As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
         RecursiveSortSubAssemblies(topLevelFeats, processedPaths)
         For Each fc In folderComponents
             RecursiveSortSubAssemblies(fc, processedPaths)
         Next
 
+        UpdateSortProgress("正在刷新装配体...")
         Part.EditRebuild3()
         Part.ClearSelection2(True)
+        ShowAutoCloseNotice("装配体排序完成")
+        Catch ex As Exception
+            MessageBox.Show("装配体排序失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
+        Finally
+            CloseSortProgress()
+        End Try
     End Sub
 
     ''' <summary>
@@ -725,16 +678,13 @@ Public Class Form1
             If subFeat.GetTypeName2 = "Reference" Then
                 Dim swty As SldWorks.Component2 = TryCast(subFeat.GetSpecificFeature2, SldWorks.Component2)
                 If swty IsNot Nothing Then
-                    Dim compModel As SldWorks.ModelDoc2 = swty.GetModelDoc2
-                    If compModel IsNot Nothing Then
-                        Dim isSupEnv As Boolean = swty.IsSuppressed() OrElse swty.IsEnvelope()
-                        Select Case compModel.GetType()
-                            Case SwConst.swDocumentTypes_e.swDocPART
-                                If isSupEnv Then supPartComps.Add(swty) Else partComps.Add(swty)
-                            Case SwConst.swDocumentTypes_e.swDocASSEMBLY
-                                If isSupEnv Then supAsmComps.Add(swty) Else asmComps.Add(swty)
-                        End Select
-                    End If
+                    Dim isSupEnv As Boolean = swty.IsSuppressed() OrElse swty.IsEnvelope()
+                    Select Case GetComponentDocType(swty)
+                        Case SwConst.swDocumentTypes_e.swDocPART
+                            If isSupEnv Then supPartComps.Add(swty) Else partComps.Add(swty)
+                        Case SwConst.swDocumentTypes_e.swDocASSEMBLY
+                            If isSupEnv Then supAsmComps.Add(swty) Else asmComps.Add(swty)
+                    End Select
                 End If
             End If
             subFeat = subFeat.GetNextSubFeature()
@@ -742,10 +692,10 @@ Public Class Form1
 
         If asmComps.Count = 0 AndAlso partComps.Count = 0 AndAlso supAsmComps.Count = 0 AndAlso supPartComps.Count = 0 Then Return
 
-        asmComps.Sort(Function(a, b) String.Compare(a.Name2, b.Name2, StringComparison.OrdinalIgnoreCase))
-        partComps.Sort(Function(a, b) String.Compare(a.Name2, b.Name2, StringComparison.OrdinalIgnoreCase))
-        supAsmComps.Sort(Function(a, b) String.Compare(a.Name2, b.Name2, StringComparison.OrdinalIgnoreCase))
-        supPartComps.Sort(Function(a, b) String.Compare(a.Name2, b.Name2, StringComparison.OrdinalIgnoreCase))
+        SortComponentsByName(asmComps)
+        SortComponentsByName(partComps)
+        SortComponentsByName(supAsmComps)
+        SortComponentsByName(supPartComps)
 
         Dim allComps As New List(Of SldWorks.Component2)(asmComps)
         allComps.AddRange(partComps)
@@ -768,25 +718,42 @@ Public Class Form1
     ''' 收集 Reference 特征中的零件/装配体名称
     ''' </summary>
     
-    Private Sub CollectComponent(swFeat As Object, ByRef compNames() As String, ByRef b As Long, ByRef assNames() As String, ByRef d As Long)
-        Dim swty As SldWorks.Component2
-        swty = swFeat.GetSpecificFeature2
-        If swty IsNot Nothing Then
-            Dim compModel As SldWorks.ModelDoc2
-            compModel = swty.GetModelDoc2
-            If compModel IsNot Nothing Then
-                Select Case compModel.GetType()
-                    Case SwConst.swDocumentTypes_e.swDocPART
-                        ReDim Preserve compNames(b)
-                        compNames(b) = swFeat.Name
-                        b += 1
-                    Case SwConst.swDocumentTypes_e.swDocASSEMBLY
-                        ReDim Preserve assNames(d)
-                        assNames(d) = swFeat.Name
-                        d += 1
-                End Select
+    Private Sub CollectComponent(swFeat As Object, partComps As List(Of SldWorks.Component2), asmComps As List(Of SldWorks.Component2))
+        Dim comp As SldWorks.Component2 = TryCast(swFeat.GetSpecificFeature2, SldWorks.Component2)
+        If comp Is Nothing Then Return
+
+        Select Case GetComponentDocType(comp)
+            Case SwConst.swDocumentTypes_e.swDocPART
+                partComps.Add(comp)
+            Case SwConst.swDocumentTypes_e.swDocASSEMBLY
+                asmComps.Add(comp)
+        End Select
+    End Sub
+
+    Private Function GetComponentDocType(comp As SldWorks.Component2) As Integer
+        If comp Is Nothing Then Return 0
+
+        Try
+            Dim compPath As String = comp.GetPathName()
+            If Not String.IsNullOrEmpty(compPath) Then
+                Dim ext As String = IO.Path.GetExtension(compPath)
+                If String.Equals(ext, ".SLDPRT", StringComparison.OrdinalIgnoreCase) Then Return SwConst.swDocumentTypes_e.swDocPART
+                If String.Equals(ext, ".SLDASM", StringComparison.OrdinalIgnoreCase) Then Return SwConst.swDocumentTypes_e.swDocASSEMBLY
             End If
-        End If
+        Catch
+        End Try
+
+        Try
+            Dim compModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
+            If compModel IsNot Nothing Then Return compModel.GetType()
+        Catch
+        End Try
+
+        Return 0
+    End Function
+
+    Private Sub SortComponentsByName(comps As List(Of SldWorks.Component2))
+        comps.Sort(Function(a, b) String.Compare(a.Name2, b.Name2, StringComparison.OrdinalIgnoreCase))
     End Sub
 
     Private Sub RecursiveSortSubAssemblies(feats As List(Of SldWorks.Feature), processed As HashSet(Of String))
@@ -798,8 +765,7 @@ Public Class Form1
                 If childModel Is Nothing Then Continue For
                 If childModel.GetType() <> swDocumentTypes_e.swDocASSEMBLY Then Continue For
                 SortSubAsmByFeatures(childModel, processed)
-            Catch ex As Exception
-                Debug.Print("[递归] " & feat.Name & ": " & ex.Message)
+            Catch
             End Try
         Next
     End Sub
@@ -815,14 +781,9 @@ Public Class Form1
 
         Dim asmName As String = IO.Path.GetFileNameWithoutExtension(path)
         If String.IsNullOrEmpty(asmName) Then asmName = asmModel.GetTitle()
-        Debug.Print("[递归] 处理: " & asmName)
-
         Try
             Dim vFeats As Object = asmModel.FeatureManager.GetFeatures(True)
             Dim asmDoc As SldWorks.AssemblyDoc = CType(asmModel, SldWorks.AssemblyDoc)
-            Dim modelDocExt As SldWorks.ModelDocExtension = asmModel.Extension
-            Dim selMgr As SldWorks.SelectionMgr = asmModel.SelectionManager
-
             Dim startIdx As Integer = -1
             Dim endIdx As Integer = UBound(vFeats)
             For i = 0 To UBound(vFeats)
@@ -871,38 +832,32 @@ Public Class Form1
                 End If
             Next
 
-            Dim b As Long = 0, d As Long = 0
-            Dim compNames() As String = Nothing, assNames() As String = Nothing
+            Dim partComps As New List(Of SldWorks.Component2)()
+            Dim asmComps As New List(Of SldWorks.Component2)()
             For Each feat In topLevelFeats
-                CollectComponent(feat, compNames, b, assNames, d)
+                CollectComponent(feat, partComps, asmComps)
             Next
-            Dim sb As Long = 0, sd As Long = 0
-            Dim supCompNames() As String = Nothing, supAssNames() As String = Nothing
+            Dim supPartComps As New List(Of SldWorks.Component2)()
+            Dim supAsmComps As New List(Of SldWorks.Component2)()
             For Each feat In suppressedEnvFeats
-                CollectComponent(feat, supCompNames, sb, supAssNames, sd)
+                CollectComponent(feat, supPartComps, supAsmComps)
             Next
 
-            If compNames IsNot Nothing Then Array.Sort(compNames)
-            If assNames IsNot Nothing Then Array.Sort(assNames)
-            If supCompNames IsNot Nothing Then Array.Sort(supCompNames)
-            If supAssNames IsNot Nothing Then Array.Sort(supAssNames)
+            SortComponentsByName(asmComps)
+            SortComponentsByName(partComps)
+            SortComponentsByName(supAsmComps)
+            SortComponentsByName(supPartComps)
 
-            Dim combinedList As New List(Of String)()
-            If assNames IsNot Nothing Then combinedList.AddRange(assNames)
-            If compNames IsNot Nothing Then combinedList.AddRange(compNames)
-            If supAssNames IsNot Nothing Then combinedList.AddRange(supAssNames)
-            If supCompNames IsNot Nothing Then combinedList.AddRange(supCompNames)
+            Dim componentsToMove As New List(Of SldWorks.Component2)(asmComps)
+            componentsToMove.AddRange(partComps)
+            componentsToMove.AddRange(supAsmComps)
+            componentsToMove.AddRange(supPartComps)
 
-            If combinedList.Count > 0 Then
-                Dim componentsToMove(combinedList.Count - 1) As Object
-                For i = 0 To combinedList.Count - 1
-                    modelDocExt.SelectByID2(combinedList(i) & "@" & asmName, "COMPONENT", 0, 0, 0, False, 0, Nothing, 0)
-                    componentsToMove(i) = selMgr.GetSelectedObjectsComponent4(1, 0)
-                Next
+            If componentsToMove.Count > 0 Then
                 If folders.Count > 0 Then
                     asmDoc.ReorderComponents(componentsToMove(0), folders(folders.Count - 1), SwConst.swReorderComponentsWhere_e.swReorderComponents_after)
                 End If
-                For i = 1 To combinedList.Count - 1
+                For i = 1 To componentsToMove.Count - 1
                     asmDoc.ReorderComponents(componentsToMove(i), componentsToMove(i - 1), 1)
                 Next
             End If
@@ -918,9 +873,7 @@ Public Class Form1
 
             asmModel.EditRebuild3()
             asmModel.ClearSelection2(True)
-            Debug.Print("[递归] " & asmName & " 完成")
-        Catch ex As Exception
-            Debug.Print("[递归] " & asmName & " 出错: " & ex.Message)
+        Catch
         End Try
     End Sub
 
@@ -1671,6 +1624,65 @@ Public Class Form1
 
         Dim tip As New ToolTip()
         tip.Show(message, Me, Me.Width \ 2, Me.Height \ 2, 1800)
+    End Sub
+
+    Private Sub ShowSortProgress(message As String)
+        CloseSortProgress()
+
+        _sortProgressLabel = New Label() With {
+            .AutoSize = False,
+            .Dock = DockStyle.Fill,
+            .Font = New Font("微软雅黑", 10.0!, FontStyle.Bold),
+            .ForeColor = Color.FromArgb(45, 55, 72),
+            .TextAlign = ContentAlignment.MiddleCenter,
+            .Text = message
+        }
+
+        _sortProgressForm = New Form() With {
+            .AutoScaleMode = AutoScaleMode.None,
+            .BackColor = Color.White,
+            .ClientSize = New Size(280, 76),
+            .ControlBox = False,
+            .FormBorderStyle = FormBorderStyle.FixedSingle,
+            .MaximizeBox = False,
+            .MinimizeBox = False,
+            .ShowIcon = False,
+            .ShowInTaskbar = False,
+            .StartPosition = FormStartPosition.Manual,
+            .Text = "排序中",
+            .TopMost = True
+        }
+
+        Dim x As Integer = Me.Left + Math.Max(0, (Me.Width - _sortProgressForm.Width) \ 2)
+        Dim y As Integer = Me.Top + Math.Max(0, (Me.Height - _sortProgressForm.Height) \ 2)
+        _sortProgressForm.Location = New Point(x, y)
+        _sortProgressForm.Controls.Add(_sortProgressLabel)
+        _sortProgressForm.Show(Me)
+        _sortProgressForm.Refresh()
+        Application.DoEvents()
+    End Sub
+
+    Private Sub UpdateSortProgress(message As String)
+        If _sortProgressForm Is Nothing OrElse _sortProgressForm.IsDisposed Then Return
+        If _sortProgressLabel Is Nothing OrElse _sortProgressLabel.IsDisposed Then Return
+
+        _sortProgressLabel.Text = message
+        _sortProgressLabel.Refresh()
+        _sortProgressForm.Refresh()
+        Application.DoEvents()
+    End Sub
+
+    Private Sub CloseSortProgress()
+        Try
+            If _sortProgressForm IsNot Nothing Then
+                If Not _sortProgressForm.IsDisposed Then _sortProgressForm.Close()
+                _sortProgressForm.Dispose()
+            End If
+        Catch
+        Finally
+            _sortProgressForm = Nothing
+            _sortProgressLabel = Nothing
+        End Try
     End Sub
 
     Private Sub MarkDocDirty(doc As SldWorks.ModelDoc2)
