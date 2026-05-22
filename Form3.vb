@@ -453,14 +453,15 @@ Public Class Form3
     Private Sub BuildAssemblyNameCache(modelDoc As SldWorks.ModelDoc2)
         _assemblyNameCache = New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
         Try
-            Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc, SldWorks.AssemblyDoc)
-            Dim comps As Object = assemblyDoc.GetComponents(False)
-            If comps Is Nothing Then Return
+            Dim vFeats As Object = modelDoc.FeatureManager.GetFeatures(True)
+            If vFeats Is Nothing Then Return
 
-            For Each comp As SldWorks.Component2 In comps
-                Dim refName As String = comp.Name2
-                If Not String.IsNullOrEmpty(refName) Then
-                    _assemblyNameCache.Add(refName)
+            For i As Integer = 0 To UBound(vFeats)
+                If vFeats(i).GetTypeName2 = "Reference" Then
+                    Dim comp As SldWorks.Component2 = TryCast(vFeats(i).GetSpecificFeature2, SldWorks.Component2)
+                    If comp IsNot Nothing AndAlso Not String.IsNullOrEmpty(comp.Name2) Then
+                        _assemblyNameCache.Add(comp.Name2)
+                    End If
                 End If
             Next
         Catch
