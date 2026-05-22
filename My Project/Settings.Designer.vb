@@ -138,6 +138,9 @@ Namespace My
             End Set
         End Property
 
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("0.25")>  _
         Public Property Form5_Opacity() As Double
             Get
                 Return CType(Me("Form5_Opacity"), Double)
@@ -147,6 +150,9 @@ Namespace My
             End Set
         End Property
 
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("自适应")>  _
         Public Property Form5_ColorScheme() As String
             Get
                 Return CType(Me("Form5_ColorScheme"), String)
@@ -156,6 +162,9 @@ Namespace My
             End Set
         End Property
 
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
         Public Property Form5_TopMost() As Boolean
             Get
                 Return CType(Me("Form5_TopMost"), Boolean)
@@ -165,6 +174,9 @@ Namespace My
             End Set
         End Property
 
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("")>  _
         Public Property Form5_KeyProperties() As String
             Get
                 Return CType(Me("Form5_KeyProperties"), String)
