@@ -39,6 +39,7 @@ Partial Class Form1
         Me.Button8 = New System.Windows.Forms.Button()
         Me.GroupBox1 = New System.Windows.Forms.GroupBox()
         Me.Button18 = New System.Windows.Forms.Button()
+        Me.Button19 = New System.Windows.Forms.Button()
         Me.GroupBox2 = New System.Windows.Forms.GroupBox()
         Me.Button17 = New System.Windows.Forms.Button()
         Me.Button6 = New System.Windows.Forms.Button()
@@ -138,10 +139,17 @@ Partial Class Form1
         Me.Button18.Name = "Button18"
         Me.Button18.UseVisualStyleBackColor = True
         '
+        'Button19
+        '
+        resources.ApplyResources(Me.Button19, "Button19")
+        Me.Button19.Name = "Button19"
+        Me.Button19.UseVisualStyleBackColor = True
+        '
         'GroupBox2
         '
         Me.GroupBox2.Controls.Add(Me.Button17)
         Me.GroupBox2.Controls.Add(Me.Button18)
+        Me.GroupBox2.Controls.Add(Me.Button19)
         Me.GroupBox2.Controls.Add(Me.Button6)
         Me.GroupBox2.Controls.Add(Me.Button13)
         Me.GroupBox2.Controls.Add(Me.Button11)
@@ -256,6 +264,7 @@ Partial Class Form1
     Friend WithEvents Button16 As Button
     Friend WithEvents Button17 As Button
     Friend WithEvents Button18 As Button
+    Friend WithEvents Button19 As Button
     Friend WithEvents StatusStrip1 As StatusStrip
     Friend WithEvents refreshBtn As ToolStripButton
     Friend WithEvents swProcessCombo As ToolStripComboBox

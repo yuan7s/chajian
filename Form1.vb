@@ -1673,4 +1673,16 @@ Public Class Form1
         f4.SwApp = swApp
         f4.Show()
     End Sub
+
+    ' 打开配置属性透明窗口（Form5）
+    Private Sub Button19_Click(sender As Object, e As EventArgs) Handles Button19.Click
+        Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+        Dim f5 As New Form5()
+        f5.SwApp = swApp
+        f5.Show()
+    End Sub
 End Class

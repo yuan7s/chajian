@@ -137,6 +137,42 @@ Namespace My
                 Me("CodingCleanup_ExcludePurchased") = value
             End Set
         End Property
+
+        Public Property Form5_Opacity() As Double
+            Get
+                Return CType(Me("Form5_Opacity"), Double)
+            End Get
+            Set
+                Me("Form5_Opacity") = value
+            End Set
+        End Property
+
+        Public Property Form5_ColorScheme() As String
+            Get
+                Return CType(Me("Form5_ColorScheme"), String)
+            End Get
+            Set
+                Me("Form5_ColorScheme") = value
+            End Set
+        End Property
+
+        Public Property Form5_TopMost() As Boolean
+            Get
+                Return CType(Me("Form5_TopMost"), Boolean)
+            End Get
+            Set
+                Me("Form5_TopMost") = value
+            End Set
+        End Property
+
+        Public Property Form5_KeyProperties() As String
+            Get
+                Return CType(Me("Form5_KeyProperties"), String)
+            End Get
+            Set
+                Me("Form5_KeyProperties") = value
+            End Set
+        End Property
     End Class
 End Namespace
 

@@ -25,5 +25,17 @@
     <Setting Name="CodingCleanup_ExcludePurchased" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="Form5_Opacity" Type="System.Double" Scope="User">
+      <Value Profile="(Default)">0.25</Value>
+    </Setting>
+    <Setting Name="Form5_ColorScheme" Type="System.String" Scope="User">
+      <Value Profile="(Default)">自适应</Value>
+    </Setting>
+    <Setting Name="Form5_TopMost" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="Form5_KeyProperties" Type="System.String" Scope="User">
+      <Value Profile="(Default)"></Value>
+    </Setting>
   </Settings>
 </SettingsFile>

@@ -427,7 +427,7 @@
     <value>4</value>
   </data>
   <data name="Button18.Text" xml:space="preserve">
-    <value>绘图标准</value>
+    <value>图号编码</value>
   </data>
   <data name="&gt;&gt;Button18.Name" xml:space="preserve">
     <value>Button18</value>
@@ -440,6 +440,33 @@
   </data>
   <data name="&gt;&gt;Button18.ZOrder" xml:space="preserve">
     <value>1</value>
+  </data>
+  <data name="Button19.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
+    <value>NoControl</value>
+  </data>
+  <data name="Button19.Location" type="System.Drawing.Point, System.Drawing">
+    <value>160, 150</value>
+  </data>
+  <data name="Button19.Size" type="System.Drawing.Size, System.Drawing">
+    <value>122, 50</value>
+  </data>
+  <data name="Button19.TabIndex" type="System.Int32, mscorlib">
+    <value>6</value>
+  </data>
+  <data name="Button19.Text" xml:space="preserve">
+    <value>配置属性</value>
+  </data>
+  <data name="&gt;&gt;Button19.Name" xml:space="preserve">
+    <value>Button19</value>
+  </data>
+  <data name="&gt;&gt;Button19.Type" xml:space="preserve">
+    <value>System.Windows.Forms.Button, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </data>
+  <data name="&gt;&gt;Button19.Parent" xml:space="preserve">
+    <value>GroupBox2</value>
+  </data>
+  <data name="&gt;&gt;Button19.ZOrder" xml:space="preserve">
+    <value>2</value>
   </data>
   <data name="Button17.ImeMode" type="System.Windows.Forms.ImeMode, System.Windows.Forms">
     <value>NoControl</value>
