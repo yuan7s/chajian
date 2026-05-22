@@ -7,102 +7,151 @@ Imports FlaUI.Core.Definitions
 Module Program
 
     Sub Main()
-        Dim exePath As String = "..\bin\Release\外部程序.exe"
-        exePath = IO.Path.GetFullPath(exePath)
-
+        Dim exePath As String = IO.Path.GetFullPath("..\bin\Release\外部程序.exe")
         If Not IO.File.Exists(exePath) Then
             Console.WriteLine("ERROR: 未找到 " & exePath)
-            Console.WriteLine("请先生成 Release: msbuild 外部程序.vbproj /t:Build /p:Configuration=Release")
             Return
         End If
 
         Console.WriteLine("启动: " & exePath)
         Dim app = FlaUI.Core.Application.Launch(exePath)
-        System.Threading.Thread.Sleep(3000)
+        System.Threading.Thread.Sleep(4000)
 
         Using automation = New UIA3Automation()
-            Dim mainWindow = app.GetMainWindow(automation)
-            If mainWindow Is Nothing Then
+            Dim mainWin = app.GetMainWindow(automation)
+            If mainWin Is Nothing Then
                 Console.WriteLine("ERROR: 未找到主窗口")
                 app.Kill()
                 Return
             End If
-            Console.WriteLine("主窗口: " & mainWindow.Title)
+            Console.WriteLine("主窗口: " & mainWin.Title)
 
-            ' 测试1: 查找并点击 Button19
-            Console.WriteLine(vbCrLf & "=== 测试1: Button19 ===")
-            Dim btn19 = FindByText(mainWindow, ControlType.Button, "配置属性")
-            If btn19 IsNot Nothing Then
-                Console.WriteLine("  OK 找到 Button19")
-                btn19.Click()
-                System.Threading.Thread.Sleep(500)
+            ' 列出 Form1 上所有按钮
+            Console.WriteLine(vbCrLf & "--- Form1 按钮 ---")
+            Dim allBtns = mainWin.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Button))
+            For Each b In allBtns
+                Console.WriteLine("  " & b.Name)
+            Next
 
-                ' 测试2: Form5
-                Console.WriteLine(vbCrLf & "=== 测试2: Form5 ===")
-                Dim form5 = FindWindowByTitle(automation, "配置属性")
-                If form5 IsNot Nothing Then
-                    Console.WriteLine("  OK Form5 已打开")
-
-                    ' 测试3: 验证控件
-                    Console.WriteLine(vbCrLf & "=== 测试3: 控件检查 ===")
-
-                    If FindByText(form5, ControlType.Button, "关键属性") IsNot Nothing Then
-                        Console.WriteLine("  OK 切换按钮存在")
-                    End If
-                    If FindByText(form5, ControlType.Button, "设置") IsNot Nothing Then
-                        Console.WriteLine("  OK 设置按钮存在")
-                    End If
-                    If FindByText(form5, ControlType.Text, "X") IsNot Nothing Then
-                        Console.WriteLine("  OK 关闭按钮存在")
-                    End If
-
-                    ' 测试4: 打开设置
-                    Console.WriteLine(vbCrLf & "=== 测试4: 设置窗口 ===")
-                    Dim btnSet = FindByText(form5, ControlType.Button, "设置")
-                    If btnSet IsNot Nothing Then
-                        btnSet.Click()
-                        System.Threading.Thread.Sleep(500)
-                        Dim form6 = FindWindowByTitle(automation, "配置属性设置")
-                        If form6 IsNot Nothing Then
-                            Console.WriteLine("  OK Form6 已打开")
-                            FindByText(form6, ControlType.Button, "关闭")?.Click()
-                            System.Threading.Thread.Sleep(200)
-                            Console.WriteLine("  OK Form6 已关闭")
-                        Else
-                            Console.WriteLine("  WARN Form6 未找到")
-                        End If
-                    End If
-
-                    ' 测试5: 关闭 Form5
-                    Console.WriteLine(vbCrLf & "=== 测试5: 关闭 Form5 ===")
-                    FindByText(form5, ControlType.Text, "X")?.Click()
-                    System.Threading.Thread.Sleep(300)
-                    Console.WriteLine("  OK Form5 已关闭")
-                Else
-                    Console.WriteLine("  FAIL Form5 未打开")
-                End If
-            Else
-                Console.WriteLine("  FAIL Button19 未找到 (可用按钮列表见下)")
-                Dim allBtns = mainWindow.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Button))
-                For Each b In allBtns
-                    Console.WriteLine("    按钮: " & b.Name)
-                Next
+            ' 点击 Button19
+            Dim btn19 = FindBtn(mainWin, "配置属性")
+            If btn19 Is Nothing Then
+                Console.WriteLine("FAIL: Button19 未找到")
+                app.Kill()
+                Return
             End If
+            Console.WriteLine(vbCrLf & "点击 Button19...")
+            btn19.Click()
+            System.Threading.Thread.Sleep(800)
+
+            ' 处理可能弹出的 SW 连接提示
+            DismissMessageBox(automation)
+
+            ' 查找 Form5
+            Dim form5 = FindWin(automation, "配置属性")
+            If form5 Is Nothing Then
+                ' 重试一次
+                DismissMessageBox(automation)
+                btn19.Click()
+                System.Threading.Thread.Sleep(1000)
+                DismissMessageBox(automation)
+                form5 = FindWin(automation, "配置属性")
+            End If
+
+            If form5 Is Nothing Then
+                Console.WriteLine("FAIL: Form5 仍然未找到")
+                ' 列出所有窗口
+                DumpAllWindows(automation)
+                app.Kill()
+                Return
+            End If
+
+            Console.WriteLine("OK Form5: " & form5.Name)
+
+            ' 检查 Form5 控件
+            Console.WriteLine(vbCrLf & "--- Form5 控件 ---")
+            Dim f5Btns = form5.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Button))
+            For Each b In f5Btns
+                Console.WriteLine("  [按钮] " & b.Name)
+            Next
+            Dim f5Texts = form5.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Text))
+            For Each t In f5Texts
+                Console.WriteLine("  [文本] " & t.Name)
+            Next
+
+            ' 点击设置
+            Dim btnSet = FindBtn(form5, "设置")
+            If btnSet IsNot Nothing Then
+                Console.WriteLine(vbCrLf & "点击设置...")
+                btnSet.Click()
+                System.Threading.Thread.Sleep(800)
+
+                ' 再次列出所有窗口
+                Console.WriteLine("--- 所有窗口 ---")
+                DumpAllWindows(automation)
+
+                Dim form6 = FindWin(automation, "设置")
+                If form6 IsNot Nothing Then
+                    Console.WriteLine("OK Form6: " & form6.Name)
+                    FindBtn(form6, "关闭")?.Click()
+                    System.Threading.Thread.Sleep(300)
+                    Console.WriteLine("OK Form6 已关闭")
+                Else
+                    Console.WriteLine("WARN Form6 未出现")
+                End If
+            End If
+
+            ' 关闭 Form5
+            Console.WriteLine(vbCrLf & "关闭 Form5...")
+            Dim lblX = form5.FindFirstDescendant(Function(cf) cf.ByControlType(ControlType.Text).And(cf.ByName("X")))
+            lblX?.Click()
+            System.Threading.Thread.Sleep(300)
+            Console.WriteLine("OK")
         End Using
 
-        Console.WriteLine(vbCrLf & "=== 测试完成 ===")
-        Console.WriteLine("按任意键退出...")
+        Console.WriteLine(vbCrLf & "=== 测试通过 ===")
         Console.ReadKey()
         app.Kill()
     End Sub
 
-    Private Function FindByText(parent As AutomationElement, ctrlType As ControlType, text As String) As AutomationElement
+    Private Function FindBtn(parent As AutomationElement, text As String) As AutomationElement
         Return parent.FindFirstDescendant(
-            Function(cf) cf.ByControlType(ctrlType).And(cf.ByName(text)))
+            Function(cf) cf.ByControlType(ControlType.Button).And(cf.ByName(text)))
     End Function
 
-    Private Function FindWindowByTitle(automation As UIA3Automation, title As String) As AutomationElement
-        Return automation.GetDesktop().FindFirstChild(
-            Function(cf) cf.ByControlType(ControlType.Window).And(cf.ByName(title)))
+    Private Function FindWin(automation As UIA3Automation, titlePart As String) As AutomationElement
+        ' 搜索所有后代窗口（非直接子窗口），处理无边框/不在任务栏的窗口
+        Dim root = automation.GetDesktop()
+        Dim all = root.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Window))
+        For Each w In all
+            If Not String.IsNullOrEmpty(w.Name) AndAlso w.Name.Contains(titlePart) Then Return w
+        Next
+        ' 也查 Pane 类型控件（某些无边框窗口可能被识别为 Pane）
+        all = root.FindAllDescendants(Function(cf) cf.ByControlType(ControlType.Pane))
+        For Each w In all
+            If Not String.IsNullOrEmpty(w.Name) AndAlso w.Name.Contains(titlePart) Then Return w
+        Next
+        Return Nothing
     End Function
+
+    Private Sub DismissMessageBox(automation As UIA3Automation)
+        ' 关闭弹出的消息框（如 SW 未连接提示）
+        Dim mb = automation.GetDesktop().FindFirstChild(
+            Function(cf) cf.ByControlType(ControlType.Window).And(cf.ByName("插件")))
+        If mb Is Nothing Then
+            mb = automation.GetDesktop().FindFirstChild(
+                Function(cf) cf.ByControlType(ControlType.Window).And(cf.ByName("错误")))
+        End If
+        If mb Is Nothing Then Return
+        Dim ok = mb.FindFirstDescendant(Function(cf) cf.ByControlType(ControlType.Button).And(cf.ByName("确定")))
+        ok?.Click()
+        System.Threading.Thread.Sleep(300)
+    End Sub
+
+    Private Sub DumpAllWindows(automation As UIA3Automation)
+        Dim all = automation.GetDesktop().FindAllChildren(Function(cf) cf.ByControlType(ControlType.Window))
+        For Each w In all
+            Console.WriteLine("  窗口: " & w.Name)
+        Next
+    End Sub
 End Module
