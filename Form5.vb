@@ -26,6 +26,7 @@ Public Class Form5
     End Property
 
     Private _showKeyOnly As Boolean
+    Private _showCustomProps As Boolean
     Private _attachedPartDoc As SldWorks.PartDoc
     Private _attachedAsmDoc As SldWorks.AssemblyDoc
     Private _attachedDrawDoc As SldWorks.DrawingDoc
@@ -67,6 +68,13 @@ Public Class Form5
         Me.Close()
     End Sub
 
+    ' 切换配置属性 / 自定义属性
+    Private Sub BtnPropType_Click(sender As Object, e As EventArgs) Handles BtnPropType.Click
+        _showCustomProps = Not _showCustomProps
+        BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
+        RefreshProperties()
+    End Sub
+
     Private Sub RefreshTimer_Tick(sender As Object, e As EventArgs)
         Try
             If _swAppField IsNot Nothing AndAlso _swAppField.ActiveDoc IsNot Nothing Then
@@ -92,8 +100,17 @@ Public Class Form5
                 Label1.Text = targetDoc.GetTitle()
             End If
 
-            Dim confString As String = GetTargetConf(targetDoc)
-            Dim nameArr As Object = targetDoc.GetCustomInfoNames2(confString)
+            Dim confString As String = ""
+            Dim nameArr As Object = Nothing
+
+            If _showCustomProps Then
+                ' 文档级自定义属性
+                nameArr = targetDoc.GetCustomInfoNames()
+            Else
+                ' 配置特定属性
+                confString = GetTargetConf(targetDoc)
+                nameArr = targetDoc.GetCustomInfoNames2(confString)
+            End If
             If nameArr Is Nothing Then Return
 
             Dim keySet As HashSet(Of String) = Nothing
