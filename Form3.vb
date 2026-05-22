@@ -193,7 +193,7 @@ Public Class Form3
                 Dim defaultName As String = If(String.IsNullOrEmpty(docName), "", Path.GetFileNameWithoutExtension(docName))
                 TextBox1.Text = defaultName
                 TextBox2.Text = defaultName
-                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).ToLowerInvariant())
+                Dim docExt As String = If(String.IsNullOrEmpty(docName), "", Path.GetExtension(docName).TrimStart("."c).ToLowerInvariant())
                 Label3.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
                 Label4.Text = If(String.IsNullOrEmpty(docExt), "", "." & docExt)
                 UpdateDrawingExistsIndicator(docName)
