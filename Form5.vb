@@ -167,21 +167,8 @@ Public Class Form5
 
     Private Function GetPropValue(doc As SldWorks.ModelDoc2, conf As String, propName As String) As String
         Try
-            ' 优先用 CustomPropertyManager.Get5
-            Dim cusPropMgr As Object = doc.Extension.CustomPropertyManager(conf)
-            If cusPropMgr IsNot Nothing Then
-                Dim val As String = ""
-                Dim wasResolved As Boolean = False
-                cusPropMgr.Get5(propName, False, val, wasResolved)
-                If wasResolved AndAlso Not String.IsNullOrEmpty(val) Then Return val
-                ' Get5 可能失败回退到 Get4
-                cusPropMgr.Get4(propName, False, val, wasResolved)
-                If wasResolved AndAlso Not String.IsNullOrEmpty(val) Then Return val
-            End If
-            ' GetCustomInfoValue 兜底
-            Dim v As Object = doc.GetCustomInfoValue(conf, propName)
-            If v IsNot Nothing AndAlso Not String.IsNullOrEmpty(v.ToString()) Then Return v.ToString()
-            Return ""
+            Dim v As String = doc.GetCustomInfoValue(conf, propName)
+            Return If(v, "")
         Catch
             Return ""
         End Try
