@@ -46,6 +46,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          MSYS_NO_PATHCONV: 1
         run: |
           NOTES=$(gh api \
             -X POST \
