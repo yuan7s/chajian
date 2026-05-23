@@ -124,12 +124,6 @@ Partial Public Class PropertyOverlaySettingsWindow
     End Sub
 
     Private Sub ApplyOverlaySettings()
-        For Each f As Form In Application.OpenForms
-            Dim propForm As Form5 = TryCast(f, Form5)
-            If propForm IsNot Nothing AndAlso Not propForm.IsDisposed Then
-                propForm.ApplyDisplaySettings()
-            End If
-        Next
         PropertyOverlayWindow.ApplySettingsToOpenWindows()
     End Sub
 

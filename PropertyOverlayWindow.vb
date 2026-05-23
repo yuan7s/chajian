@@ -15,6 +15,11 @@ Public Class PropertyOverlayWindow
     Private Const HotkeyIdClickThrough As Integer = 2
     Private Const ModControl As Integer = &H2
     Private Const VkF2 As Integer = &H71
+    Private Shared ReadOnly HwndTopmost As New IntPtr(-1)
+    Private Shared ReadOnly HwndNoTopmost As New IntPtr(-2)
+    Private Const SwpNoSize As UInteger = &H1UI
+    Private Const SwpNoMove As UInteger = &H2UI
+    Private Const SwpNoActivate As UInteger = &H10UI
 
     <DllImport("user32.dll", EntryPoint:="GetWindowLong")>
     Private Shared Function GetWindowLong32(hWnd As IntPtr, nIndex As Integer) As Integer
@@ -32,6 +37,10 @@ Public Class PropertyOverlayWindow
     Private Shared Function UnregisterHotKey(hWnd As IntPtr, id As Integer) As Boolean
     End Function
 
+    <DllImport("user32.dll", SetLastError:=True)>
+    Private Shared Function SetWindowPos(hWnd As IntPtr, hWndInsertAfter As IntPtr, x As Integer, y As Integer, cx As Integer, cy As Integer, flags As UInteger) As Boolean
+    End Function
+
     Private Shared ReadOnly OpenWindows As New List(Of PropertyOverlayWindow)()
 
     Private WithEvents SwAppField As SldWorks.SldWorks
@@ -44,7 +53,7 @@ Public Class PropertyOverlayWindow
     Private AttachedDocPath As String
 
     Public Sub New()
-        Width = 360
+        Width = 340
         SizeToContent = Wpf.SizeToContent.Height
         MinHeight = 120
         MaxHeight = 900
@@ -56,7 +65,7 @@ Public Class PropertyOverlayWindow
         Background = WpfMedia.Brushes.Transparent
 
         TitleText = New WpfControls.TextBlock() With {
-            .FontSize = 15,
+            .FontSize = 17,
             .FontWeight = Wpf.FontWeights.SemiBold,
             .Foreground = WpfMedia.Brushes.Black,
             .Text = "-",
@@ -76,7 +85,7 @@ Public Class PropertyOverlayWindow
         }
         AddHandler closeButton.Click, Sub() Close()
 
-        Dim header As New WpfControls.Grid() With {.Margin = New Wpf.Thickness(18, 14, 14, 8)}
+        Dim header As New WpfControls.Grid() With {.Margin = New Wpf.Thickness(18, 14, 14, 6)}
         header.ColumnDefinitions.Add(New WpfControls.ColumnDefinition() With {.Width = New Wpf.GridLength(1, Wpf.GridUnitType.Star)})
         header.ColumnDefinitions.Add(New WpfControls.ColumnDefinition() With {.Width = Wpf.GridLength.Auto})
         WpfControls.Grid.SetColumn(TitleText, 0)
@@ -84,11 +93,11 @@ Public Class PropertyOverlayWindow
         header.Children.Add(TitleText)
         header.Children.Add(closeButton)
 
-        PropertyPanel = New WpfControls.StackPanel() With {.Margin = New Wpf.Thickness(18, 0, 18, 16)}
+        PropertyPanel = New WpfControls.StackPanel() With {.Margin = New Wpf.Thickness(18, 0, 18, 14)}
 
         Dim layout As New WpfControls.StackPanel()
         layout.Children.Add(header)
-        layout.Children.Add(New WpfControls.Border() With {.Height = 4})
+        layout.Children.Add(New WpfControls.Border() With {.Height = 2})
         layout.Children.Add(PropertyPanel)
 
         Root = New WpfControls.Border() With {
@@ -118,16 +127,50 @@ Public Class PropertyOverlayWindow
             Return SwAppField
         End Get
         Set(value As SldWorks.SldWorks)
+            If Not Object.ReferenceEquals(SwAppField, value) Then
+                DetachDocEvents()
+            End If
             SwAppField = value
             AttachDocEvents()
             RefreshProperties()
         End Set
     End Property
 
+    Public Shared Sub ShowOrActivate(swApp As SldWorks.SldWorks)
+        Dim window As PropertyOverlayWindow = OpenWindows.FirstOrDefault()
+        If window Is Nothing Then
+            window = New PropertyOverlayWindow()
+        End If
+
+        window.SwApp = swApp
+        If Not window.IsVisible Then
+            window.Show()
+        End If
+
+        window.BringToFront()
+    End Sub
+
     Public Shared Sub ApplySettingsToOpenWindows()
         For Each window In OpenWindows.ToArray()
             If window IsNot Nothing Then window.ApplyDisplaySettings()
         Next
+    End Sub
+
+    Public Shared Sub UpdateOpenWindowsSwApp(swApp As SldWorks.SldWorks)
+        For Each window In OpenWindows.ToArray()
+            If window IsNot Nothing Then window.SwApp = swApp
+        Next
+    End Sub
+
+    Private Sub BringToFront()
+        Dim source = TryCast(Wpf.PresentationSource.FromVisual(Me), WpfInterop.HwndSource)
+        If source Is Nothing Then Return
+
+        Dim flags As UInteger = SwpNoMove Or SwpNoSize Or SwpNoActivate
+        SetWindowPos(source.Handle, HwndTopmost, 0, 0, 0, 0, flags)
+        If Not Topmost Then
+            SetWindowPos(source.Handle, HwndNoTopmost, 0, 0, 0, 0, flags)
+        End If
     End Sub
 
     Public Sub ApplyDisplaySettings()
@@ -137,9 +180,10 @@ Public Class PropertyOverlayWindow
         Root.Background = New WpfMedia.SolidColorBrush(WpfMedia.Color.FromArgb(alpha, 255, 255, 255))
         TitleText.Foreground = WpfMedia.Brushes.Black
 
+        Dim propertyTextBrush As WpfMedia.Brush = GetPropertyTextBrush()
         For Each row As WpfControls.Grid In PropertyPanel.Children.OfType(Of WpfControls.Grid)()
             For Each text As WpfControls.TextBlock In row.Children.OfType(Of WpfControls.TextBlock)()
-                text.Foreground = WpfMedia.Brushes.Black
+                text.Foreground = propertyTextBrush
             Next
         Next
 
@@ -239,8 +283,8 @@ Public Class PropertyOverlayWindow
     End Function
 
     Private Sub AddPropertyRow(propName As String, propValue As String)
-        Dim row As New WpfControls.Grid() With {.Margin = New Wpf.Thickness(0, 3, 0, 3)}
-        row.ColumnDefinitions.Add(New WpfControls.ColumnDefinition() With {.Width = New Wpf.GridLength(126)})
+        Dim row As New WpfControls.Grid() With {.Margin = New Wpf.Thickness(0, 1, 0, 1)}
+        row.ColumnDefinitions.Add(New WpfControls.ColumnDefinition() With {.Width = New Wpf.GridLength(92)})
         row.ColumnDefinitions.Add(New WpfControls.ColumnDefinition() With {.Width = New Wpf.GridLength(1, Wpf.GridUnitType.Star)})
         AddCellText(row, propName, 0, True)
         AddCellText(row, If(propValue, ""), 1, False)
@@ -250,16 +294,28 @@ Public Class PropertyOverlayWindow
     Private Sub AddCellText(grid As WpfControls.Grid, text As String, column As Integer, isName As Boolean)
         Dim tb As New WpfControls.TextBlock() With {
             .Text = text,
-            .FontSize = If(isName, 13, 12),
-            .FontWeight = If(isName, Wpf.FontWeights.SemiBold, Wpf.FontWeights.Normal),
-            .Foreground = WpfMedia.Brushes.Black,
+            .FontFamily = New WpfMedia.FontFamily("Microsoft YaHei"),
+            .FontSize = 15,
+            .FontWeight = Wpf.FontWeights.Normal,
+            .Foreground = GetPropertyTextBrush(),
             .TextTrimming = Wpf.TextTrimming.CharacterEllipsis,
             .VerticalAlignment = Wpf.VerticalAlignment.Center,
-            .Margin = New Wpf.Thickness(0, 2, 12, 2)
+            .Margin = If(isName, New Wpf.Thickness(0, 1, 8, 1), New Wpf.Thickness(0, 1, 0, 1))
         }
         WpfControls.Grid.SetColumn(tb, column)
         grid.Children.Add(tb)
     End Sub
+
+    Private Function GetPropertyTextBrush() As WpfMedia.Brush
+        Dim scheme As String = If(My.Settings.Form5_ColorScheme, "")
+        If scheme.Contains(TextByCodes(&H7EC8, &H7AEF, &H7EFF)) OrElse scheme.Contains("缁堢") Then
+            Return New WpfMedia.SolidColorBrush(WpfMedia.Color.FromRgb(16, 185, 129))
+        End If
+        If scheme.Contains(TextByCodes(&H767D, &H5B57)) OrElse scheme.Contains("鐧") Then
+            Return WpfMedia.Brushes.White
+        End If
+        Return WpfMedia.Brushes.Black
+    End Function
 
     Private Sub Window_MouseLeftButtonDown(sender As Object, e As WpfInput.MouseButtonEventArgs)
         If Not My.Settings.Form5_MouseThrough Then DragMove()

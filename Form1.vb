@@ -2,14 +2,20 @@ Imports System.Runtime.InteropServices
 Imports System.Runtime.InteropServices.ComTypes
 Imports System.Diagnostics
 Imports SwConst
+Imports Wpf = System.Windows
+Imports WpfControls = System.Windows.Controls
+Imports WpfInterop = System.Windows.Interop
+Imports WinForms = System.Windows.Forms
 
 Public Class Form1
 
-    Private _statusTimer As Timer
-    Private _trayIcon As NotifyIcon
-    Private _trayMenu As ContextMenuStrip
-    Private _sortProgressForm As Form
-    Private _sortProgressLabel As Label
+    Private _statusTimer As WinForms.Timer
+    Private _trayIcon As WinForms.NotifyIcon
+    Private _trayMenu As WinForms.ContextMenuStrip
+    Private _sortProgressForm As WinForms.Form
+    Private _sortProgressLabel As WinForms.Label
+    Private _allowClose As Boolean
+    Private _mainWindowHandle As IntPtr
 
     ' 全局热键
     Private Const MOD_CONTROL As Integer = &H2
@@ -26,34 +32,22 @@ Public Class Form1
     End Function
 
     ' 另存为 DWG
-    Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-
-        Dim swApp As Object = GetSelectedSwApp()
-        If swApp Is Nothing Then
-            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
-            Exit Sub
-        End If
-
-        Dim part As Object
-        Dim fileName2 As String
-
-        Part = swApp.ActiveDoc
-        fileName2 = Strings.Left(Part.GetPathName, Len(Part.GetPathName) - 7) & ".dwg"
-        Part.SaveAs3(fileName2, 0, 2)
+    Private Sub Button1_Click(sender As Object, e As EventArgs)
+        SaveActiveDrawingAsDwg()
     End Sub
 
-    Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
+    Private Sub Form1_Load(sender As Object, e As Wpf.RoutedEventArgs)
         TopMost = True
-        Button12.Text = "取消置顶"
+        Button12.Content = "取消置顶"
 
         ' 初始化托盘图标
-        _trayMenu = New ContextMenuStrip()
+        _trayMenu = New WinForms.ContextMenuStrip()
         _trayMenu.Items.Add("显示主窗口", Nothing, AddressOf TrayShow_Click)
         _trayMenu.Items.Add("-")
         _trayMenu.Items.Add("退出", Nothing, AddressOf TrayExit_Click)
 
-        _trayIcon = New NotifyIcon() With {
-            .Icon = Me.Icon,
+        _trayIcon = New WinForms.NotifyIcon() With {
+            .Icon = Drawing.SystemIcons.Application,
             .Text = "外部程序",
             .Visible = True,
             .ContextMenuStrip = _trayMenu
@@ -62,14 +56,17 @@ Public Class Form1
 
         RefreshProcessList()
         ConnectToSelectedSw()
-        _statusTimer = New Timer() With {.Interval = 1000}
+        _statusTimer = New WinForms.Timer() With {.Interval = 1000}
         AddHandler _statusTimer.Tick, AddressOf StatusTimer_Tick
         _statusTimer.Start()
     End Sub
 
-    Private Sub Form1_Shown(sender As Object, e As EventArgs) Handles Me.Shown
+    Private Sub Form1_SourceInitialized(sender As Object, e As EventArgs)
+        _mainWindowHandle = New WpfInterop.WindowInteropHelper(Me).Handle
+        Dim source = TryCast(Wpf.PresentationSource.FromVisual(Me), WpfInterop.HwndSource)
+        If source IsNot Nothing Then source.AddHook(AddressOf WndProc)
         ' 窗口句柄就绪后再注册热键
-        If Not RegisterHotKey(Me.Handle, HOTKEY_ID, MOD_CONTROL, VK_F1) Then
+        If Not RegisterHotKey(_mainWindowHandle, HOTKEY_ID, MOD_CONTROL, VK_F1) Then
             MsgBox("快捷键 Ctrl+F1 注册失败，可能已被其他程序占用。")
         End If
     End Sub
@@ -78,17 +75,17 @@ Public Class Form1
         UpdateStatusBar()
     End Sub
 
-    Private Sub Form1_FormClosing(sender As Object, e As FormClosingEventArgs) Handles Me.FormClosing
+    Private Sub Form1_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
         ' 拦截关闭按钮，隐藏到托盘
-        If e.CloseReason = CloseReason.UserClosing Then
+        If Not _allowClose Then
             e.Cancel = True
             Me.Hide()
         End If
     End Sub
 
-    Private Sub Form1_FormClosed(sender As Object, e As FormClosedEventArgs) Handles Me.FormClosed
+    Private Sub Form1_Closed(sender As Object, e As EventArgs)
         ' 清理热键
-        UnregisterHotKey(Me.Handle, HOTKEY_ID)
+        If _mainWindowHandle <> IntPtr.Zero Then UnregisterHotKey(_mainWindowHandle, HOTKEY_ID)
 
         ' 清理托盘图标
         If _trayIcon IsNot Nothing Then
@@ -197,115 +194,70 @@ Public Class Form1
     End Sub
 
     ' 另存为 PDF
-    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+    Private Sub Button2_Click(sender As Object, e As EventArgs)
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
             Exit Sub
         End If
 
-        Dim part As Object
-        Dim fileName2 As String
-
-        part = swApp.ActiveDoc
-        fileName2 = Strings.Left(part.GetPathName, Len(part.GetPathName) - 7) & ".pdf"
-        part.SaveAs3(fileName2, 0, 2)
+        Dim targetPath As String = GetActiveOrSelectedModelPath(swApp)
+        OpenPathInExplorer(targetPath)
     End Sub
 
     ' 在资源管理器中打开文件位置
-    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
-        Dim swApp As Object = GetSelectedSwApp()
-        If swApp Is Nothing Then
-            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
-            Exit Sub
-        End If
-        Dim part As SldWorks.ModelDoc2
-        part = swApp.ActiveDoc
 
-        'Mod = swApp.ModelDoc
+    Private Function GetActiveOrSelectedModelPath(swApp As Object) As String
+        If swApp Is Nothing Then Return ""
+        Dim part As SldWorks.ModelDoc2 = TryCast(swApp.ActiveDoc, SldWorks.ModelDoc2)
+        If part Is Nothing Then Return ""
 
-        If part Is Nothing Then Exit Sub
-        If part.GetType <> 2 Then '零件模型或工程图
-            Shell("explorer.exe /select, " & part.GetPathName, vbNormalFocus)
-        Else
-            Dim swComp As Object   'Component2
-            swComp = part.SelectionManager.GetSelectedObjectsComponent(1)
-            If swComp IsNot Nothing Then '选中了子件
-                Shell("explorer.exe /select, " & swComp.GetPathName, vbNormalFocus)
-            Else
-                Shell("explorer.exe /select, " & part.GetPathName, vbNormalFocus)
+        Try
+            If part.GetType() = CInt(swDocumentTypes_e.swDocASSEMBLY) AndAlso part.SelectionManager IsNot Nothing Then
+                Dim swComp As SldWorks.Component2 = TryCast(part.SelectionManager.GetSelectedObjectsComponent(1), SldWorks.Component2)
+                If swComp IsNot Nothing Then
+                    Dim compPath As String = swComp.GetPathName()
+                    If Not String.IsNullOrWhiteSpace(compPath) Then Return compPath
+                End If
             End If
+        Catch
+        End Try
 
+        Try
+            Return If(part.GetPathName(), "")
+        Catch
+            Return ""
+        End Try
+    End Function
 
+    Private Sub OpenPathInExplorer(targetPath As String)
+        If String.IsNullOrWhiteSpace(targetPath) Then
+            MsgBox("当前文件还没有保存，无法打开目录。")
+            Return
         End If
+
+        If System.IO.File.Exists(targetPath) Then
+            Process.Start(New ProcessStartInfo("explorer.exe", "/select,""" & targetPath & """") With {.UseShellExecute = True})
+            Return
+        End If
+
+        Dim directoryPath As String = If(System.IO.Directory.Exists(targetPath), targetPath, System.IO.Path.GetDirectoryName(targetPath))
+        If String.IsNullOrWhiteSpace(directoryPath) OrElse Not System.IO.Directory.Exists(directoryPath) Then
+            MsgBox("找不到文件所在目录：" & targetPath)
+            Return
+        End If
+
+        Process.Start(New ProcessStartInfo("explorer.exe", """" & directoryPath & """") With {.UseShellExecute = True})
     End Sub
 
+
     ' 写入下料尺寸属性
-    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
-        ' 使用下拉选择的 SolidWorks 实例
-        Dim swApp As Object
-        swApp = GetSelectedSwApp()
-        If swApp Is Nothing Then
-            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
-            Exit Sub
-        End If
-
-        Dim part As SldWorks.ModelDoc2
-        part = swApp.ActiveDoc
-        If part Is Nothing Then Exit Sub
-
-        Dim x As Double
-        Dim y As Double
-        Dim z As Double
-
-        Dim c As String
-        Dim corners As Object
-        Dim values(2) As Double
-        If part.GetType = swDocumentTypes_e.swDocPART Then
-            corners = CType(part, SldWorks.PartDoc).GetPartBox(True)
-        Else
-            corners = CType(part, SldWorks.AssemblyDoc).GetBox(swBoundingBoxOptions_e.swBoundingBoxIncludeRefPlanes)
-        End If
-
-        y = corners(4) * 1000 - corners(1) * 1000
-
-        z = corners(5) * 1000 - corners(2) * 1000
-
-        x = corners(3) * 1000 - corners(0) * 1000
-
-
-
-        values(0) = Math.Round(x, 1)
-        values(1) = Math.Round(y, 1)
-        values(2) = Math.Round(z, 1)
-
-        ' 冒泡排序（从小到大）
-        Dim i As Integer, j As Integer
-        For i = 0 To 2
-            For j = i + 1 To 2
-                If values(i) > values(j) Then
-                    Dim temp As Double
-                    temp = values(i)
-                    values(i) = values(j)
-                    values(j) = temp
-                End If
-            Next j
-        Next i
-        'MsgBox "排序结果：" & values(2) & ", " & values(1) & ", " & values(0)
-        c = values(2) & "x" & values(1) & "x" & values(0)
-
-        Dim config As Object
-        Dim cusPropMgr As Object
-        config = part.GetActiveConfiguration
-        cusPropMgr = config.CustomPropertyManager
-        cusPropMgr.Add3("下料尺寸", swCustomInfoType_e.swCustomInfoText, c, swCustomPropertyAddOption_e.swCustomPropertyDeleteAndAdd)
-
-        MarkDocDirty(part)
-
+    Private Sub Button4_Click(sender As Object, e As EventArgs)
+        RotateSelectedDrawingView()
     End Sub
 
     ' 设置绘图标准为 ISO
-    Private Sub Button5_Click(sender As Object, e As EventArgs) Handles Button5.Click
+    Private Sub Button5_Click(sender As Object, e As EventArgs)
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -318,82 +270,82 @@ Public Class Form1
     End Sub
 
     ' 选中工程图中所有悬空标注
-    Private Sub Button7_Click(sender As Object, e As EventArgs) Handles Button7.Click
-        Dim swApp As Object = GetSelectedSwApp()
-        If swApp Is Nothing Then
-            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
-            Exit Sub
-        End If
-        Dim part As SldWorks.ModelDoc2
-        part = swApp.ActiveDoc
-
-        If part.GetType = swDocumentTypes_e.swDocDRAWING Then
-
-            Dim swDraw As SldWorks.DrawingDoc = CType(part, SldWorks.DrawingDoc)
-            Dim vSheetNames As Object
-            Dim swAnn As SldWorks.Annotation
-            Dim i As Double
-
-            part.ClearSelection2(True)
-            vSheetNames = swDraw.GetSheetNames
-            For i = 0 To UBound(vSheetNames)
-                swDraw.ActivateSheet(vSheetNames(i))
-                Dim swview As Object
-                swview = swDraw.GetFirstView()
-
-                Do While swview IsNot Nothing
-                    swAnn = swview.GetFirstAnnotation3
-                    Do While swAnn IsNot Nothing
-                        If swAnn.IsDangling Then
-                            swAnn.Select(True)
-                        End If
-                        swAnn = swAnn.GetNext3
-                    Loop
-                    swview = swview.GetNextView
-                Loop
-            Next i
-        End If
-    End Sub
 
     ' 旋转选中工程图视图 90°
-    Private Sub Button8_Click(sender As Object, e As EventArgs) Handles Button8.Click
-        Dim swApp As Object = GetSelectedSwApp()
-        If swApp Is Nothing Then
-            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
-            Exit Sub
-        End If
-        Dim part As SldWorks.ModelDoc2
-        part = swApp.ActiveDoc
-
-        Dim test As Integer
-        Dim pi As Double
-
-        test = part.GetType
-        pi = 3.14159265358979
-        If test <> swDocumentTypes_e.swDocDRAWING Then
-            swApp.SendMsgToUser2("请在工程图环境下使用", swMessageBoxIcon_e.swMbInformation, swMessageBoxBtn_e.swMbOk)
-            Exit Sub
-        End If
-        Dim swSelMgr As Object
-        Dim swView As Object
-        swSelMgr = part.SelectionManager
-        'On Error GoTo error
-        swView = swSelMgr.GetSelectedObject6(1, -1)
-        If swView Is Nothing Then
-            swApp.SendMsgToUser2("选择一个视图", swMessageBoxIcon_e.swMbInformation, swMessageBoxBtn_e.swMbOk)
-            Exit Sub
-        End If
-        If swView.Angle > 4.5 Then
-            swView.Angle = 0
-        Else
-            swView.Angle += pi / 2
-        End If
-
-        part.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
+    Private Sub Button8_Click(sender As Object, e As EventArgs)
+        SaveActiveDrawingAsPdf()
     End Sub
 
     ' 同步物料编码/零件图号/文件名称属性
-    Private Sub Button9_Click(sender As Object, e As EventArgs) Handles Button9.Click
+    Private Sub SaveActiveDrawingAsDwg()
+        SaveActiveDrawingAs(".dwg", "DWG")
+    End Sub
+
+    Private Sub SaveActiveDrawingAsPdf()
+        SaveActiveDrawingAs(".pdf", "PDF")
+    End Sub
+
+    Private Sub SaveActiveDrawingAs(extension As String, formatName As String)
+        Dim swApp As Object = GetSelectedSwApp()
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+
+        Dim part As SldWorks.ModelDoc2 = TryCast(swApp.ActiveDoc, SldWorks.ModelDoc2)
+        If part Is Nothing Then
+            MsgBox("请先在 SolidWorks 中打开一个工程图。")
+            Exit Sub
+        End If
+        If part.GetType() <> swDocumentTypes_e.swDocDRAWING Then
+            swApp.SendMsgToUser2("请在工程图环境下使用", swMessageBoxIcon_e.swMbInformation, swMessageBoxBtn_e.swMbOk)
+            Exit Sub
+        End If
+
+        Dim docPath As String = part.GetPathName()
+        If String.IsNullOrWhiteSpace(docPath) Then
+            MsgBox("当前工程图还没有保存，无法另存 " & formatName & "。")
+            Exit Sub
+        End If
+
+        Dim outputPath As String = IO.Path.ChangeExtension(docPath, extension)
+        part.SaveAs3(outputPath, 0, 2)
+    End Sub
+
+    Private Sub RotateSelectedDrawingView()
+        Dim swApp As Object = GetSelectedSwApp()
+        If swApp Is Nothing Then
+            MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
+            Exit Sub
+        End If
+
+        Dim part As SldWorks.ModelDoc2 = TryCast(swApp.ActiveDoc, SldWorks.ModelDoc2)
+        If part Is Nothing Then
+            MsgBox("请先在 SolidWorks 中打开一个工程图。")
+            Exit Sub
+        End If
+        If part.GetType() <> swDocumentTypes_e.swDocDRAWING Then
+            swApp.SendMsgToUser2("请在工程图环境下使用", swMessageBoxIcon_e.swMbInformation, swMessageBoxBtn_e.swMbOk)
+            Exit Sub
+        End If
+
+        Dim swSelMgr As SldWorks.SelectionMgr = part.SelectionManager
+        Dim swView As SldWorks.View = TryCast(swSelMgr.GetSelectedObject6(1, -1), SldWorks.View)
+        If swView Is Nothing Then
+            swApp.SendMsgToUser2("请选择一个视图", swMessageBoxIcon_e.swMbInformation, swMessageBoxBtn_e.swMbOk)
+            Exit Sub
+        End If
+
+        If swView.Angle > 4.5 Then
+            swView.Angle = 0
+        Else
+            swView.Angle += Math.PI / 2
+        End If
+        part.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, False, 0, Nothing, 0)
+        MarkDocDirty(part)
+    End Sub
+
+    Private Sub Button9_Click(sender As Object, e As EventArgs)
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -433,9 +385,9 @@ Public Class Form1
 
     End Sub
 
-    
+
     ' FeatureManager 显示设置（隐藏配置/显示状态名称，递归）
-    Private Sub Button11_Click(sender As Object, e As EventArgs) Handles Button11.Click
+    Private Sub Button11_Click(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -474,17 +426,17 @@ Public Class Form1
 
         configuration = asmDoc.GetActiveConfiguration
         rootComponent = configuration.GetRootComponent
-        comps = rootComponent.GetChildren  ‘’获取目录树
+        comps = rootComponent.GetChildren  '’获取目录树
 
         For Each child In comps
             childModel = child.GetModelDoc
             If Not (childModel Is Nothing) Then
                 childType = childModel.GetType
 
-                If childType = swDocumentTypes_e.swDocPART Then  ‘处理零件
+                If childType = swDocumentTypes_e.swDocPART Then  '处理零件
 
                 End If
-                If childType = swDocumentTypes_e.swDocASSEMBLY Then ‘ 装配体遍历
+                If childType = swDocumentTypes_e.swDocASSEMBLY Then ' 装配体遍历
                     fopen = swApp.OpenDoc6(child.GetPathName, swDocumentTypes_e.swDocASSEMBLY, swOpenDocOptions_e.swOpenDocOptions_Silent, "", longstatus, longWarnings)
 
                     If longstatus = 0 Then
@@ -506,19 +458,19 @@ Public Class Form1
     End Function
 
     ' 切换窗口置顶
-    Private Sub Button12_Click(sender As Object, e As EventArgs) Handles Button12.Click
+    Private Sub Button12_Click(sender As Object, e As EventArgs)
         TopMost = Not TopMost
 
         ' 根据状态更新按钮文本
         If TopMost Then
-            Button12.Text = "取消置顶"
+            Button12.Content = "取消置顶"
         Else
-            Button12.Text = "置顶"
+            Button12.Content = "置顶"
         End If
     End Sub
 
     ' 设计树排序（文件夹分组 + 递归子装配体）
-    Private Sub Button13_Click(sender As Object, e As EventArgs) Handles Button13.Click
+    Private Sub Button13_Click(sender As Object, e As EventArgs)
         Dim swApp As Object = GetSelectedSwApp()
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -538,125 +490,125 @@ Public Class Form1
 
         ShowSortProgress("正在准备装配体排序...")
         Try
-        Dim Configuration As SldWorks.Configuration
-        Configuration = Part.GetConfigurationByName(Part.GetActiveConfiguration.Name)
+            Dim Configuration As SldWorks.Configuration
+            Configuration = Part.GetConfigurationByName(Part.GetActiveConfiguration.Name)
 
-        Dim c As String
-        c = Part.GetTitle()
-        If InStr(c, ".") > 0 Then
-            c = Strings.Left(c, Len(c) - 7)
-        End If
+            Dim c As String
+            c = Part.GetTitle()
+            If InStr(c, ".") > 0 Then
+                c = Strings.Left(c, Len(c) - 7)
+            End If
 
-        ' === 单次遍历，按文件夹开始/结束标记分组 ===
-        UpdateSortProgress("正在读取设计树...")
-        Dim vFeats As Object = Part.FeatureManager.GetFeatures(True)
-        Dim modelDoc2 As SldWorks.ModelDoc2 = swApp.ActiveDoc
-        Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc2, SldWorks.AssemblyDoc)
+            ' === 单次遍历，按文件夹开始/结束标记分组 ===
+            UpdateSortProgress("正在读取设计树...")
+            Dim vFeats As Object = Part.FeatureManager.GetFeatures(True)
+            Dim modelDoc2 As SldWorks.ModelDoc2 = swApp.ActiveDoc
+            Dim assemblyDoc As SldWorks.AssemblyDoc = CType(modelDoc2, SldWorks.AssemblyDoc)
 
-        Dim folders As New List(Of SldWorks.Feature)()
-        Dim folderComponents As New List(Of List(Of SldWorks.Feature))()
-        Dim topLevelFeats As New List(Of SldWorks.Feature)()
-        Dim suppressedEnvFeats As New List(Of SldWorks.Feature)()
-        Dim currentFolderComps As List(Of SldWorks.Feature) = Nothing
+            Dim folders As New List(Of SldWorks.Feature)()
+            Dim folderComponents As New List(Of List(Of SldWorks.Feature))()
+            Dim topLevelFeats As New List(Of SldWorks.Feature)()
+            Dim suppressedEnvFeats As New List(Of SldWorks.Feature)()
+            Dim currentFolderComps As List(Of SldWorks.Feature) = Nothing
 
-        ' 遍历范围：原点之后、MateGroup 之前
-        Dim startIdx As Integer = -1
-        Dim endIdx As Integer = UBound(vFeats)
-        For i = 0 To UBound(vFeats)
-            Dim t As String = vFeats(i).GetTypeName2
-            If startIdx < 0 AndAlso t = "OriginProfileFeature" Then startIdx = i + 1
-            If t = "MateGroup" Then endIdx = i - 1 : Exit For
-        Next
-        If startIdx < 0 Then startIdx = 0
+            ' 遍历范围：原点之后、MateGroup 之前
+            Dim startIdx As Integer = -1
+            Dim endIdx As Integer = UBound(vFeats)
+            For i = 0 To UBound(vFeats)
+                Dim t As String = vFeats(i).GetTypeName2
+                If startIdx < 0 AndAlso t = "OriginProfileFeature" Then startIdx = i + 1
+                If t = "MateGroup" Then endIdx = i - 1 : Exit For
+            Next
+            If startIdx < 0 Then startIdx = 0
 
-        UpdateSortProgress("正在分组组件...")
-        For i = startIdx To endIdx
-            Dim featType As String = vFeats(i).GetTypeName2
-            If featType = "FtrFolder" Then
-                If Not vFeats(i).Name.Contains("___EndTag___") Then
-                    folders.Add(vFeats(i))
-                    currentFolderComps = New List(Of SldWorks.Feature)()
-                    folderComponents.Add(currentFolderComps)
-                Else
-                    currentFolderComps = Nothing
-                End If
-            ElseIf featType = "Reference" Then
-                Dim isSupOrEnv As Boolean = False
-                Try
-                    Dim comp As SldWorks.Component2 = TryCast(vFeats(i).GetSpecificFeature2, SldWorks.Component2)
-                    If comp IsNot Nothing Then
-                        isSupOrEnv = comp.IsSuppressed() OrElse comp.IsEnvelope()
+            UpdateSortProgress("正在分组组件...")
+            For i = startIdx To endIdx
+                Dim featType As String = vFeats(i).GetTypeName2
+                If featType = "FtrFolder" Then
+                    If Not vFeats(i).Name.Contains("___EndTag___") Then
+                        folders.Add(vFeats(i))
+                        currentFolderComps = New List(Of SldWorks.Feature)()
+                        folderComponents.Add(currentFolderComps)
+                    Else
+                        currentFolderComps = Nothing
                     End If
-                Catch
-                End Try
-                If isSupOrEnv Then
-                    If currentFolderComps IsNot Nothing Then
+                ElseIf featType = "Reference" Then
+                    Dim isSupOrEnv As Boolean = False
+                    Try
+                        Dim comp As SldWorks.Component2 = TryCast(vFeats(i).GetSpecificFeature2, SldWorks.Component2)
+                        If comp IsNot Nothing Then
+                            isSupOrEnv = comp.IsSuppressed() OrElse comp.IsEnvelope()
+                        End If
+                    Catch
+                    End Try
+                    If isSupOrEnv Then
+                        If currentFolderComps IsNot Nothing Then
+                            currentFolderComps.Add(vFeats(i))
+                        Else
+                            suppressedEnvFeats.Add(vFeats(i))
+                        End If
+                    ElseIf currentFolderComps IsNot Nothing Then
                         currentFolderComps.Add(vFeats(i))
                     Else
-                        suppressedEnvFeats.Add(vFeats(i))
+                        topLevelFeats.Add(vFeats(i))
                     End If
-                ElseIf currentFolderComps IsNot Nothing Then
-                    currentFolderComps.Add(vFeats(i))
-                Else
-                    topLevelFeats.Add(vFeats(i))
                 End If
-            End If
-        Next i
-
-        ' 收集顶层组件名称
-        Dim partComps As New List(Of SldWorks.Component2)()
-        Dim asmComps As New List(Of SldWorks.Component2)()
-        For Each feat In topLevelFeats
-            CollectComponent(feat, partComps, asmComps)
-        Next
-
-        ' 收集封套/压缩组件名称
-        Dim supPartComps As New List(Of SldWorks.Component2)()
-        Dim supAsmComps As New List(Of SldWorks.Component2)()
-        For Each feat In suppressedEnvFeats
-            CollectComponent(feat, supPartComps, supAsmComps)
-        Next
-
-        ' === 排序顶层组件，放到最后一个文件夹后面 ===
-        UpdateSortProgress("正在排序顶层组件...")
-        SortComponentsByName(asmComps)
-        SortComponentsByName(partComps)
-        SortComponentsByName(supAsmComps)
-        SortComponentsByName(supPartComps)
-
-        Dim componentsToMove As New List(Of SldWorks.Component2)(asmComps)
-        componentsToMove.AddRange(partComps)
-        componentsToMove.AddRange(supAsmComps)
-        componentsToMove.AddRange(supPartComps)
-
-        If componentsToMove.Count > 0 Then
-            Dim lastFolder As SldWorks.Feature = If(folders.Count > 0, folders(folders.Count - 1), Nothing)
-            If lastFolder IsNot Nothing Then
-                assemblyDoc.ReorderComponents(componentsToMove(0), lastFolder, SwConst.swReorderComponentsWhere_e.swReorderComponents_after)
-            End If
-            For i = 1 To componentsToMove.Count - 1
-                assemblyDoc.ReorderComponents(componentsToMove(i), componentsToMove(i - 1), 1) ' Below
             Next i
-        End If
 
-        ' === 排序每个文件夹内的组件 ===
-        UpdateSortProgress("正在排序文件夹内组件...")
-        For Each f As SldWorks.Feature In folders
-            SortComponentsInFolder(f, c, assemblyDoc)
-        Next
+            ' 收集顶层组件名称
+            Dim partComps As New List(Of SldWorks.Component2)()
+            Dim asmComps As New List(Of SldWorks.Component2)()
+            For Each feat In topLevelFeats
+                CollectComponent(feat, partComps, asmComps)
+            Next
 
-        ' === 递归处理子装配体 ===
-        UpdateSortProgress("正在排序子装配体...")
-        Dim processedPaths As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
-        RecursiveSortSubAssemblies(topLevelFeats, processedPaths)
-        For Each fc In folderComponents
-            RecursiveSortSubAssemblies(fc, processedPaths)
-        Next
+            ' 收集封套/压缩组件名称
+            Dim supPartComps As New List(Of SldWorks.Component2)()
+            Dim supAsmComps As New List(Of SldWorks.Component2)()
+            For Each feat In suppressedEnvFeats
+                CollectComponent(feat, supPartComps, supAsmComps)
+            Next
 
-        UpdateSortProgress("正在刷新装配体...")
-        Part.EditRebuild3()
-        Part.ClearSelection2(True)
-        ShowAutoCloseNotice("装配体排序完成")
+            ' === 排序顶层组件，放到最后一个文件夹后面 ===
+            UpdateSortProgress("正在排序顶层组件...")
+            SortComponentsByName(asmComps)
+            SortComponentsByName(partComps)
+            SortComponentsByName(supAsmComps)
+            SortComponentsByName(supPartComps)
+
+            Dim componentsToMove As New List(Of SldWorks.Component2)(asmComps)
+            componentsToMove.AddRange(partComps)
+            componentsToMove.AddRange(supAsmComps)
+            componentsToMove.AddRange(supPartComps)
+
+            If componentsToMove.Count > 0 Then
+                Dim lastFolder As SldWorks.Feature = If(folders.Count > 0, folders(folders.Count - 1), Nothing)
+                If lastFolder IsNot Nothing Then
+                    assemblyDoc.ReorderComponents(componentsToMove(0), lastFolder, SwConst.swReorderComponentsWhere_e.swReorderComponents_After)
+                End If
+                For i = 1 To componentsToMove.Count - 1
+                    assemblyDoc.ReorderComponents(componentsToMove(i), componentsToMove(i - 1), 1) ' Below
+                Next i
+            End If
+
+            ' === 排序每个文件夹内的组件 ===
+            UpdateSortProgress("正在排序文件夹内组件...")
+            For Each f As SldWorks.Feature In folders
+                SortComponentsInFolder(f, c, assemblyDoc)
+            Next
+
+            ' === 递归处理子装配体 ===
+            UpdateSortProgress("正在排序子装配体...")
+            Dim processedPaths As New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
+            RecursiveSortSubAssemblies(topLevelFeats, processedPaths)
+            For Each fc In folderComponents
+                RecursiveSortSubAssemblies(fc, processedPaths)
+            Next
+
+            UpdateSortProgress("正在刷新装配体...")
+            Part.EditRebuild3()
+            Part.ClearSelection2(True)
+            ShowAutoCloseNotice("装配体排序完成")
         Catch ex As Exception
             MessageBox.Show("装配体排序失败: " & ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error)
         Finally
@@ -717,7 +669,7 @@ Public Class Form1
     ''' <summary>
     ''' 收集 Reference 特征中的零件/装配体名称
     ''' </summary>
-    
+
     Private Sub CollectComponent(swFeat As Object, partComps As List(Of SldWorks.Component2), asmComps As List(Of SldWorks.Component2))
         Dim comp As SldWorks.Component2 = TryCast(swFeat.GetSpecificFeature2, SldWorks.Component2)
         If comp Is Nothing Then Return
@@ -855,7 +807,7 @@ Public Class Form1
 
             If componentsToMove.Count > 0 Then
                 If folders.Count > 0 Then
-                    asmDoc.ReorderComponents(componentsToMove(0), folders(folders.Count - 1), SwConst.swReorderComponentsWhere_e.swReorderComponents_after)
+                    asmDoc.ReorderComponents(componentsToMove(0), folders(folders.Count - 1), SwConst.swReorderComponentsWhere_e.swReorderComponents_After)
                 End If
                 For i = 1 To componentsToMove.Count - 1
                     asmDoc.ReorderComponents(componentsToMove(i), componentsToMove(i - 1), 1)
@@ -877,17 +829,32 @@ Public Class Form1
         End Try
     End Sub
 
-    Private Sub GroupBox2_Enter(sender As Object, e As EventArgs) Handles GroupBox2.Enter
-
-    End Sub
 
     ' 强制结束所有 SolidWorks 进程
-    Private Sub Button10_Click(sender As Object, e As EventArgs) Handles Button10.Click
-        Shell("cmd.exe /c taskkill /F /IM sldworks.exe ", AppWinStyle.Hide)
+    Private Sub Button10_Click(sender As Object, e As EventArgs)
+        Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
+        If info Is Nothing Then
+            MsgBox("请先在下拉列表中选择 SolidWorks 实例。")
+            Exit Sub
+        End If
+
+        Try
+            Dim targetProcess As Process = Process.GetProcessById(info.ProcessId)
+            targetProcess.Kill()
+            targetProcess.WaitForExit(3000)
+            _selectedSwProcess = Nothing
+            _swApp = Nothing
+            RefreshProcessList()
+            UpdateStatusBar()
+            PropertyOverlayWindow.UpdateOpenWindowsSwApp(Nothing)
+            RenameWindow.UpdateOpenWindowsSwApp(Nothing)
+        Catch ex As Exception
+            MsgBox("关闭 SolidWorks 失败：" & ex.Message)
+        End Try
     End Sub
 
     ' 删除自定义属性（递归子件）
-    Private Sub Button6_Click_1(sender As Object, e As EventArgs) Handles Button6.Click
+    Private Sub Button6_Click_1(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -907,13 +874,13 @@ Public Class Form1
         If String.IsNullOrEmpty(docName) Then docName = part.GetTitle()
         Dim wasTopMost As Boolean = TopMost
         TopMost = True
-        Dim confirmResult As DialogResult = MessageBox.Show(
+        Dim confirmResult As WinForms.DialogResult = WinForms.MessageBox.Show(
             "将删除【" & docName & "】及其所有子件的自定义属性，确定继续？",
             "确认删除自定义属性",
-            MessageBoxButtons.OKCancel,
-            MessageBoxIcon.Warning)
+            WinForms.MessageBoxButtons.OKCancel,
+            WinForms.MessageBoxIcon.Warning)
         TopMost = wasTopMost
-        If confirmResult <> DialogResult.OK Then Exit Sub
+        If confirmResult <> WinForms.DialogResult.OK Then Exit Sub
 
         Dim topConfString As String = part.GetActiveConfiguration.Name
         SubAsm(swApp, part, topConfString)
@@ -963,7 +930,7 @@ Public Class Form1
                             fopen.DeleteCustomInfo(vCustInfoName)
                         Next
 
-                  
+
                         fopen.Save3(0, 0, 0)
                     End If
 
@@ -974,12 +941,12 @@ Public Class Form1
                     If longstatus = 0 Then
                         vCustInfoNameArr = fopen.GetConfigurationNames
                         namearr = fopen.GetCustomInfoNames2(“”)
-                      
+
 
                         For Each vCustInfoName In namearr
                             fopen.DeleteCustomInfo(vCustInfoName)
                         Next
-                        
+
                         fopen.Save3(0, 0, 0)
                     End If
 
@@ -990,19 +957,23 @@ Public Class Form1
         Return True
     End Function
 
-    ' 打开绘图标准设置（Form2）
-    Private Sub Button14_Click_1(sender As Object, e As EventArgs) Handles Button14.Click
-        ' 仅打开 Form2（刷新由单独刷新按钮处理）
-        Form2.Show()
-
+    ' 打开绘图标准设置
+    Private Sub Button14_Click_1(sender As Object, e As EventArgs)
+        Dim settingsWindow As New DrawingSettingsWindow()
+        Dim helper As New System.Windows.Interop.WindowInteropHelper(settingsWindow)
+        helper.Owner = _mainWindowHandle
+        settingsWindow.Show()
     End Sub
 
-    Private Sub swProcessCombo_SelectedIndexChanged(sender As Object, e As EventArgs) Handles swProcessCombo.SelectedIndexChanged
+    Private Sub swProcessCombo_SelectedIndexChanged(sender As Object, e As WpfControls.SelectionChangedEventArgs)
         Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
         If info Is Nothing Then
             _selectedSwProcess = Nothing
+            DetachDocEvents()
             _swApp = Nothing
             UpdateStatusBar()
+            PropertyOverlayWindow.UpdateOpenWindowsSwApp(Nothing)
+            RenameWindow.UpdateOpenWindowsSwApp(Nothing)
             Return
         End If
 
@@ -1014,6 +985,7 @@ Public Class Form1
         My.Settings.DefaultSwProcessId = info.ProcessId
         My.Settings.Save()
         ConnectToSelectedSw()
+        Dispatcher.BeginInvoke(New Action(AddressOf SyncOpenSwWindows))
 
         ' 通过 ROT 查找所选进程的 SW COM 实例
     End Sub
@@ -1051,13 +1023,6 @@ Public Class Form1
 
     Private Const SwRestore As Integer = 9
 
-    Private Sub ConnectToSw()
-        Try
-            _swApp = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
-        Catch
-            _swApp = Nothing
-        End Try
-    End Sub
 
     Private Sub ConnectToSelectedSw()
         Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
@@ -1065,6 +1030,8 @@ Public Class Form1
             DetachDocEvents()
             _swApp = Nothing
             UpdateStatusBar()
+            PropertyOverlayWindow.UpdateOpenWindowsSwApp(Nothing)
+            RenameWindow.UpdateOpenWindowsSwApp(Nothing)
             Return
         End If
         Try
@@ -1079,6 +1046,13 @@ Public Class Form1
         _swApp = TryCast(GetSelectedSwApp(True), SldWorks.SldWorks)
         AttachDocEvents()
         UpdateStatusBar()
+        PropertyOverlayWindow.UpdateOpenWindowsSwApp(_swApp)
+        RenameWindow.UpdateOpenWindowsSwApp(_swApp)
+    End Sub
+
+    Private Sub SyncOpenSwWindows()
+        PropertyOverlayWindow.UpdateOpenWindowsSwApp(_swApp)
+        RenameWindow.UpdateOpenWindowsSwApp(_swApp)
     End Sub
 
     Private Function FindSwAppByPid(pid As Integer) As SldWorks.SldWorks
@@ -1199,7 +1173,7 @@ Public Class Form1
             Dim app As SldWorks.SldWorks = CType(Marshal.GetActiveObject("SldWorks.Application"), SldWorks.SldWorks)
             If app IsNot Nothing Then
                 Dim resolvedPid As Integer = GetSwProcessId(app)
-                If resolvedPid = pid OrElse resolvedPid = 0 Then
+                If resolvedPid = pid Then
                     Return app
                 End If
             End If
@@ -1313,6 +1287,9 @@ Public Class Form1
             If targetPid > 0 Then
                 Dim strictApp As SldWorks.SldWorks = FindSwAppByPid(targetPid)
                 If strictApp IsNot Nothing Then Return strictApp
+
+                Dim activeApp As SldWorks.SldWorks = TryGetActiveSwByPid(targetPid)
+                If activeApp IsNot Nothing Then Return activeApp
             End If
 
             Return Nothing
@@ -1398,109 +1375,58 @@ Public Class Form1
     End Class
 
     ' 全局热键处理
-    Protected Overrides Sub WndProc(ByRef m As Message)
-        If m.Msg = WM_HOTKEY AndAlso m.WParam.ToInt32() = HOTKEY_ID Then
+    Private Function WndProc(hwnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As IntPtr, ByRef handled As Boolean) As IntPtr
+        If msg = WM_HOTKEY AndAlso wParam.ToInt32() = HOTKEY_ID Then
             ToggleVisibility()
+            handled = True
         End If
-        MyBase.WndProc(m)
-    End Sub
+        Return IntPtr.Zero
+    End Function
 
     Private Sub ToggleVisibility()
-        If Me.Visible Then
+        If Me.IsVisible Then
             Me.Hide()
         Else
             Me.Show()
-            Me.WindowState = FormWindowState.Normal
-            Me.BringToFront()
+            Me.WindowState = Wpf.WindowState.Normal
+            Me.Activate()
         End If
     End Sub
 
     ' 托盘菜单 — 显示主窗口
     Private Sub TrayShow_Click(sender As Object, e As EventArgs)
         Me.Show()
-        Me.WindowState = FormWindowState.Normal
-        Me.BringToFront()
+        Me.WindowState = Wpf.WindowState.Normal
+        Me.Activate()
     End Sub
 
     ' 托盘菜单 — 退出
     Private Sub TrayExit_Click(sender As Object, e As EventArgs)
-        Application.Exit()
+        _allowClose = True
+        Wpf.Application.Current.Shutdown()
     End Sub
 
-    Private Sub refreshBtn_Click(sender As Object, e As EventArgs) Handles refreshBtn.Click
+    Private Sub refreshBtn_Click(sender As Object, e As EventArgs)
         RefreshProcessList()
         ConnectToSelectedSw()
     End Sub
 
-    Private Sub connectBtn_Click(sender As Object, e As EventArgs)
-        Dim info = TryCast(swProcessCombo.SelectedItem, SwProcessInfo)
-        If info Is Nothing Then
-            MsgBox("请先在下拉列表中选择 SolidWorks 实例。")
-            Return
-        End If
 
-        My.Settings.DefaultSwProcessId = info.ProcessId
-        My.Settings.Save()
-        ConnectToSelectedSw()
-        ShowConnectionDiagnostics(info.ProcessId)
-    End Sub
 
-    Private Sub ShowConnectionDiagnostics(targetPid As Integer)
-        Dim lines As New List(Of String)
-        lines.Add("目标 PID: " & targetPid.ToString())
-        lines.Add("当前选中进程 PID: " & If(_selectedSwProcess Is Nothing, "null", _selectedSwProcess.Id.ToString()))
-        lines.Add("_swApp 是否为空: " & If(_swApp Is Nothing, "是", "否"))
-
-        If _swApp IsNot Nothing Then
-            Dim resolvedPid As Integer = GetSwProcessId(_swApp)
-            lines.Add("COM 解析 PID: " & resolvedPid.ToString())
-            Try
-                Dim doc As SldWorks.ModelDoc2 = TryCast(_swApp.ActiveDoc, SldWorks.ModelDoc2)
-                If doc Is Nothing Then
-                    lines.Add("ActiveDoc: null")
-                Else
-                    lines.Add("ActiveDoc 标题: " & doc.GetTitle())
-                    Dim selCount As Integer = 0
-                    Try
-                        Dim selMgr As SldWorks.SelectionMgr = doc.SelectionManager
-                        If selMgr IsNot Nothing Then selCount = selMgr.GetSelectedObjectCount2(-1)
-                    Catch
-                    End Try
-                    lines.Add("SelectionCount: " & selCount.ToString())
-                End If
-            Catch ex As Exception
-                lines.Add("读取 ActiveDoc 异常: " & ex.Message)
-            End Try
-        End If
-
-        Try
-            Dim direct As Object = Marshal.GetActiveObject("SldWorks.Application")
-            lines.Add("GetActiveObject: 成功")
-            Dim directSw As SldWorks.SldWorks = TryCast(direct, SldWorks.SldWorks)
-            If directSw IsNot Nothing Then lines.Add("GetActiveObject PID: " & GetSwProcessId(directSw).ToString())
-        Catch ex As Exception
-            lines.Add("GetActiveObject: 失败 - " & ex.Message)
-        End Try
-
-        Dim report As String = String.Join(Environment.NewLine, lines)
-        Debug.WriteLine(report)
-        MessageBox.Show(report, "连接诊断", MessageBoxButtons.OK, MessageBoxIcon.Information)
-    End Sub
-
-    ' 打开重命名工具（Form3）
-    Private Sub Button16_Click(sender As Object, e As EventArgs) Handles Button16.Click
+    ' 打开重命名工具
+    Private Sub Button16_Click(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
             Exit Sub
         End If
-        Dim f3 As New Form3()
-        f3.SwApp = swApp
-        f3.Show()
+        Dim renameWindow As New RenameWindow()
+        renameWindow.SwApp = swApp
+        renameWindow.Show()
     End Sub
 
     ' 删除配置属性（递归子件）
-    Private Sub Button17_Click(sender As Object, e As EventArgs) Handles Button17.Click
+    Private Sub Button17_Click(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
@@ -1520,13 +1446,13 @@ Public Class Form1
         If String.IsNullOrEmpty(docName) Then docName = part.GetTitle()
         Dim wasTopMost As Boolean = Me.TopMost
         Me.TopMost = True
-        Dim confirmResult As DialogResult = MessageBox.Show(
+        Dim confirmResult As WinForms.DialogResult = WinForms.MessageBox.Show(
             "将删除【" & docName & "】及其所有子件的配置属性，确定继续？",
             "确认删除配置属性",
-            MessageBoxButtons.OKCancel,
-            MessageBoxIcon.Warning)
+            WinForms.MessageBoxButtons.OKCancel,
+            WinForms.MessageBoxIcon.Warning)
         Me.TopMost = wasTopMost
-        If confirmResult <> DialogResult.OK Then Exit Sub
+        If confirmResult <> WinForms.DialogResult.OK Then Exit Sub
 
         Dim topConfString As String = part.GetActiveConfiguration.Name
         DelConfProps(swApp, part, topConfString)
@@ -1586,33 +1512,33 @@ Public Class Form1
         Return True
     End Function
 
-    ' 打开编码整理工具（Form4）
-    Private Sub Button18_Click(sender As Object, e As EventArgs) Handles Button18.Click
+    ' 打开编码整理工具
+    Private Sub Button18_Click(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
             Exit Sub
         End If
-        Dim f4 As New Form4()
-        f4.SwApp = swApp
-        f4.Show()
+        Dim cleanupWindow As New CodingCleanupWindow()
+        cleanupWindow.SwApp = swApp
+        Dim helper As New System.Windows.Interop.WindowInteropHelper(cleanupWindow)
+        helper.Owner = _mainWindowHandle
+        cleanupWindow.Show()
     End Sub
 
-    ' 打开配置属性透明窗口（Form5）
-    Private Sub Button19_Click(sender As Object, e As EventArgs) Handles Button19.Click
+    ' 打开配置属性透明窗口
+    Private Sub Button19_Click(sender As Object, e As EventArgs)
         Dim swApp As SldWorks.SldWorks = TryCast(GetSelectedSwApp(), SldWorks.SldWorks)
         If swApp Is Nothing Then
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
             Exit Sub
         End If
-        Dim overlay As New PropertyOverlayWindow()
-        overlay.SwApp = swApp
-        overlay.Show()
+        PropertyOverlayWindow.ShowOrActivate(swApp)
     End Sub
-    Private Sub Button20_Click(sender As Object, e As EventArgs) Handles Button20.Click
+    Private Sub Button20_Click(sender As Object, e As EventArgs)
         Dim settingsWindow As New PropertyOverlaySettingsWindow()
         Dim helper As New System.Windows.Interop.WindowInteropHelper(settingsWindow)
-        helper.Owner = Me.Handle
+        helper.Owner = _mainWindowHandle
         settingsWindow.ShowDialog()
     End Sub
 
@@ -1621,30 +1547,29 @@ Public Class Form1
             If _trayIcon IsNot Nothing Then
                 _trayIcon.BalloonTipTitle = title
                 _trayIcon.BalloonTipText = message
-                _trayIcon.BalloonTipIcon = ToolTipIcon.Info
+                _trayIcon.BalloonTipIcon = WinForms.ToolTipIcon.Info
                 _trayIcon.ShowBalloonTip(1800)
                 Return
             End If
         Catch
         End Try
 
-        Dim tip As New ToolTip()
-        tip.Show(message, Me, Me.Width \ 2, Me.Height \ 2, 1800)
+        Wpf.MessageBox.Show(Me, message, title, Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information)
     End Sub
 
     Private Sub ShowSortProgress(message As String)
         CloseSortProgress()
 
-        _sortProgressLabel = New Label() With {
+        _sortProgressLabel = New WinForms.Label() With {
             .AutoSize = False,
-            .Dock = DockStyle.Fill,
-            .Font = New Font("微软雅黑", 10.0!, FontStyle.Bold),
-            .ForeColor = Color.FromArgb(45, 55, 72),
-            .TextAlign = ContentAlignment.MiddleCenter,
+            .Dock = WinForms.DockStyle.Fill,
+            .Font = New Drawing.Font("微软雅黑", 10.0!, Drawing.FontStyle.Bold),
+            .ForeColor = Drawing.Color.FromArgb(45, 55, 72),
+            .TextAlign = Drawing.ContentAlignment.MiddleCenter,
             .Text = message
         }
 
-        _sortProgressForm = New Form() With {
+        _sortProgressForm = New WinForms.Form() With {
             .AutoScaleMode = AutoScaleMode.None,
             .BackColor = Color.White,
             .ClientSize = New Size(280, 76),
@@ -1663,7 +1588,7 @@ Public Class Form1
         Dim y As Integer = Me.Top + Math.Max(0, (Me.Height - _sortProgressForm.Height) \ 2)
         _sortProgressForm.Location = New Point(x, y)
         _sortProgressForm.Controls.Add(_sortProgressLabel)
-        _sortProgressForm.Show(Me)
+        _sortProgressForm.Show()
         _sortProgressForm.Refresh()
         Application.DoEvents()
     End Sub

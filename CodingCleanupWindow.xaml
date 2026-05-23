@@ -1,0 +1,83 @@
+<Window x:Class="CodingCleanupWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="编码整理"
+        Width="390"
+        Height="340"
+        MinWidth="370"
+        MinHeight="320"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="NoResize"
+        Background="#F8FAFC"
+        FontFamily="Microsoft YaHei"
+        Loaded="Window_Loaded">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="名称筛选（可选）"
+                   FontSize="13"
+                   Foreground="Black" />
+        <TextBox x:Name="NameFilterBox"
+                 Grid.Row="1"
+                 Height="30"
+                 Margin="0,5,0,14"
+                 VerticalContentAlignment="Center"
+                 LostFocus="NameFilterBox_LostFocus"
+                 KeyDown="NameFilterBox_KeyDown" />
+
+        <StackPanel Grid.Row="2" Margin="0,0,0,14">
+            <TextBlock Text="处理范围"
+                       FontSize="13"
+                       Foreground="Black"
+                       Margin="0,0,0,6" />
+            <StackPanel Orientation="Horizontal">
+                <CheckBox x:Name="ProcessAsmCheck"
+                          Content="处理装配体"
+                          Margin="0,0,22,0"
+                          Checked="SettingCheck_Changed"
+                          Unchecked="SettingCheck_Changed" />
+                <CheckBox x:Name="ProcessPartCheck"
+                          Content="处理零件"
+                          Checked="SettingCheck_Changed"
+                          Unchecked="SettingCheck_Changed" />
+            </StackPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Margin="0,0,0,10">
+            <TextBlock Text="排除条件"
+                       FontSize="13"
+                       Foreground="Black"
+                       Margin="0,0,0,6" />
+            <CheckBox x:Name="ExcludeVirtualCheck"
+                      Content="排除虚拟装配体"
+                      Margin="0,0,0,7"
+                      Checked="SettingCheck_Changed"
+                      Unchecked="SettingCheck_Changed" />
+            <CheckBox x:Name="ExcludeStandardCheck"
+                      Content="排除标准件"
+                      Margin="0,0,0,7"
+                      Checked="SettingCheck_Changed"
+                      Unchecked="SettingCheck_Changed" />
+            <CheckBox x:Name="ExcludePurchasedCheck"
+                      Content="排除外购件"
+                      Checked="SettingCheck_Changed"
+                      Unchecked="SettingCheck_Changed" />
+        </StackPanel>
+
+        <Button Grid.Row="4"
+                x:Name="ExecuteButton"
+                Content="执行编码整理"
+                Width="150"
+                Height="34"
+                HorizontalAlignment="Center"
+                Click="ExecuteButton_Click" />
+    </Grid>
+</Window>
