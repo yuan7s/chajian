@@ -29,6 +29,10 @@ Partial Class Form6
         Me.ChkTopMost = New System.Windows.Forms.CheckBox()
         Me.ChkMouseThrough = New System.Windows.Forms.CheckBox()
         Me.BtnClose = New System.Windows.Forms.Button()
+        Me.LabelDisplayMode = New System.Windows.Forms.Label()
+        Me.CboDisplayMode = New System.Windows.Forms.ComboBox()
+        Me.LabelPropSource = New System.Windows.Forms.Label()
+        Me.CboPropSource = New System.Windows.Forms.ComboBox()
         CType(Me.TrackBarOpacity, System.ComponentModel.ISupportInitialize).BeginInit()
         Me.SuspendLayout()
         '
@@ -74,7 +78,7 @@ Partial Class Form6
         'LabelKeyProps
         '
         Me.LabelKeyProps.AutoSize = True
-        Me.LabelKeyProps.Location = New System.Drawing.Point(12, 145)
+        Me.LabelKeyProps.Location = New System.Drawing.Point(12, 205)
         Me.LabelKeyProps.Name = "LabelKeyProps"
         Me.LabelKeyProps.Size = New System.Drawing.Size(80, 17)
         Me.LabelKeyProps.TabIndex = 4
@@ -82,14 +86,14 @@ Partial Class Form6
         '
         'TxtNewKey
         '
-        Me.TxtNewKey.Location = New System.Drawing.Point(12, 165)
+        Me.TxtNewKey.Location = New System.Drawing.Point(12, 225)
         Me.TxtNewKey.Name = "TxtNewKey"
         Me.TxtNewKey.Size = New System.Drawing.Size(180, 23)
         Me.TxtNewKey.TabIndex = 5
         '
         'BtnAddKey
         '
-        Me.BtnAddKey.Location = New System.Drawing.Point(198, 164)
+        Me.BtnAddKey.Location = New System.Drawing.Point(198, 224)
         Me.BtnAddKey.Name = "BtnAddKey"
         Me.BtnAddKey.Size = New System.Drawing.Size(65, 25)
         Me.BtnAddKey.TabIndex = 6
@@ -100,14 +104,14 @@ Partial Class Form6
         '
         Me.LstKeyProps.FormattingEnabled = True
         Me.LstKeyProps.ItemHeight = 17
-        Me.LstKeyProps.Location = New System.Drawing.Point(12, 195)
+        Me.LstKeyProps.Location = New System.Drawing.Point(12, 255)
         Me.LstKeyProps.Name = "LstKeyProps"
         Me.LstKeyProps.Size = New System.Drawing.Size(185, 106)
         Me.LstKeyProps.TabIndex = 7
         '
         'BtnDelKey
         '
-        Me.BtnDelKey.Location = New System.Drawing.Point(203, 195)
+        Me.BtnDelKey.Location = New System.Drawing.Point(203, 255)
         Me.BtnDelKey.Name = "BtnDelKey"
         Me.BtnDelKey.Size = New System.Drawing.Size(60, 25)
         Me.BtnDelKey.TabIndex = 8
@@ -117,7 +121,7 @@ Partial Class Form6
         'ChkTopMost
         '
         Me.ChkTopMost.AutoSize = True
-        Me.ChkTopMost.Location = New System.Drawing.Point(12, 315)
+        Me.ChkTopMost.Location = New System.Drawing.Point(12, 375)
         Me.ChkTopMost.Name = "ChkTopMost"
         Me.ChkTopMost.Size = New System.Drawing.Size(75, 21)
         Me.ChkTopMost.TabIndex = 9
@@ -127,7 +131,7 @@ Partial Class Form6
         'ChkMouseThrough
         '
         Me.ChkMouseThrough.AutoSize = True
-        Me.ChkMouseThrough.Location = New System.Drawing.Point(103, 315)
+        Me.ChkMouseThrough.Location = New System.Drawing.Point(103, 375)
         Me.ChkMouseThrough.Name = "ChkMouseThrough"
         Me.ChkMouseThrough.Size = New System.Drawing.Size(75, 21)
         Me.ChkMouseThrough.TabIndex = 10
@@ -136,18 +140,60 @@ Partial Class Form6
         '
         'BtnClose
         '
-        Me.BtnClose.Location = New System.Drawing.Point(188, 311)
+        Me.BtnClose.Location = New System.Drawing.Point(188, 371)
         Me.BtnClose.Name = "BtnClose"
         Me.BtnClose.Size = New System.Drawing.Size(75, 30)
         Me.BtnClose.TabIndex = 11
         Me.BtnClose.Text = "关闭"
         Me.BtnClose.UseVisualStyleBackColor = True
         '
+        'LabelDisplayMode
+        '
+        Me.LabelDisplayMode.AutoSize = True
+        Me.LabelDisplayMode.Location = New System.Drawing.Point(12, 145)
+        Me.LabelDisplayMode.Name = "LabelDisplayMode"
+        Me.LabelDisplayMode.Size = New System.Drawing.Size(56, 17)
+        Me.LabelDisplayMode.TabIndex = 12
+        Me.LabelDisplayMode.Text = "显示范围"
+        '
+        'CboDisplayMode
+        '
+        Me.CboDisplayMode.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.CboDisplayMode.FormattingEnabled = True
+        Me.CboDisplayMode.Items.AddRange(New Object() {"关键属性", "全部属性"})
+        Me.CboDisplayMode.Location = New System.Drawing.Point(12, 165)
+        Me.CboDisplayMode.Name = "CboDisplayMode"
+        Me.CboDisplayMode.Size = New System.Drawing.Size(100, 25)
+        Me.CboDisplayMode.TabIndex = 13
+        '
+        'LabelPropSource
+        '
+        Me.LabelPropSource.AutoSize = True
+        Me.LabelPropSource.Location = New System.Drawing.Point(132, 145)
+        Me.LabelPropSource.Name = "LabelPropSource"
+        Me.LabelPropSource.Size = New System.Drawing.Size(56, 17)
+        Me.LabelPropSource.TabIndex = 14
+        Me.LabelPropSource.Text = "属性来源"
+        '
+        'CboPropSource
+        '
+        Me.CboPropSource.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList
+        Me.CboPropSource.FormattingEnabled = True
+        Me.CboPropSource.Items.AddRange(New Object() {"配置属性", "自定义属性"})
+        Me.CboPropSource.Location = New System.Drawing.Point(132, 165)
+        Me.CboPropSource.Name = "CboPropSource"
+        Me.CboPropSource.Size = New System.Drawing.Size(100, 25)
+        Me.CboPropSource.TabIndex = 15
+        '
         'Form6
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(7.0!, 17.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
-        Me.ClientSize = New System.Drawing.Size(278, 353)
+        Me.ClientSize = New System.Drawing.Size(278, 413)
+        Me.Controls.Add(Me.CboPropSource)
+        Me.Controls.Add(Me.LabelPropSource)
+        Me.Controls.Add(Me.CboDisplayMode)
+        Me.Controls.Add(Me.LabelDisplayMode)
         Me.Controls.Add(Me.BtnClose)
         Me.Controls.Add(Me.ChkMouseThrough)
         Me.Controls.Add(Me.ChkTopMost)
@@ -184,4 +230,8 @@ Partial Class Form6
     Friend WithEvents ChkTopMost As System.Windows.Forms.CheckBox
     Friend WithEvents ChkMouseThrough As System.Windows.Forms.CheckBox
     Friend WithEvents BtnClose As System.Windows.Forms.Button
+    Friend WithEvents LabelDisplayMode As System.Windows.Forms.Label
+    Friend WithEvents CboDisplayMode As System.Windows.Forms.ComboBox
+    Friend WithEvents LabelPropSource As System.Windows.Forms.Label
+    Friend WithEvents CboPropSource As System.Windows.Forms.ComboBox
 End Class

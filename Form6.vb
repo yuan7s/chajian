@@ -6,31 +6,45 @@ Public Class Form6
         CboColorScheme.SelectedItem = My.Settings.Form5_ColorScheme
         ChkTopMost.Checked = My.Settings.Form5_TopMost
         ChkMouseThrough.Checked = My.Settings.Form5_MouseThrough
+        CboDisplayMode.SelectedItem = If(My.Settings.Form5_ShowKeyOnly, "关键属性", "全部属性")
+        CboPropSource.SelectedItem = If(My.Settings.Form5_ShowCustomProps, "自定义属性", "配置属性")
         LoadKeyProperties()
     End Sub
 
     Private Sub TrackBarOpacity_Scroll(sender As Object, e As EventArgs) Handles TrackBarOpacity.Scroll
-        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
-    End Sub
-
-    Private Sub TrackBarOpacity_MouseUp(sender As Object, e As MouseEventArgs) Handles TrackBarOpacity.MouseUp
-        My.Settings.Form5_Opacity = TrackBarOpacity.Value / 100.0
-        My.Settings.Save()
+        SaveOpacitySetting()
     End Sub
 
     Private Sub CboColorScheme_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboColorScheme.SelectedIndexChanged
         My.Settings.Form5_ColorScheme = CboColorScheme.SelectedItem.ToString()
         My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
     End Sub
 
     Private Sub ChkTopMost_CheckedChanged(sender As Object, e As EventArgs) Handles ChkTopMost.CheckedChanged
         My.Settings.Form5_TopMost = ChkTopMost.Checked
         My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
     End Sub
 
     Private Sub ChkMouseThrough_CheckedChanged(sender As Object, e As EventArgs) Handles ChkMouseThrough.CheckedChanged
         My.Settings.Form5_MouseThrough = ChkMouseThrough.Checked
         My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
+    End Sub
+
+    Private Sub CboDisplayMode_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboDisplayMode.SelectedIndexChanged
+        If CboDisplayMode.SelectedItem Is Nothing Then Return
+        My.Settings.Form5_ShowKeyOnly = CboDisplayMode.SelectedItem.ToString() = "关键属性"
+        My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
+    End Sub
+
+    Private Sub CboPropSource_SelectedIndexChanged(sender As Object, e As EventArgs) Handles CboPropSource.SelectedIndexChanged
+        If CboPropSource.SelectedItem Is Nothing Then Return
+        My.Settings.Form5_ShowCustomProps = CboPropSource.SelectedItem.ToString() = "自定义属性"
+        My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
     End Sub
 
     Private Sub LoadKeyProperties()
@@ -52,6 +66,7 @@ Public Class Form6
         Dim items = LstKeyProps.Items.Cast(Of String)().ToArray()
         My.Settings.Form5_KeyProperties = String.Join(",", items)
         My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
     End Sub
 
     Private Sub BtnAddKey_Click(sender As Object, e As EventArgs) Handles BtnAddKey.Click
@@ -71,5 +86,22 @@ Public Class Form6
 
     Private Sub BtnClose_Click(sender As Object, e As EventArgs) Handles BtnClose.Click
         Me.Close()
+    End Sub
+
+    Private Sub SaveOpacitySetting()
+        LabelOpacity.Text = "透明度: " & TrackBarOpacity.Value & "%"
+        My.Settings.Form5_Opacity = TrackBarOpacity.Value / 100.0
+        My.Settings.Save()
+        ApplyForm5SettingsToOpenWindows()
+    End Sub
+
+    Private Sub ApplyForm5SettingsToOpenWindows()
+        For Each f As Form In Application.OpenForms
+            Dim propForm As Form5 = TryCast(f, Form5)
+            If propForm IsNot Nothing AndAlso Not propForm.IsDisposed Then
+                propForm.ApplyDisplaySettings()
+            End If
+        Next
+        PropertyOverlayWindow.ApplySettingsToOpenWindows()
     End Sub
 End Class

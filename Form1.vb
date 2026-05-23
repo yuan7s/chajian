@@ -1033,6 +1033,10 @@ Public Class Form1
     Private Shared Function ShowWindow(hWnd As IntPtr, nCmdShow As Integer) As Boolean
     End Function
 
+    <DllImport("user32.dll")>
+    Private Shared Function IsIconic(hWnd As IntPtr) As Boolean
+    End Function
+
     <DllImport("user32.dll", CharSet:=CharSet.Auto, SetLastError:=True)>
     Private Shared Function GetWindowText(hWnd As IntPtr, lpString As System.Text.StringBuilder, nMaxCount As Integer) As Integer
     End Function
@@ -1184,7 +1188,7 @@ Public Class Form1
             If p IsNot Nothing Then
                 Dim h As IntPtr = p.MainWindowHandle
                 If h <> IntPtr.Zero Then
-                    ShowWindow(h, SwRestore)
+                    If IsIconic(h) Then ShowWindow(h, SwRestore)
                     SetForegroundWindow(h)
                 End If
             End If
@@ -1301,7 +1305,7 @@ Public Class Form1
             If bringToFront AndAlso _selectedSwProcess IsNot Nothing Then
                 Dim h = _selectedSwProcess.MainWindowHandle
                 If h <> IntPtr.Zero Then
-                    ShowWindow(h, SwRestore)
+                    If IsIconic(h) Then ShowWindow(h, SwRestore)
                     SetForegroundWindow(h)
                 End If
             End If
@@ -1601,13 +1605,15 @@ Public Class Form1
             MsgBox("请先从下拉列表选择一个 SolidWorks 实例并确保它处于活动状态。")
             Exit Sub
         End If
-        Dim f5 As New Form5()
-        f5.SwApp = swApp
-        f5.Show()
+        Dim overlay As New PropertyOverlayWindow()
+        overlay.SwApp = swApp
+        overlay.Show()
     End Sub
     Private Sub Button20_Click(sender As Object, e As EventArgs) Handles Button20.Click
-        Dim f6 As New Form6()
-        f6.ShowDialog(Me)
+        Dim settingsWindow As New PropertyOverlaySettingsWindow()
+        Dim helper As New System.Windows.Interop.WindowInteropHelper(settingsWindow)
+        helper.Owner = Me.Handle
+        settingsWindow.ShowDialog()
     End Sub
 
     Private Sub ShowAutoCloseNotice(message As String, Optional title As String = "提示")

@@ -1,0 +1,202 @@
+<Window x:Class="PropertyOverlaySettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="配置属性设置"
+        Width="340"
+        Height="580"
+        MinWidth="320"
+        MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Background="#F8FAFC">
+    <Grid Margin="18">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="配置属性设置"
+                   FontSize="18"
+                   FontWeight="SemiBold"
+                   Foreground="Black"
+                   Margin="0,0,0,16" />
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,14">
+            <TextBlock x:Name="OpacityLabel"
+                       FontSize="13"
+                       Foreground="Black" />
+            <Slider x:Name="OpacitySlider"
+                    Minimum="15"
+                    Maximum="100"
+                    TickFrequency="5"
+                    Margin="0,4,0,12"
+                    ValueChanged="OpacitySlider_ValueChanged" />
+
+            <Grid Margin="0,0,0,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0">
+                    <TextBlock Text="颜色方案"
+                               FontSize="13"
+                               Foreground="Black" />
+                    <ComboBox x:Name="ColorCombo"
+                              Height="30"
+                              Margin="0,4,0,0"
+                              SelectionChanged="Combo_SelectionChanged">
+                        <ComboBoxItem Content="自适应" />
+                        <ComboBoxItem Content="终端绿" />
+                        <ComboBoxItem Content="白字" />
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="显示范围"
+                               FontSize="13"
+                               Foreground="Black" />
+                    <ComboBox x:Name="DisplayModeCombo"
+                              Height="30"
+                              Margin="0,4,0,0"
+                              SelectionChanged="Combo_SelectionChanged">
+                        <ComboBoxItem Content="关键属性" />
+                        <ComboBoxItem Content="全部属性" />
+                    </ComboBox>
+                </StackPanel>
+            </Grid>
+
+            <Grid Margin="0,0,0,12">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Row="0" Grid.Column="0">
+                    <TextBlock Text="属性来源"
+                               FontSize="13"
+                               Foreground="Black" />
+                    <ComboBox x:Name="PropSourceCombo"
+                              Height="30"
+                              Margin="0,4,0,0"
+                              SelectionChanged="Combo_SelectionChanged">
+                        <ComboBoxItem Content="配置属性" />
+                        <ComboBoxItem Content="自定义属性" />
+                    </ComboBox>
+                </StackPanel>
+
+                <StackPanel Grid.Row="1"
+                            Grid.Column="0"
+                            Grid.ColumnSpan="3"
+                            Orientation="Horizontal"
+                            Margin="0,18,0,0">
+                    <CheckBox x:Name="TopMostCheck"
+                              Content="始终置顶"
+                              Margin="0,0,18,0"
+                              Checked="CheckBox_Changed"
+                              Unchecked="CheckBox_Changed" />
+                    <CheckBox x:Name="MouseThroughCheck"
+                              Content="鼠标穿透"
+                              Checked="CheckBox_Changed"
+                              Unchecked="CheckBox_Changed" />
+                </StackPanel>
+            </Grid>
+        </StackPanel>
+
+        <TextBlock Grid.Row="2"
+                   Text="关键属性"
+                   FontSize="14"
+                   FontWeight="SemiBold"
+                   Foreground="Black"
+                   Margin="0,0,0,8" />
+
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ListBox x:Name="KeyList"
+                     Grid.Column="0"
+                     BorderThickness="1"
+                     BorderBrush="#D1D5DB"
+                     Background="White" />
+
+            <StackPanel Grid.Column="1"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center">
+                <Button Content="▲"
+                        Width="34"
+                        Height="34"
+                        Padding="0"
+                        ToolTip="上移"
+                        Click="UpButton_Click" />
+                <Button Content="▼"
+                        Width="34"
+                        Height="34"
+                        Padding="0"
+                        ToolTip="下移"
+                        Margin="0,8,0,0"
+                        Click="DownButton_Click" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="4" Margin="0,12,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="42" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="NewKeyText"
+                         Grid.Column="0"
+                         Height="30"
+                         Margin="0,0,0,8" />
+            </Grid>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0"
+                            Orientation="Horizontal">
+                    <Button Content="添加"
+                            MinWidth="64"
+                            Height="30"
+                            Padding="12,0"
+                            Click="AddButton_Click" />
+                    <Button Content="删除"
+                            MinWidth="64"
+                            Height="30"
+                            Padding="12,0"
+                            Margin="8,0,0,0"
+                            Click="DeleteButton_Click" />
+                </StackPanel>
+
+                <Button Grid.Column="2"
+                        Content="关闭"
+                        MinWidth="64"
+                        Height="30"
+                        Padding="12,0"
+                        Margin="0,0,18,0"
+                        Click="CloseButton_Click" />
+            </Grid>
+        </StackPanel>
+    </Grid>
+</Window>

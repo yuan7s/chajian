@@ -54,11 +54,14 @@ Public Class Form5
     Private _attachedDrawDoc As SldWorks.DrawingDoc
     Private _attachedDocPath As String
     Private _isRefreshing As Boolean
+    Private ReadOnly _transparentBackColor As Color = Color.Fuchsia
+    Private Const PropertyRowHeight As Integer = 30
+    Private Const FormVerticalPadding As Integer = 144
+    Private Const MinFormHeight As Integer = 180
+    Private Const MaxFormHeight As Integer = 900
 
     Private Sub Form5_Load(sender As Object, e As EventArgs) Handles MyBase.Load
-        ApplyOpacity()
-        ApplyColorScheme(My.Settings.Form5_ColorScheme)
-        TopMost = My.Settings.Form5_TopMost
+        ApplyDisplaySettings()
 
         Dim workArea As Drawing.Rectangle = Screen.PrimaryScreen.WorkingArea
         Me.Location = New Drawing.Point(workArea.Right - Me.Width - 20, workArea.Top + 60)
@@ -70,6 +73,7 @@ Public Class Form5
             AttachDocEvents()
             RefreshProperties()
         End If
+        UpdateViewButtons()
     End Sub
 
     Private Sub Form5_Shown(sender As Object, e As EventArgs) Handles MyBase.Shown
@@ -88,24 +92,25 @@ Public Class Form5
 
     Private Sub BtnPropType_Click(sender As Object, e As EventArgs) Handles BtnPropType.Click
         _showCustomProps = Not _showCustomProps
-        BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
+        UpdateViewButtons()
         RefreshProperties()
     End Sub
 
     Private Sub BtnToggle_Click(sender As Object, e As EventArgs) Handles BtnToggle.Click
         _showKeyOnly = Not _showKeyOnly
-        BtnToggle.Text = If(_showKeyOnly, "关键属性", "全部属性")
+        UpdateViewButtons()
         RefreshProperties()
     End Sub
 
     Private Sub RefreshProperties()
         If _isRefreshing Then Return
         If Me.IsDisposed OrElse Not Me.IsHandleCreated Then Return
-        If DataGridView1 Is Nothing OrElse DataGridView1.IsDisposed Then Return
+        If PropPanel Is Nothing OrElse PropPanel.IsDisposed Then Return
 
         _isRefreshing = True
         Try
-            DataGridView1.Rows.Clear()
+            PropPanel.SuspendLayout()
+            PropPanel.Controls.Clear()
             Dim targetDoc As SldWorks.ModelDoc2 = GetTargetDoc()
             If targetDoc Is Nothing Then
                 Label1.Text = "无文档"
@@ -129,26 +134,76 @@ Public Class Form5
                 confString = activeConfig.Name
                 nameArr = targetDoc.GetCustomInfoNames2(confString)
             End If
-            If nameArr Is Nothing Then Return
-
-            Dim keySet As HashSet(Of String) = Nothing
             If _showKeyOnly Then
-                keySet = New HashSet(Of String)(StringComparer.OrdinalIgnoreCase)
-                For Each k In GetKeyProperties()
-                    keySet.Add(k)
+                For Each propName In GetKeyProperties()
+                    Dim propVal As String = GetPropValue(targetDoc, confString, propName)
+                    AddPropertyRow(propName, If(propVal, ""))
                 Next
+                Return
             End If
+
+            If nameArr Is Nothing Then Return
 
             For i As Integer = 0 To UBound(nameArr)
                 Dim propName As String = nameArr(i).ToString()
-                If _showKeyOnly AndAlso Not keySet.Contains(propName) Then Continue For
                 Dim propVal As String = GetPropValue(targetDoc, confString, propName)
-                DataGridView1.Rows.Add(propName, If(propVal, ""))
+                AddPropertyRow(propName, If(propVal, ""))
             Next
         Catch
         Finally
+            ResizeToPropertyRows()
+            If PropPanel IsNot Nothing AndAlso Not PropPanel.IsDisposed Then PropPanel.ResumeLayout()
             _isRefreshing = False
         End Try
+    End Sub
+
+    Private Sub AddPropertyRow(propName As String, propValue As String)
+        Dim rowIndex As Integer = PropPanel.Controls.Count \ 2
+        Dim rowTop As Integer = rowIndex * PropertyRowHeight
+        Dim transparentBackground As Boolean = Me.TransparencyKey = _transparentBackColor
+        Dim rowBackColor As Color = If(transparentBackground, _transparentBackColor, Me.BackColor)
+        Dim foreColor As Color = Me.ForeColor
+
+        Dim nameLabel As New Label() With {
+            .AutoEllipsis = True,
+            .BackColor = rowBackColor,
+            .Font = New Font("Microsoft YaHei UI", 9.0!, FontStyle.Bold),
+            .ForeColor = foreColor,
+            .Location = New Point(0, rowTop),
+            .Size = New Size(176, PropertyRowHeight),
+            .Text = propName,
+            .TextAlign = ContentAlignment.MiddleLeft
+        }
+
+        Dim valueLabel As New Label() With {
+            .AutoEllipsis = True,
+            .BackColor = rowBackColor,
+            .Font = New Font("Microsoft YaHei UI", 9.0!, FontStyle.Bold),
+            .ForeColor = foreColor,
+            .Location = New Point(188, rowTop),
+            .Size = New Size(Math.Max(220, PropPanel.ClientSize.Width - 196), PropertyRowHeight),
+            .Text = If(propValue, ""),
+            .TextAlign = ContentAlignment.MiddleLeft
+        }
+
+        AddHandler nameLabel.MouseDown, AddressOf DragForm_MouseDown
+        AddHandler valueLabel.MouseDown, AddressOf DragForm_MouseDown
+
+        PropPanel.Controls.Add(nameLabel)
+        PropPanel.Controls.Add(valueLabel)
+    End Sub
+
+    Private Sub ResizeToPropertyRows()
+        If PropPanel Is Nothing OrElse PropPanel.IsDisposed Then Return
+
+        Dim rowCount As Integer = PropPanel.Controls.Count \ 2
+        Dim targetPanelHeight As Integer = Math.Max(PropertyRowHeight, rowCount * PropertyRowHeight)
+        Dim targetHeight As Integer = Math.Min(MaxFormHeight, Math.Max(MinFormHeight, targetPanelHeight + FormVerticalPadding))
+
+        Me.Height = targetHeight
+        PropPanel.Height = Math.Max(PropertyRowHeight, Me.ClientSize.Height - FormVerticalPadding)
+        BtnToggle.Top = Me.ClientSize.Height - 52
+        BtnPropType.Top = Me.ClientSize.Height - 51
     End Sub
 
     Private Function GetTargetDoc() As SldWorks.ModelDoc2
@@ -186,37 +241,74 @@ Public Class Form5
         End Try
     End Function
 
+    Public Sub ApplyDisplaySettings()
+        ApplyOpacity()
+        ApplyColorScheme(My.Settings.Form5_ColorScheme)
+        TopMost = My.Settings.Form5_TopMost
+    End Sub
+
     Private Sub ApplyOpacity()
-        Me.Opacity = My.Settings.Form5_Opacity
+        Dim configuredOpacity As Double = My.Settings.Form5_Opacity
+        If configuredOpacity < 0.15 Then configuredOpacity = 0.15
+        If configuredOpacity > 1.0 Then configuredOpacity = 1.0
+
+        Me.Opacity = 1.0
+        If configuredOpacity < 0.98 Then
+            Me.BackColor = _transparentBackColor
+            Me.TransparencyKey = _transparentBackColor
+        Else
+            Me.TransparencyKey = Color.Empty
+        End If
     End Sub
 
     Private Sub ApplyColorScheme(scheme As String)
+        Label1.Font = New Font(Label1.Font, FontStyle.Bold)
+        PropHeaderName.Font = New Font(PropHeaderName.Font, FontStyle.Bold)
+        PropHeaderValue.Font = New Font(PropHeaderValue.Font, FontStyle.Bold)
+        BtnToggle.Font = New Font(BtnToggle.Font, FontStyle.Bold)
+        BtnPropType.Font = New Font(BtnPropType.Font, FontStyle.Bold)
+
+        Dim transparentBackground As Boolean = Me.TransparencyKey = _transparentBackColor
+        If transparentBackground Then
+            Me.BackColor = _transparentBackColor
+        End If
+
         Select Case scheme
             Case "终端绿"
-                Me.BackColor = Drawing.Color.Black
-                Me.ForeColor = Drawing.Color.Lime
-                DataGridView1.BackgroundColor = Drawing.Color.Black
-                DataGridView1.DefaultCellStyle.BackColor = Drawing.Color.Black
-                DataGridView1.DefaultCellStyle.ForeColor = Drawing.Color.Lime
-                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = Drawing.Color.Black
-                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = Drawing.Color.Lime
+                If Not transparentBackground Then Me.BackColor = Drawing.Color.Black
+                Me.ForeColor = Drawing.Color.Black
+                PropPanel.BackColor = If(transparentBackground, _transparentBackColor, Drawing.Color.Black)
+                StyleButtons(Drawing.Color.Black, Drawing.Color.Black)
             Case "白字"
-                Me.BackColor = Drawing.Color.FromArgb(30, 30, 30)
-                Me.ForeColor = Drawing.Color.White
-                DataGridView1.BackgroundColor = Drawing.Color.FromArgb(30, 30, 30)
-                DataGridView1.DefaultCellStyle.BackColor = Drawing.Color.FromArgb(30, 30, 30)
-                DataGridView1.DefaultCellStyle.ForeColor = Drawing.Color.White
-                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = Drawing.Color.FromArgb(30, 30, 30)
-                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = Drawing.Color.White
+                If Not transparentBackground Then Me.BackColor = Drawing.Color.FromArgb(30, 30, 30)
+                Me.ForeColor = Drawing.Color.Black
+                PropPanel.BackColor = If(transparentBackground, _transparentBackColor, Drawing.Color.FromArgb(30, 30, 30))
+                StyleButtons(Drawing.Color.FromArgb(30, 30, 30), Drawing.Color.Black)
             Case Else
-                Me.BackColor = System.Drawing.SystemColors.Control
-                Me.ForeColor = System.Drawing.SystemColors.ControlText
-                DataGridView1.BackgroundColor = System.Drawing.SystemColors.Control
-                DataGridView1.DefaultCellStyle.BackColor = System.Drawing.SystemColors.Window
-                DataGridView1.DefaultCellStyle.ForeColor = System.Drawing.SystemColors.WindowText
-                DataGridView1.ColumnHeadersDefaultCellStyle.BackColor = System.Drawing.SystemColors.Control
-                DataGridView1.ColumnHeadersDefaultCellStyle.ForeColor = System.Drawing.SystemColors.ControlText
+                If Not transparentBackground Then Me.BackColor = Drawing.Color.FromArgb(245, 248, 252)
+                Me.ForeColor = Drawing.Color.Black
+                PropPanel.BackColor = If(transparentBackground, _transparentBackColor, Drawing.Color.White)
+                StyleButtons(Drawing.Color.White, Drawing.Color.Black)
         End Select
+
+        PropHeaderName.BackColor = If(transparentBackground, _transparentBackColor, Me.BackColor)
+        PropHeaderName.ForeColor = Me.ForeColor
+        PropHeaderValue.BackColor = If(transparentBackground, _transparentBackColor, Me.BackColor)
+        PropHeaderValue.ForeColor = Me.ForeColor
+    End Sub
+
+    Private Sub StyleButtons(backColor As Color, foreColor As Color)
+        For Each btn In {BtnToggle, BtnPropType}
+            btn.FlatStyle = FlatStyle.Flat
+            btn.FlatAppearance.BorderSize = 0
+            btn.BackColor = backColor
+            btn.ForeColor = foreColor
+        Next
+
+        LblClose.BackColor = backColor
+        LblClose.ForeColor = foreColor
+        Label1.BackColor = If(Me.TransparencyKey = _transparentBackColor, _transparentBackColor, backColor)
+        Label1.ForeColor = foreColor
     End Sub
 
     Private Function GetKeyProperties() As String()
@@ -224,8 +316,16 @@ Public Class Form5
         If String.IsNullOrWhiteSpace(raw) Then
             Return {"物料编码", "零件图号", "文件名称", "零件类型", "下料尺寸", "版本", "设计", "出图"}
         End If
-        Return raw.Split({","c}, StringSplitOptions.RemoveEmptyEntries)
+        Return raw.Split({","c}, StringSplitOptions.RemoveEmptyEntries).
+            Select(Function(item) item.Trim()).
+            Where(Function(item) item.Length > 0).
+            ToArray()
     End Function
+
+    Private Sub UpdateViewButtons()
+        BtnToggle.Text = If(_showKeyOnly, "关键属性", "全部属性")
+        BtnPropType.Text = If(_showCustomProps, "自定义属性", "配置属性")
+    End Sub
 
     Private Sub ToggleMouseThrough()
         Dim enabled As Boolean = Not My.Settings.Form5_MouseThrough
@@ -313,7 +413,9 @@ Public Class Form5
     Private Sub EnableDrag()
         AddHandler MouseDown, AddressOf DragForm_MouseDown
         AddHandler Label1.MouseDown, AddressOf DragForm_MouseDown
-        AddHandler DataGridView1.MouseDown, AddressOf DragForm_MouseDown
+        AddHandler PropPanel.MouseDown, AddressOf DragForm_MouseDown
+        AddHandler PropHeaderName.MouseDown, AddressOf DragForm_MouseDown
+        AddHandler PropHeaderValue.MouseDown, AddressOf DragForm_MouseDown
     End Sub
 
     Private Sub DragForm_MouseDown(sender As Object, e As MouseEventArgs)
@@ -330,7 +432,4 @@ Public Class Form5
         MyBase.WndProc(m)
     End Sub
 
-    Private Sub DataGridView1_CellContentClick(sender As Object, e As DataGridViewCellEventArgs) Handles DataGridView1.CellContentClick
-
-    End Sub
 End Class

@@ -197,6 +197,30 @@ Namespace My
                 Me("Form5_MouseThrough") = value
             End Set
         End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("True")>  _
+        Public Property Form5_ShowKeyOnly() As Boolean
+            Get
+                Return CType(Me("Form5_ShowKeyOnly"), Boolean)
+            End Get
+            Set
+                Me("Form5_ShowKeyOnly") = value
+            End Set
+        End Property
+
+        <Global.System.Configuration.UserScopedSettingAttribute(),  _
+         Global.System.Diagnostics.DebuggerNonUserCodeAttribute(),  _
+         Global.System.Configuration.DefaultSettingValueAttribute("False")>  _
+        Public Property Form5_ShowCustomProps() As Boolean
+            Get
+                Return CType(Me("Form5_ShowCustomProps"), Boolean)
+            End Get
+            Set
+                Me("Form5_ShowCustomProps") = value
+            End Set
+        End Property
     End Class
 End Namespace
 
