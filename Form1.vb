@@ -18,10 +18,10 @@ Public Class Form1
     Private _mainWindowHandle As IntPtr
 
     ' 全局热键
-    Private Const MOD_CONTROL As Integer = &H2
-    Private Const VK_F1 As Integer = &H70
-    Private Const WM_HOTKEY As Integer = &H312
-    Private Const HOTKEY_ID As Integer = 1
+    Private Const ModControl As Integer = &H2
+    Private Const VkF1 As Integer = &H70
+    Private Const WmHotkey As Integer = &H312
+    Private Const HotkeyId As Integer = 1
 
     <DllImport("user32.dll")>
     Private Shared Function RegisterHotKey(hWnd As IntPtr, id As Integer, fsModifiers As Integer, vk As Integer) As Boolean
@@ -66,7 +66,7 @@ Public Class Form1
         Dim source = TryCast(Wpf.PresentationSource.FromVisual(Me), WpfInterop.HwndSource)
         If source IsNot Nothing Then source.AddHook(AddressOf WndProc)
         ' 窗口句柄就绪后再注册热键
-        If Not RegisterHotKey(_mainWindowHandle, HOTKEY_ID, MOD_CONTROL, VK_F1) Then
+        If Not RegisterHotKey(_mainWindowHandle, HotkeyId, ModControl, VkF1) Then
             MsgBox("快捷键 Ctrl+F1 注册失败，可能已被其他程序占用。")
         End If
     End Sub
@@ -85,7 +85,7 @@ Public Class Form1
 
     Private Sub Form1_Closed(sender As Object, e As EventArgs)
         ' 清理热键
-        If _mainWindowHandle <> IntPtr.Zero Then UnregisterHotKey(_mainWindowHandle, HOTKEY_ID)
+        If _mainWindowHandle <> IntPtr.Zero Then UnregisterHotKey(_mainWindowHandle, HotkeyId)
 
         ' 清理托盘图标
         If _trayIcon IsNot Nothing Then
@@ -1376,7 +1376,7 @@ Public Class Form1
 
     ' 全局热键处理
     Private Function WndProc(hwnd As IntPtr, msg As Integer, wParam As IntPtr, lParam As IntPtr, ByRef handled As Boolean) As IntPtr
-        If msg = WM_HOTKEY AndAlso wParam.ToInt32() = HOTKEY_ID Then
+        If msg = WmHotkey AndAlso wParam.ToInt32() = HotkeyId Then
             ToggleVisibility()
             handled = True
         End If
@@ -1406,7 +1406,7 @@ Public Class Form1
         Wpf.Application.Current.Shutdown()
     End Sub
 
-    Private Sub refreshBtn_Click(sender As Object, e As EventArgs)
+    Private Sub RefreshBtn_Click(sender As Object, e As EventArgs)
         RefreshProcessList()
         ConnectToSelectedSw()
     End Sub
@@ -1542,10 +1542,10 @@ Public Class Form1
         settingsWindow.ShowDialog()
     End Sub
 
-    Private Sub ShowAutoCloseNotice(message As String, Optional title As String = "提示")
+    Private Sub ShowAutoCloseNotice(message As String, Optional noticeTitle As String = "提示")
         Try
             If _trayIcon IsNot Nothing Then
-                _trayIcon.BalloonTipTitle = title
+                _trayIcon.BalloonTipTitle = noticeTitle
                 _trayIcon.BalloonTipText = message
                 _trayIcon.BalloonTipIcon = WinForms.ToolTipIcon.Info
                 _trayIcon.ShowBalloonTip(1800)
@@ -1554,7 +1554,7 @@ Public Class Form1
         Catch
         End Try
 
-        Wpf.MessageBox.Show(Me, message, title, Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information)
+        Wpf.MessageBox.Show(Me, message, noticeTitle, Wpf.MessageBoxButton.OK, Wpf.MessageBoxImage.Information)
     End Sub
 
     Private Sub ShowSortProgress(message As String)
