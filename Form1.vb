@@ -319,7 +319,7 @@ Public Class Form1
     ' 打开重命名工具
     Private Sub Button16_Click(sender As Object, e As EventArgs)
         Dim renameWindow As New RenameWindow()
-        ' TODO: Task 11 - set renameWindow.Client = _client
+        renameWindow.Client = _client
         renameWindow.Show()
     End Sub
 
@@ -353,7 +353,7 @@ Public Class Form1
     ' 打开编码整理工具
     Private Sub Button18_Click(sender As Object, e As EventArgs)
         Dim cleanupWindow As New CodingCleanupWindow()
-        ' TODO: Task 11 - set cleanupWindow.Client = _client
+        cleanupWindow.Client = _client
         Dim helper As New System.Windows.Interop.WindowInteropHelper(cleanupWindow)
         helper.Owner = _mainWindowHandle
         cleanupWindow.Show()
@@ -361,8 +361,7 @@ Public Class Form1
 
     ' 打开配置属性透明窗口
     Private Sub Button19_Click(sender As Object, e As EventArgs)
-        ' TODO: Task 11 - update PropertyOverlayWindow to use Client instead of SwApp
-        PropertyOverlayWindow.ShowOrActivate(Nothing)
+        PropertyOverlayWindow.ShowOrActivate(_client)
     End Sub
 
     Private Sub Button20_Click(sender As Object, e As EventArgs)

@@ -134,33 +134,49 @@
     </Compile>
     <Compile Include="Program.vb" />
     <Compile Include="SwAddinClient.vb" />
+    <!-- Pre-built XAML generated code (kept in GeneratedCode to survive build cleans) -->
+    <Compile Include="GeneratedCode\Form1.g.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>Form1.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GeneratedCode\RenameWindow.g.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>RenameWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GeneratedCode\CodingCleanupWindow.g.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>CodingCleanupWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GeneratedCode\PropertyOverlaySettingsWindow.g.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>PropertyOverlaySettingsWindow.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="GeneratedCode\DrawingSettingsWindow.g.vb">
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+      <DependentUpon>DrawingSettingsWindow.xaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
-    <Page Include="Form1.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="PropertyOverlaySettingsWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="CodingCleanupWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="DrawingSettingsWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="RenameWindow.xaml">
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
+    <!-- XAML files kept as None for IDE reference; pre-built .g.vb and .g.resources used instead -->
+    <None Include="Form1.xaml" />
+    <None Include="PropertyOverlaySettingsWindow.xaml" />
+    <None Include="CodingCleanupWindow.xaml" />
+    <None Include="DrawingSettingsWindow.xaml" />
+    <None Include="RenameWindow.xaml" />
     <EmbeddedResource Include="My Project\Resources.resx">
       <Generator>VbMyResourcesResXFileCodeGenerator</Generator>
       <LastGenOutput>Resources.Designer.vb</LastGenOutput>
       <CustomToolNamespace>My.Resources</CustomToolNamespace>
       <SubType>Designer</SubType>
+    </EmbeddedResource>
+    <EmbeddedResource Include="GeneratedCode\外部程序.g.resources">
+      <LogicalName>外部程序.g.resources</LogicalName>
+      <Visible>false</Visible>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>

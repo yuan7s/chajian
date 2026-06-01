@@ -1,5 +1,5 @@
 Imports System.Runtime.InteropServices
-Imports SwConst
+Imports System.Windows.Threading
 Imports Wpf = System.Windows
 Imports WpfControls = System.Windows.Controls
 Imports WpfInput = System.Windows.Input
@@ -43,14 +43,11 @@ Public Class PropertyOverlayWindow
 
     Private Shared ReadOnly OpenWindows As New List(Of PropertyOverlayWindow)()
 
-    Private WithEvents SwAppField As SldWorks.SldWorks
+    Private _client As SwAddinClient
     Private ReadOnly Root As WpfControls.Border
     Private ReadOnly TitleText As WpfControls.TextBlock
     Private ReadOnly PropertyPanel As WpfControls.StackPanel
-    Private AttachedPartDoc As SldWorks.PartDoc
-    Private AttachedAsmDoc As SldWorks.AssemblyDoc
-    Private AttachedDrawDoc As SldWorks.DrawingDoc
-    Private AttachedDocPath As String
+    Private ReadOnly _docWatchTimer As DispatcherTimer
 
     Public Sub New()
         Width = 340
@@ -107,13 +104,19 @@ Public Class PropertyOverlayWindow
         }
         Content = Root
 
+        _docWatchTimer = New DispatcherTimer() With {.Interval = TimeSpan.FromMilliseconds(800)}
+        AddHandler _docWatchTimer.Tick, AddressOf DocWatchTimer_Tick
+
         AddHandler MouseLeftButtonDown, AddressOf Window_MouseLeftButtonDown
         AddHandler SourceInitialized, AddressOf Window_SourceInitialized
         AddHandler Closed,
             Sub()
+                _docWatchTimer.Stop()
                 UnregisterOverlayHotKey()
-                DetachDocEvents()
-                SwAppField = Nothing
+                If _client IsNot Nothing Then
+                    RemoveHandler _client.DocChanged, AddressOf Client_DocChanged
+                    RemoveHandler _client.SelectionChanged, AddressOf Client_SelectionChanged
+                End If
                 OpenWindows.Remove(Me)
             End Sub
         OpenWindows.Add(Me)
@@ -122,27 +125,38 @@ Public Class PropertyOverlayWindow
         SetInitialLocation()
     End Sub
 
-    Public Property SwApp As SldWorks.SldWorks
+    Public Property Client As SwAddinClient
         Get
-            Return SwAppField
+            Return _client
         End Get
-        Set(value As SldWorks.SldWorks)
-            If Not Object.ReferenceEquals(SwAppField, value) Then
-                DetachDocEvents()
+        Set(value As SwAddinClient)
+            If Not Object.ReferenceEquals(_client, value) Then
+                If _client IsNot Nothing Then
+                    RemoveHandler _client.DocChanged, AddressOf Client_DocChanged
+                    RemoveHandler _client.SelectionChanged, AddressOf Client_SelectionChanged
+                End If
+                _client = value
+                If _client IsNot Nothing Then
+                    AddHandler _client.DocChanged, AddressOf Client_DocChanged
+                    AddHandler _client.SelectionChanged, AddressOf Client_SelectionChanged
+                    _docWatchTimer.Start()
+                Else
+                    _docWatchTimer.Stop()
+                End If
             End If
-            SwAppField = value
-            AttachDocEvents()
-            RefreshProperties()
+#Disable Warning BC42358
+            RefreshPropertiesAsync()
+#Enable Warning BC42358
         End Set
     End Property
 
-    Public Shared Sub ShowOrActivate(swApp As SldWorks.SldWorks)
+    Public Shared Sub ShowOrActivate(client As SwAddinClient)
         Dim window As PropertyOverlayWindow = OpenWindows.FirstOrDefault()
         If window Is Nothing Then
             window = New PropertyOverlayWindow()
         End If
 
-        window.SwApp = swApp
+        window.Client = client
         If Not window.IsVisible Then
             window.Show()
         End If
@@ -156,9 +170,9 @@ Public Class PropertyOverlayWindow
         Next
     End Sub
 
-    Public Shared Sub UpdateOpenWindowsSwApp(swApp As SldWorks.SldWorks)
+    Public Shared Sub UpdateOpenWindowsClient(client As SwAddinClient)
         For Each window In OpenWindows.ToArray()
-            If window IsNot Nothing Then window.SwApp = swApp
+            If window IsNot Nothing Then window.Client = client
         Next
     End Sub
 
@@ -188,78 +202,78 @@ Public Class PropertyOverlayWindow
         Next
 
         ApplyMouseThrough()
-        RefreshProperties()
+#Disable Warning BC42358
+        RefreshPropertiesAsync()
+#Enable Warning BC42358
     End Sub
 
-    Private Sub RefreshProperties()
-        PropertyPanel.Children.Clear()
-
-        Dim targetDoc As SldWorks.ModelDoc2 = GetTargetDoc()
-        If targetDoc Is Nothing Then
-            TitleText.Text = TextByCodes(&H65E0, &H6587, &H6863)
+    Private Async Function RefreshPropertiesAsync() As Task
+        If _client Is Nothing Then
+            Dispatcher.Invoke(Sub()
+                PropertyPanel.Children.Clear()
+                TitleText.Text = TextByCodes(&H65E0, &H6587, &H6863)
+            End Sub)
             Return
         End If
 
-        Dim docPath As String = targetDoc.GetPathName()
-        TitleText.Text = If(String.IsNullOrEmpty(docPath), targetDoc.GetTitle(), IO.Path.GetFileNameWithoutExtension(docPath))
+        Try
+            Dim result = Await _client.SendCommandAsync("read-properties", New Dictionary(Of String, Object)())
+            Dim dict = TryCast(result, Dictionary(Of String, Object))
+            If dict IsNot Nothing Then
+                Dispatcher.Invoke(Sub() UpdatePropertyDisplay(dict))
+            Else
+                Dispatcher.Invoke(Sub()
+                    PropertyPanel.Children.Clear()
+                    TitleText.Text = TextByCodes(&H65E0, &H6587, &H6863)
+                End Sub)
+            End If
+        Catch ex As Exception
+            Debug.WriteLine($"PropertyOverlayWindow.RefreshPropertiesAsync error: {ex.Message}")
+            Dispatcher.Invoke(Sub()
+                PropertyPanel.Children.Clear()
+                TitleText.Text = TextByCodes(&H65E0, &H6587, &H6863)
+            End Sub)
+        End Try
+    End Function
 
-        Dim confString As String = ""
-        Dim nameArr As Object = Nothing
-        If My.Settings.Form5_ShowCustomProps Then
-            nameArr = targetDoc.GetCustomInfoNames()
-        Else
-            Dim activeConfig = targetDoc.GetActiveConfiguration()
-            If activeConfig Is Nothing Then Return
-            confString = activeConfig.Name
-            nameArr = targetDoc.GetCustomInfoNames2(confString)
+    Private Sub UpdatePropertyDisplay(dict As Dictionary(Of String, Object))
+        PropertyPanel.Children.Clear()
+
+        Dim title As String = "-"
+        If dict.ContainsKey("title") AndAlso dict("title") IsNot Nothing Then
+            title = dict("title").ToString()
         End If
+        If String.IsNullOrEmpty(title) Then title = "-"
+        TitleText.Text = title
+
+        Dim props As Dictionary(Of String, Object) = Nothing
+        If dict.ContainsKey("properties") Then
+            props = TryCast(dict("properties"), Dictionary(Of String, Object))
+        End If
+        If props Is Nothing Then Return
 
         If My.Settings.Form5_ShowKeyOnly Then
             For Each propName In GetKeyProperties()
-                AddPropertyRow(propName, GetPropValue(targetDoc, confString, propName))
+                Dim val As String = ""
+                If props.ContainsKey(propName) AndAlso props(propName) IsNot Nothing Then
+                    val = props(propName).ToString()
+                End If
+                AddPropertyRow(propName, val)
             Next
             Return
         End If
 
-        If nameArr Is Nothing Then Return
-        For i As Integer = 0 To UBound(nameArr)
-            Dim propName As String = nameArr(i).ToString()
-            AddPropertyRow(propName, GetPropValue(targetDoc, confString, propName))
+        For Each kvp In props
+            AddPropertyRow(kvp.Key, If(kvp.Value IsNot Nothing, kvp.Value.ToString(), ""))
         Next
     End Sub
 
-    Private Function GetTargetDoc() As SldWorks.ModelDoc2
-        If SwAppField Is Nothing Then Return Nothing
-        Dim modelDoc As SldWorks.ModelDoc2 = TryCast(SwAppField.ActiveDoc, SldWorks.ModelDoc2)
-        If modelDoc Is Nothing Then Return Nothing
-
-        Dim selMgr As SldWorks.SelectionMgr = modelDoc.SelectionManager
-        If selMgr IsNot Nothing Then
-            Dim selCount As Integer = 0
-            Try
-                selCount = selMgr.GetSelectedObjectCount2(-1)
-            Catch
-            End Try
-
-            If selCount >= 1 Then
-                Dim selObj As Object = selMgr.GetSelectedObject6(1, -1)
-                If TypeOf selObj Is SldWorks.Component2 Then
-                    Dim comp As SldWorks.Component2 = CType(selObj, SldWorks.Component2)
-                    Dim refModel As SldWorks.ModelDoc2 = comp.GetModelDoc2()
-                    If refModel IsNot Nothing Then Return refModel
-                End If
-            End If
-        End If
-
-        Return modelDoc
-    End Function
-
-    Private Function GetPropValue(doc As SldWorks.ModelDoc2, conf As String, propName As String) As String
-        Try
-            Return If(doc.GetCustomInfoValue(conf, propName), "")
-        Catch
-            Return ""
-        End Try
+    Public Async Function SavePropertyAsync(name As String, value As String) As Task
+        If _client Is Nothing Then Return
+        Dim args = New Dictionary(Of String, Object) From {
+            {"properties", New Dictionary(Of String, Object) From {{name, value}}}
+        }
+        Await _client.SendCommandAsync("write-properties", args)
     End Function
 
     Private Function GetKeyProperties() As String()
@@ -375,69 +389,17 @@ Public Class PropertyOverlayWindow
         ApplyMouseThrough()
     End Sub
 
-    Private Sub DetachDocEvents()
-        If AttachedPartDoc IsNot Nothing Then
-            RemoveHandler AttachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            AttachedPartDoc = Nothing
-        End If
-        If AttachedAsmDoc IsNot Nothing Then
-            RemoveHandler AttachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            AttachedAsmDoc = Nothing
-        End If
-        If AttachedDrawDoc IsNot Nothing Then
-            RemoveHandler AttachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            AttachedDrawDoc = Nothing
-        End If
-        AttachedDocPath = Nothing
+    Private Sub Client_DocChanged(title As String, path As String)
+        Dispatcher.BeginInvoke(New Action(Async Sub() Await RefreshPropertiesAsync()))
     End Sub
 
-    Private Sub AttachDocEvents()
-        Try
-            If SwAppField Is Nothing Then Return
-            Dim modelDoc As SldWorks.ModelDoc2 = TryCast(SwAppField.ActiveDoc, SldWorks.ModelDoc2)
-            If modelDoc Is Nothing Then
-                DetachDocEvents()
-                Return
-            End If
-
-            Dim docPath As String = modelDoc.GetPathName()
-            Dim docKey As String = If(String.IsNullOrEmpty(docPath), modelDoc.GetTitle(), docPath)
-            If String.Equals(docKey, AttachedDocPath, StringComparison.OrdinalIgnoreCase) Then Return
-
-            DetachDocEvents()
-            AttachedDocPath = docKey
-
-            Dim docType As Integer = modelDoc.GetType()
-            If docType = CInt(swDocumentTypes_e.swDocPART) Then
-                AttachedPartDoc = CType(modelDoc, SldWorks.PartDoc)
-                AddHandler AttachedPartDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            ElseIf docType = CInt(swDocumentTypes_e.swDocASSEMBLY) Then
-                AttachedAsmDoc = CType(modelDoc, SldWorks.AssemblyDoc)
-                AddHandler AttachedAsmDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            ElseIf docType = CInt(swDocumentTypes_e.swDocDRAWING) Then
-                AttachedDrawDoc = CType(modelDoc, SldWorks.DrawingDoc)
-                AddHandler AttachedDrawDoc.NewSelectionNotify, AddressOf Doc_SelectionChange
-            End If
-        Catch
-        End Try
+    Private Sub Client_SelectionChanged(name As String, type As String)
+        Dispatcher.BeginInvoke(New Action(Async Sub() Await RefreshPropertiesAsync()))
     End Sub
 
-    Private Function Doc_SelectionChange() As Integer
-        Dispatcher.BeginInvoke(New Action(AddressOf RefreshProperties))
-        Return 0
-    End Function
-
-    Private Function SwAppField_ActiveDocChangeNotify() As Integer Handles SwAppField.ActiveDocChangeNotify
-        Dispatcher.BeginInvoke(New Action(AddressOf AttachDocEvents))
-        Dispatcher.BeginInvoke(New Action(AddressOf RefreshProperties))
-        Return 0
-    End Function
-
-    Private Function SwAppField_ActiveModelDocChangeNotify() As Integer Handles SwAppField.ActiveModelDocChangeNotify
-        Dispatcher.BeginInvoke(New Action(AddressOf AttachDocEvents))
-        Dispatcher.BeginInvoke(New Action(AddressOf RefreshProperties))
-        Return 0
-    End Function
+    Private Async Sub DocWatchTimer_Tick(sender As Object, e As EventArgs)
+        Await RefreshPropertiesAsync()
+    End Sub
 
     Private Shared Function TextByCodes(ParamArray codes As Integer()) As String
         Return New String(codes.Select(Function(code) ChrW(code)).ToArray())
