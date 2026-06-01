@@ -545,35 +545,240 @@ internal sealed partial class AddinHttpServer
         catch { }
     }
 
-    // --- Stubs for Task 7 (Property/BoundingBox/Cleanup Commands) ---
+    // --- Read Properties ---
 
     private object ReadProperties(Dictionary<string, object> args)
     {
-        throw new InvalidOperationException("read-properties 尚未实现 (Task 7)");
+        var model = GetActiveModel();
+        var configName = GetArgString(args, "configuration", "");
+        var manager = model.Extension.get_CustomPropertyManager(configName);
+        var values = new Dictionary<string, string>();
+
+        try
+        {
+            var names = (string[])manager.GetNames();
+            if (names != null)
+            {
+                foreach (var name in names)
+                {
+                    try
+                    {
+                        manager.Get5(name, false, out var val, out var _, out var _);
+                        values[name] = val ?? "";
+                    }
+                    catch { }
+                }
+            }
+        }
+        catch { }
+
+        return new { configuration = string.IsNullOrWhiteSpace(configName) ? "custom" : configName, properties = values };
     }
+
+    // --- Write Properties ---
 
     private object WriteProperties(Dictionary<string, object> args)
     {
-        throw new InvalidOperationException("write-properties 尚未实现 (Task 7)");
+        var model = GetActiveModel();
+        var configName = GetArgString(args, "configuration", "");
+        var propsArg = args.TryGetValue("properties", out var p) ? p : null;
+        var properties = propsArg as Dictionary<string, object>;
+        if (properties == null) throw new InvalidOperationException("properties 不能为空");
+
+        var manager = model.Extension.get_CustomPropertyManager(configName);
+        var written = new List<string>();
+        foreach (var kvp in properties)
+        {
+            manager.Add3(kvp.Key, 30, kvp.Value?.ToString() ?? "", 2);
+            written.Add(kvp.Key);
+        }
+
+        try { model.SetSaveFlag(); } catch { }
+
+        return new { configuration = configName, written = written.ToArray() };
     }
+
+    // --- Get Bounding Box ---
 
     private object GetBoundingBox(Dictionary<string, object> args)
     {
-        throw new InvalidOperationException("get-bounding-box 尚未实现 (Task 7)");
+        var model = GetActiveModel();
+        var configName = GetArgString(args, "configuration", "");
+
+        if (!string.IsNullOrWhiteSpace(configName))
+        {
+            try { model.ShowConfiguration2(configName); }
+            catch { }
+        }
+
+        var box = (double[])((PartDoc)model).GetPartBox(false);
+        if (box == null || box.Length < 6) throw new InvalidOperationException("无法获取包围盒");
+
+        return new
+        {
+            x1 = box[0], y1 = box[1], z1 = box[2],
+            x2 = box[3], y2 = box[4], z2 = box[5],
+            dx = box[3] - box[0],
+            dy = box[4] - box[1],
+            dz = box[5] - box[2]
+        };
     }
 
-    private object RenameComponent(Dictionary<string, object> args)
-    {
-        throw new InvalidOperationException("rename-component 尚未实现 (Task 7)");
-    }
-
-    private object CodingCleanup(Dictionary<string, object> args)
-    {
-        throw new InvalidOperationException("coding-cleanup 尚未实现 (Task 7)");
-    }
+    // --- Sync Coding Props ---
 
     private object SyncCodingProps()
     {
-        throw new InvalidOperationException("sync-coding-props 尚未实现 (Task 7)");
+        var model = GetActiveModel();
+        var configName = Safe(() => model.ConfigurationManager.ActiveConfiguration.Name);
+
+        var title = model.GetTitle();
+        var dotIdx = title.IndexOf(".");
+        if (dotIdx > 0) title = title.Substring(0, dotIdx);
+
+        var materialCode = Safe(() => model.GetCustomInfoValue(configName, "物料编码"));
+        var partNumber = Safe(() => model.GetCustomInfoValue(configName, "零件图号"));
+
+        if (title != materialCode || title != partNumber)
+        {
+            var config = model.GetActiveConfiguration() as Configuration;
+            var cusPropMgr = config.CustomPropertyManager;
+            cusPropMgr.Add3("物料编码", 30, title, 2);
+            cusPropMgr.Add3("零件图号", 30, title, 2);
+            cusPropMgr.Add3("文件名称", 30, title, 2);
+            model.SetSaveFlag();
+            return new { synced = true, title, materialCode, partNumber };
+        }
+
+        return new { synced = false, title, materialCode, partNumber, message = "已同步，无需更新" };
+    }
+
+    // --- Rename Component ---
+
+    private object RenameComponent(Dictionary<string, object> args)
+    {
+        var model = GetActiveModel();
+        var newName = GetArgString(args, "newName");
+        var saveAs = GetArgString(args, "saveAs", "");
+        var targetPath = GetArgString(args, "targetPath", "");
+
+        if (string.IsNullOrWhiteSpace(newName)) throw new InvalidOperationException("newName 不能为空");
+
+        Component2 comp = null;
+        try
+        {
+            var selMgr = model.SelectionManager as SelectionMgr;
+            comp = selMgr?.GetSelectedObjectsComponent(1) as Component2;
+        }
+        catch { }
+        if (comp == null) throw new InvalidOperationException("请先选中一个组件");
+
+        var oldName = Safe(() => comp.Name2);
+        var compPath = Safe(() => comp.GetPathName());
+
+        comp.Name2 = newName;
+
+        model.SetSaveFlag();
+
+        var savedAsPath = "";
+        if (!string.IsNullOrWhiteSpace(saveAs))
+        {
+            try
+            {
+                var refModel = comp.GetModelDoc() as ModelDoc2;
+                if (refModel != null)
+                {
+                    var saveDir = Path.GetDirectoryName(model.GetPathName());
+                    var destPath = Path.Combine(saveDir, saveAs);
+                    if (!destPath.EndsWith(".sldprt") && !destPath.EndsWith(".sldasm"))
+                        destPath += Path.GetExtension(compPath);
+                    refModel.SaveAs3(destPath, 0, 2);
+                    savedAsPath = destPath;
+                }
+            }
+            catch { }
+        }
+
+        return new { oldName, newName, compPath, savedAsPath };
+    }
+
+    // --- Coding Cleanup ---
+
+    private object CodingCleanup(Dictionary<string, object> args)
+    {
+        var model = GetActiveModel();
+        var nameFilter = GetArgString(args, "nameFilter", "");
+        var processAsm = GetArgString(args, "processAsm", "true") == "true";
+        var processPart = GetArgString(args, "processPart", "true") == "true";
+        var excludeVirtual = GetArgString(args, "excludeVirtual", "true") == "true";
+        var excludeStandard = GetArgString(args, "excludeStandard", "true") == "true";
+        var excludePurchased = GetArgString(args, "excludePurchased", "true") == "true";
+
+        if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
+            throw new InvalidOperationException("请在装配体环境下使用");
+
+        var configuration = model.GetActiveConfiguration() as Configuration;
+        var rootComponent = configuration.GetRootComponent() as Component2;
+        var comps = (object[])rootComponent.GetChildren();
+
+        var results = new List<object>();
+        ProcessCodingCleanup(comps, nameFilter, processAsm, processPart,
+            excludeVirtual, excludeStandard, excludePurchased, results);
+
+        model.EditRebuild3();
+        return new { processed = results.Count, results };
+    }
+
+    private void ProcessCodingCleanup(object[] comps, string nameFilter, bool processAsm, bool processPart,
+        bool excludeVirtual, bool excludeStandard, bool excludePurchased, List<object> results)
+    {
+        foreach (Component2 child in comps)
+        {
+            try
+            {
+                var childModel = child.GetModelDoc() as ModelDoc2;
+                if (childModel == null) continue;
+
+                var childType = childModel.GetType();
+                var childName = Safe(() => child.Name2);
+
+                if (!string.IsNullOrWhiteSpace(nameFilter) && childName != null && !childName.Contains(nameFilter)) continue;
+
+                var isVirtual = Safe(() => child.IsVirtual);
+                if (excludeVirtual && isVirtual) continue;
+
+                if (childType == (int)swDocumentTypes_e.swDocPART && !processPart) continue;
+                if (childType == (int)swDocumentTypes_e.swDocASSEMBLY && !processAsm) continue;
+
+                var configName = Safe(() => child.ReferencedConfiguration);
+                if (string.IsNullOrWhiteSpace(configName)) configName = "";
+
+                var title = Safe(() => childModel.GetTitle());
+                var dotIdx = title.IndexOf(".");
+                if (dotIdx > 0) title = title.Substring(0, dotIdx);
+
+                var materialCode = Safe(() => childModel.GetCustomInfoValue(configName, "物料编码"));
+                var partNumber = Safe(() => childModel.GetCustomInfoValue(configName, "零件图号"));
+
+                if (title != materialCode || title != partNumber)
+                {
+                    var cusPropMgr = childModel.Extension.get_CustomPropertyManager(configName);
+                    cusPropMgr.Add3("物料编码", 30, title, 2);
+                    cusPropMgr.Add3("零件图号", 30, title, 2);
+                    cusPropMgr.Add3("文件名称", 30, title, 2);
+                    childModel.SetSaveFlag();
+                    results.Add(new { name = childName, title, materialCode, partNumber, action = "synced" });
+                }
+
+                if (childType == (int)swDocumentTypes_e.swDocASSEMBLY)
+                {
+                    var subConfig = childModel.GetActiveConfiguration() as Configuration;
+                    var subRoot = subConfig.GetRootComponent() as Component2;
+                    var subComps = (object[])subRoot.GetChildren();
+                    ProcessCodingCleanup(subComps, nameFilter, processAsm, processPart,
+                        excludeVirtual, excludeStandard, excludePurchased, results);
+                }
+            }
+            catch { }
+        }
     }
 }
