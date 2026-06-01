@@ -134,7 +134,6 @@
     </Compile>
     <Compile Include="Program.vb" />
     <Compile Include="SwAddinClient.vb" />
-    <!-- Pre-built XAML generated code (kept in GeneratedCode to survive build cleans) -->
     <Compile Include="GeneratedCode\Form1.g.vb">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -162,7 +161,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <!-- XAML files kept as None for IDE reference; pre-built .g.vb and .g.resources used instead -->
     <None Include="Form1.xaml" />
     <None Include="PropertyOverlaySettingsWindow.xaml" />
     <None Include="CodingCleanupWindow.xaml" />
@@ -173,10 +171,6 @@
       <LastGenOutput>Resources.Designer.vb</LastGenOutput>
       <CustomToolNamespace>My.Resources</CustomToolNamespace>
       <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="GeneratedCode\外部程序.g.resources">
-      <LogicalName>外部程序.g.resources</LogicalName>
-      <Visible>false</Visible>
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
@@ -208,8 +202,8 @@
     </BootstrapperPackage>
   </ItemGroup>
   <PropertyGroup>
-    <PostBuildEvent>xcopy /Y /D "$(SolutionDir)外部程序.SwAddin\bin\Debug\net48\*.dll" "$(TargetDir)"
-xcopy /Y /D "$(SolutionDir)外部程序.SwAddin\bin\Debug\net48\*.pdb" "$(TargetDir)" 2&gt;nul
+    <PostBuildEvent>xcopy /Y /D "$(MSBuildProjectDirectory)\外部程序.SwAddin\bin\Debug\net48\*.dll" "$(TargetDir)"
+xcopy /Y /D "$(MSBuildProjectDirectory)\外部程序.SwAddin\bin\Debug\net48\*.pdb" "$(TargetDir)" 2&gt;nul
 if not exist "C:\Users\yuan7\OneDrive\软件包" mkdir "C:\Users\yuan7\OneDrive\软件包"
 xcopy /Y /D "$(TargetDir)*" "C:\Users\yuan7\OneDrive\软件包\"
 exit 0</PostBuildEvent>
