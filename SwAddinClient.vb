@@ -7,9 +7,9 @@ Imports System.Web.Script.Serialization
 Public Class SwAddinClient
     Implements IDisposable
 
-    Public Event DocChanged As Action(Of String, String) ' (title, path)
-    Public Event SelectionChanged As Action(Of String, String) ' (name, type)
-    Public Event Disconnected As Action()
+    Public Event DocChanged(title As String, path As String)
+    Public Event SelectionChanged(name As String, type As String)
+    Public Event Disconnected()
 
     Private ReadOnly _http As New HttpClient() With {.Timeout = TimeSpan.FromSeconds(30)}
     Private ReadOnly _json As New JavaScriptSerializer()

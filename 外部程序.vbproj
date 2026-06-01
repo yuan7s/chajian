@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
@@ -133,6 +133,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
     <Compile Include="Program.vb" />
+    <Compile Include="SwAddinClient.vb" />
   </ItemGroup>
   <ItemGroup>
     <Page Include="Form1.xaml">
@@ -190,19 +191,10 @@
       <Install>false</Install>
     </BootstrapperPackage>
   </ItemGroup>
-  <ItemGroup>
-    <Reference Include="Interop.SldWorks">
-      <HintPath>lib\Interop.SldWorks.dll</HintPath>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </Reference>
-    <Reference Include="Interop.SwConst">
-      <HintPath>lib\Interop.SwConst.dll</HintPath>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </Reference>
-  </ItemGroup>
-
   <PropertyGroup>
-    <PostBuildEvent>if not exist "C:\Users\yuan7\OneDrive\软件包" mkdir "C:\Users\yuan7\OneDrive\软件包"
+    <PostBuildEvent>xcopy /Y /D "$(SolutionDir)外部程序.SwAddin\bin\Debug\net48\*.dll" "$(TargetDir)"
+xcopy /Y /D "$(SolutionDir)外部程序.SwAddin\bin\Debug\net48\*.pdb" "$(TargetDir)" 2&gt;nul
+if not exist "C:\Users\yuan7\OneDrive\软件包" mkdir "C:\Users\yuan7\OneDrive\软件包"
 xcopy /Y /D "$(TargetDir)*" "C:\Users\yuan7\OneDrive\软件包\"
 exit 0</PostBuildEvent>
   </PropertyGroup>
