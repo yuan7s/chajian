@@ -10,68 +10,108 @@ namespace 外部程序.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
+    private string _lastDocPath;
+
+    private void CheckAndBroadcastDocChange()
+    {
+        try
+        {
+            var model = _swApp.ActiveDoc as ModelDoc2;
+            var currentPath = model != null ? Safe(() => model.GetPathName()) ?? "" : "";
+            if (currentPath != _lastDocPath)
+            {
+                _lastDocPath = currentPath;
+                var title = model != null ? Safe(() => model.GetTitle()) ?? "" : "";
+                BroadcastEvent("doc-changed", new { title, path = currentPath });
+            }
+        }
+        catch { }
+    }
+
     private object ExecuteCommand(CommandRequest request)
     {
         var args = request.Args ?? new Dictionary<string, object>();
+        object result;
         switch ((request.Command ?? string.Empty).Trim().ToLowerInvariant())
         {
             case "ping":
-                return new { message = "pong", time = DateTime.Now };
+                result = new { message = "pong", time = DateTime.Now };
+                break;
 
             case "active-document":
-                return GetActiveDocumentInfo();
+                result = GetActiveDocumentInfo();
+                break;
 
             case "save-dwg":
-                return SaveActiveDrawingAs(".dwg", "DWG");
+                result = SaveActiveDrawingAs(".dwg", "DWG");
+                break;
 
             case "save-pdf":
-                return SaveActiveDrawingAs(".pdf", "PDF");
+                result = SaveActiveDrawingAs(".pdf", "PDF");
+                break;
 
             case "open-file-location":
-                return GetActiveOrSelectedModelPath();
+                result = GetActiveOrSelectedModelPath();
+                break;
 
             case "rotate-drawing-view":
-                return RotateSelectedDrawingView();
+                result = RotateSelectedDrawingView();
+                break;
 
             case "get-component-tree":
-                return GetComponentTree();
+                result = GetComponentTree();
+                break;
 
             case "sort-components":
-                return SortComponents();
+                result = SortComponents();
+                break;
 
             case "hide-config-names":
-                return HideConfigNames();
+                result = HideConfigNames();
+                break;
 
             case "sync-coding-props":
-                return SyncCodingProps();
+                result = SyncCodingProps();
+                break;
 
             case "read-properties":
-                return ReadProperties(args);
+                result = ReadProperties(args);
+                break;
 
             case "write-properties":
-                return WriteProperties(args);
+                result = WriteProperties(args);
+                break;
 
             case "get-bounding-box":
-                return GetBoundingBox(args);
+                result = GetBoundingBox(args);
+                break;
 
             case "rename-component":
-                return RenameComponent(args);
+                result = RenameComponent(args);
+                break;
 
             case "coding-cleanup":
-                return CodingCleanup(args);
+                result = CodingCleanup(args);
+                break;
 
             case "rebuild":
-                return Rebuild();
+                result = Rebuild();
+                break;
 
             case "save":
-                return Save();
+                result = Save();
+                break;
 
             case "open-document":
-                return OpenDocument(args);
+                result = OpenDocument(args);
+                break;
 
             default:
                 throw new InvalidOperationException($"未知命令: {request.Command}");
         }
+
+        CheckAndBroadcastDocChange();
+        return result;
     }
 
     private ModelDoc2 GetActiveModel()
