@@ -234,26 +234,315 @@ internal sealed partial class AddinHttpServer
         try { model.SetSaveFlag(); } catch { }
     }
 
-    // --- Stubs for Task 6 (Assembly Commands) ---
-
-    private object GetComponentTree()
-    {
-        throw new InvalidOperationException("get-component-tree 尚未实现 (Task 6)");
-    }
-
-    private object SortComponents()
-    {
-        throw new InvalidOperationException("sort-components 尚未实现 (Task 6)");
-    }
+    // --- Hide Config Names (FeatureManager) ---
 
     private object HideConfigNames()
     {
-        throw new InvalidOperationException("hide-config-names 尚未实现 (Task 6)");
+        var model = GetActiveModel();
+        if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
+            throw new InvalidOperationException("请在装配体环境下使用");
+
+        var featMgr = model.FeatureManager;
+        featMgr.HideComponentSingleConfigurationOrDisplayStateNames = false;
+        featMgr.SetComponentIdentifiers(4, 0, 0);
+        featMgr.SetComponentIdentifiers(2, 0, 0);
+        featMgr.ShowComponentConfigurationNames = false;
+        featMgr.ShowComponentConfigurationDescriptions = false;
+        featMgr.ShowDisplayStateNames = false;
+
+        RecursiveHideConfigNames(_swApp, model);
+
+        return new { done = true };
     }
 
-    private object SyncCodingProps()
+    private void RecursiveHideConfigNames(SldWorks.SldWorks swApp, ModelDoc2 asmDoc)
     {
-        throw new InvalidOperationException("sync-coding-props 尚未实现 (Task 6)");
+        var configuration = (Configuration)asmDoc.GetActiveConfiguration();
+        var rootComponent = (Component2)configuration.GetRootComponent();
+        var comps = (object[])rootComponent.GetChildren();
+
+        foreach (Component2 child in comps)
+        {
+            var childModel = child.GetModelDoc() as ModelDoc2;
+            if (childModel == null) continue;
+
+            var childType = childModel.GetType();
+            if (childType == (int)swDocumentTypes_e.swDocASSEMBLY)
+            {
+                var longstatus = 0;
+                var longWarnings = 0;
+                var fopen = swApp.OpenDoc6(child.GetPathName(), (int)swDocumentTypes_e.swDocASSEMBLY,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref longstatus, ref longWarnings);
+                if (longstatus == 0 && fopen != null)
+                {
+                    var swFeatMgr = fopen.FeatureManager;
+                    swFeatMgr.HideComponentSingleConfigurationOrDisplayStateNames = false;
+                    swFeatMgr.SetComponentIdentifiers(4, 0, 0);
+                    swFeatMgr.SetComponentIdentifiers(2, 0, 0);
+                    swFeatMgr.ShowComponentConfigurationNames = false;
+                    swFeatMgr.ShowComponentConfigurationDescriptions = false;
+                    swFeatMgr.ShowDisplayStateNames = false;
+                }
+                RecursiveHideConfigNames(swApp, childModel);
+            }
+        }
+    }
+
+    // --- Get Component Tree ---
+
+    private object GetComponentTree()
+    {
+        var model = GetActiveModel();
+        if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
+            throw new InvalidOperationException("请在装配体环境下使用");
+
+        var components = new List<object>();
+        var configuration = (Configuration)model.GetActiveConfiguration();
+        var rootComponent = (Component2)configuration.GetRootComponent();
+        var comps = (object[])rootComponent.GetChildren();
+
+        foreach (Component2 child in comps)
+        {
+            var childModel = child.GetModelDoc() as ModelDoc2;
+            var info = new
+            {
+                name = Safe(() => child.Name2),
+                path = Safe(() => child.GetPathName()),
+                referencedPath = childModel != null ? Safe(() => childModel.GetPathName()) : null,
+                type = childModel != null ? Safe(() => (int)childModel.GetType()) : -1,
+                isSuppressed = Safe(() => child.IsSuppressed()),
+                isEnvelope = Safe(() => child.IsEnvelope())
+            };
+            components.Add(info);
+        }
+
+        return new { components };
+    }
+
+    // --- Sort Components ---
+
+    private object SortComponents()
+    {
+        var model = GetActiveModel();
+        if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
+            throw new InvalidOperationException("请在装配体环境下使用");
+
+        var assemblyDoc = model as AssemblyDoc;
+        if (assemblyDoc == null) throw new InvalidOperationException("无法获取 AssemblyDoc");
+
+        var vFeats = (object[])model.FeatureManager.GetFeatures(true);
+
+        // Find start/end indices
+        var startIdx = 0;
+        var endIdx = vFeats.Length - 1;
+        for (var i = 0; i < vFeats.Length; i++)
+        {
+            var t = ((Feature)vFeats[i]).GetTypeName2();
+            if (t == "OriginProfileFeature") startIdx = i + 1;
+            if (t == "MateGroup") { endIdx = i - 1; break; }
+        }
+
+        // Group features
+        var folders = new List<Feature>();
+        var folderComponents = new List<List<Feature>>();
+        var topLevelFeats = new List<Feature>();
+        var suppressedEnvFeats = new List<Feature>();
+        List<Feature> currentFolderComps = null;
+
+        for (var i = startIdx; i <= endIdx; i++)
+        {
+            var feat = (Feature)vFeats[i];
+            var featType = feat.GetTypeName2();
+            if (featType == "FtrFolder")
+            {
+                if (!feat.Name.Contains("___EndTag___"))
+                {
+                    folders.Add(feat);
+                    currentFolderComps = new List<Feature>();
+                    folderComponents.Add(currentFolderComps);
+                }
+                else
+                {
+                    currentFolderComps = null;
+                }
+            }
+            else if (featType == "Reference")
+            {
+                var isSupOrEnv = false;
+                try
+                {
+                    var comp = feat.GetSpecificFeature2() as Component2;
+                    if (comp != null) isSupOrEnv = comp.IsSuppressed() || comp.IsEnvelope();
+                }
+                catch { }
+                if (isSupOrEnv)
+                {
+                    if (currentFolderComps != null) currentFolderComps.Add(feat);
+                    else suppressedEnvFeats.Add(feat);
+                }
+                else if (currentFolderComps != null)
+                {
+                    currentFolderComps.Add(feat);
+                }
+                else
+                {
+                    topLevelFeats.Add(feat);
+                }
+            }
+        }
+
+        // Collect and sort
+        var sortedPartComps = CollectAndSort(topLevelFeats, false);
+        var sortedAsmComps = CollectAndSort(topLevelFeats, true);
+        var sortedSupPart = CollectAndSort(suppressedEnvFeats, false);
+        var sortedSupAsm = CollectAndSort(suppressedEnvFeats, true);
+
+        var allSorted = new List<Component2>();
+        allSorted.AddRange(sortedAsmComps);
+        allSorted.AddRange(sortedPartComps);
+        allSorted.AddRange(sortedSupAsm);
+        allSorted.AddRange(sortedSupPart);
+
+        if (allSorted.Count > 0)
+        {
+            var lastFolder = folders.Count > 0 ? folders[folders.Count - 1] : null;
+            if (lastFolder != null)
+                assemblyDoc.ReorderComponents(allSorted[0], lastFolder, (int)swReorderComponentsWhere_e.swReorderComponents_After);
+            for (var i = 1; i < allSorted.Count; i++)
+                assemblyDoc.ReorderComponents(allSorted[i], allSorted[i - 1], 1);
+        }
+
+        foreach (var f in folders)
+            SortComponentsInFolder(f, assemblyDoc);
+
+        var processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        RecursiveSortSubAssemblies(topLevelFeats, processed);
+        foreach (var fc in folderComponents)
+            RecursiveSortSubAssemblies(fc, processed);
+
+        model.EditRebuild3();
+        model.ClearSelection2(true);
+
+        return new { done = true, topLevelSorted = allSorted.Count, foldersSorted = folders.Count };
+    }
+
+    private List<Component2> CollectAndSort(List<Feature> feats, bool assemblies)
+    {
+        var result = new List<Component2>();
+        var targetType = assemblies ? (int)swDocumentTypes_e.swDocASSEMBLY : (int)swDocumentTypes_e.swDocPART;
+        foreach (var feat in feats)
+        {
+            var comp = feat.GetSpecificFeature2() as Component2;
+            if (comp == null) continue;
+            try
+            {
+                var childModel = comp.GetModelDoc() as ModelDoc2;
+                var childType = childModel != null ? childModel.GetType() : -1;
+                if (childType == targetType) result.Add(comp);
+            }
+            catch { }
+        }
+        result.Sort((a, b) => string.Compare(Safe(() => a.Name2), Safe(() => b.Name2), StringComparison.OrdinalIgnoreCase));
+        return result;
+    }
+
+    private void SortComponentsInFolder(Feature folder, AssemblyDoc assemblyDoc)
+    {
+        var partComps = new List<Component2>();
+        var asmComps = new List<Component2>();
+        var supPartComps = new List<Component2>();
+        var supAsmComps = new List<Component2>();
+
+        var subFeat = folder.GetFirstSubFeature() as Feature;
+        while (subFeat != null)
+        {
+            if (subFeat.GetTypeName2() == "Reference")
+            {
+                var comp = subFeat.GetSpecificFeature2() as Component2;
+                if (comp != null)
+                {
+                    var isSupEnv = Safe(() => comp.IsSuppressed()) || Safe(() => comp.IsEnvelope());
+                    var childModel = comp.GetModelDoc() as ModelDoc2;
+                    var childType = childModel != null ? childModel.GetType() : -1;
+                    if (childType == (int)swDocumentTypes_e.swDocASSEMBLY)
+                    {
+                        if (isSupEnv) supAsmComps.Add(comp); else asmComps.Add(comp);
+                    }
+                    else if (childType == (int)swDocumentTypes_e.swDocPART)
+                    {
+                        if (isSupEnv) supPartComps.Add(comp); else partComps.Add(comp);
+                    }
+                }
+            }
+            subFeat = subFeat.GetNextSubFeature() as Feature;
+        }
+
+        asmComps.Sort((a, b) => string.Compare(Safe(() => a.Name2), Safe(() => b.Name2), StringComparison.OrdinalIgnoreCase));
+        partComps.Sort((a, b) => string.Compare(Safe(() => a.Name2), Safe(() => b.Name2), StringComparison.OrdinalIgnoreCase));
+        supAsmComps.Sort((a, b) => string.Compare(Safe(() => a.Name2), Safe(() => b.Name2), StringComparison.OrdinalIgnoreCase));
+        supPartComps.Sort((a, b) => string.Compare(Safe(() => a.Name2), Safe(() => b.Name2), StringComparison.OrdinalIgnoreCase));
+
+        var all = new List<Component2>();
+        all.AddRange(asmComps); all.AddRange(partComps);
+        all.AddRange(supAsmComps); all.AddRange(supPartComps);
+
+        if (all.Count > 1)
+        {
+            for (var i = 1; i < all.Count; i++)
+                assemblyDoc.ReorderComponents(all[i], all[i - 1], 1);
+        }
+    }
+
+    private void RecursiveSortSubAssemblies(List<Feature> feats, HashSet<string> processed)
+    {
+        foreach (var feat in feats)
+        {
+            if (feat.GetTypeName2() != "Reference") continue;
+            var comp = feat.GetSpecificFeature2() as Component2;
+            if (comp == null) continue;
+            try
+            {
+                var model = comp.GetModelDoc() as ModelDoc2;
+                if (model == null || model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) continue;
+                var path = model.GetPathName();
+                if (string.IsNullOrWhiteSpace(path) || !processed.Add(path)) continue;
+                SortSubAsmByFeatures(model, processed);
+            }
+            catch { }
+        }
+    }
+
+    private void SortSubAsmByFeatures(ModelDoc2 asmModel, HashSet<string> processed)
+    {
+        try
+        {
+            var vFeats = (object[])asmModel.FeatureManager.GetFeatures(true);
+            var refFeats = new List<Feature>();
+            for (var i = 0; i < vFeats.Length; i++)
+            {
+                if (((Feature)vFeats[i]).GetTypeName2() == "Reference")
+                    refFeats.Add((Feature)vFeats[i]);
+            }
+
+            var asmComps = CollectAndSort(refFeats, true);
+            var partComps = CollectAndSort(refFeats, false);
+
+            var all = new List<Component2>();
+            all.AddRange(asmComps); all.AddRange(partComps);
+
+            if (all.Count > 1)
+            {
+                var asmDoc = asmModel as AssemblyDoc;
+                if (asmDoc != null)
+                {
+                    for (var i = 1; i < all.Count; i++)
+                        asmDoc.ReorderComponents(all[i], all[i - 1], 1);
+                }
+            }
+
+            RecursiveSortSubAssemblies(refFeats, processed);
+        }
+        catch { }
     }
 
     // --- Stubs for Task 7 (Property/BoundingBox/Cleanup Commands) ---
@@ -281,5 +570,10 @@ internal sealed partial class AddinHttpServer
     private object CodingCleanup(Dictionary<string, object> args)
     {
         throw new InvalidOperationException("coding-cleanup 尚未实现 (Task 7)");
+    }
+
+    private object SyncCodingProps()
+    {
+        throw new InvalidOperationException("sync-coding-props 尚未实现 (Task 7)");
     }
 }
