@@ -144,9 +144,7 @@ Public Class PropertyOverlayWindow
                     _docWatchTimer.Stop()
                 End If
             End If
-#Disable Warning BC42358
-            RefreshPropertiesAsync()
-#Enable Warning BC42358
+Dim _t As Task = RefreshPropertiesAsync()
         End Set
     End Property
 
@@ -202,9 +200,7 @@ Public Class PropertyOverlayWindow
         Next
 
         ApplyMouseThrough()
-#Disable Warning BC42358
-        RefreshPropertiesAsync()
-#Enable Warning BC42358
+        Dim _t2 As Task = RefreshPropertiesAsync()
     End Sub
 
     Private Async Function RefreshPropertiesAsync() As Task
@@ -228,7 +224,7 @@ Public Class PropertyOverlayWindow
                 End Sub)
             End If
         Catch ex As Exception
-            Debug.WriteLine($"PropertyOverlayWindow.RefreshPropertiesAsync error: {ex.Message}")
+            Debug.WriteLine("PropertyOverlayWindow.RefreshPropertiesAsync error: " & ex.Message)
             Dispatcher.Invoke(Sub()
                 PropertyPanel.Children.Clear()
                 TitleText.Text = TextByCodes(&H65E0, &H6587, &H6863)

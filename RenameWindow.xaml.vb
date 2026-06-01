@@ -91,8 +91,14 @@ Partial Public Class RenameWindow
             If dict Is Nothing Then Return
 
             Dim key As String = ""
-            Dim path As String = If(dict.ContainsKey("path"), dict("path")?.ToString(), "")
-            Dim title As String = If(dict.ContainsKey("title"), dict("title")?.ToString(), "")
+            Dim path As String = ""
+            If dict.ContainsKey("path") AndAlso dict("path") IsNot Nothing Then
+                path = dict("path").ToString()
+            End If
+            Dim title As String = ""
+            If dict.ContainsKey("title") AndAlso dict("title") IsNot Nothing Then
+                title = dict("title").ToString()
+            End If
             key = If(String.IsNullOrEmpty(path), title, path)
 
             Dim targetKey As String = ""
@@ -126,9 +132,18 @@ Partial Public Class RenameWindow
                 Return
             End If
 
-            Dim filePath As String = If(dict.ContainsKey("path"), dict("path")?.ToString(), "")
-            Dim title As String = If(dict.ContainsKey("title"), dict("title")?.ToString(), "")
-            Dim docType As String = If(dict.ContainsKey("type"), dict("type")?.ToString(), "")
+            Dim filePath As String = ""
+            If dict.ContainsKey("path") AndAlso dict("path") IsNot Nothing Then
+                filePath = dict("path").ToString()
+            End If
+            Dim title As String = ""
+            If dict.ContainsKey("title") AndAlso dict("title") IsNot Nothing Then
+                title = dict("title").ToString()
+            End If
+            Dim docType As String = ""
+            If dict.ContainsKey("type") AndAlso dict("type") IsNot Nothing Then
+                docType = dict("type").ToString()
+            End If
 
             Dim baseName As String = If(String.IsNullOrEmpty(filePath), title, Path.GetFileNameWithoutExtension(filePath))
             OldNameBox.Text = baseName
@@ -163,7 +178,7 @@ Partial Public Class RenameWindow
     End Sub
 
     Private Function DocTypeToExtensionString(docType As String) As String
-        Select Case docType?.ToUpperInvariant()
+        Select Case If(docType IsNot Nothing, docType.ToUpperInvariant(), Nothing)
             Case "PART" : Return ".sldprt"
             Case "ASSEMBLY" : Return ".sldasm"
             Case "DRAWING" : Return ".slddrw"
@@ -229,9 +244,18 @@ Partial Public Class RenameWindow
             Dim conflict As Boolean = False
             Dim existsOpen As Boolean = False
             Dim existsFile As Boolean = False
-            If dict.ContainsKey("conflict") Then Boolean.TryParse(dict("conflict")?.ToString(), conflict)
-            If dict.ContainsKey("existsOpen") Then Boolean.TryParse(dict("existsOpen")?.ToString(), existsOpen)
-            If dict.ContainsKey("existsFile") Then Boolean.TryParse(dict("existsFile")?.ToString(), existsFile)
+            If dict.ContainsKey("conflict") Then
+                Dim conflictVal As String = If(dict("conflict") IsNot Nothing, dict("conflict").ToString(), Nothing)
+                Boolean.TryParse(conflictVal, conflict)
+            End If
+            If dict.ContainsKey("existsOpen") Then
+                Dim openVal As String = If(dict("existsOpen") IsNot Nothing, dict("existsOpen").ToString(), Nothing)
+                Boolean.TryParse(openVal, existsOpen)
+            End If
+            If dict.ContainsKey("existsFile") Then
+                Dim fileVal As String = If(dict("existsFile") IsNot Nothing, dict("existsFile").ToString(), Nothing)
+                Boolean.TryParse(fileVal, existsFile)
+            End If
 
             If conflict Then
                 NewNameBox.Background = New WpfMedia.SolidColorBrush(WpfMedia.Color.FromRgb(255, 228, 225))

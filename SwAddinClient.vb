@@ -17,31 +17,27 @@ Public Class SwAddinClient
     Private ReadOnly _wsUrl As String
     Private _ws As ClientWebSocket
     Private _wsCts As CancellationTokenSource
-    Private _pingInterval As Integer = 5 ' seconds fallback
     Private _pingTimer As Threading.Timer
 
     Public Sub New(Optional port As Integer = 32128)
-        _baseUrl = $"http://127.0.0.1:{port}/"
-        _wsUrl = $"ws://127.0.0.1:{port}/events"
+        _baseUrl = String.Format("http://127.0.0.1:{0}/", port)
+        _wsUrl = String.Format("ws://127.0.0.1:{0}/events", port)
     End Sub
 
     Public Async Function ConnectAsync() As Task(Of Boolean)
         Try
-            ' Verify HTTP connectivity first
             Dim pingResult = Await SendCommandAsync("ping")
             If pingResult Is Nothing Then Return False
 
-            ' Connect WebSocket
             _wsCts = New CancellationTokenSource()
             _ws = New ClientWebSocket()
             Await _ws.ConnectAsync(New Uri(_wsUrl), _wsCts.Token)
             StartWsReadLoop()
             Return True
         Catch ex As Exception
-            Debug.WriteLine($"SwAddinClient: WebSocket failed, falling back to HTTP ping: {ex.Message}")
-            ' Fallback to HTTP polling
+            Debug.WriteLine("SwAddinClient: WebSocket failed, falling back to HTTP ping: " & ex.Message)
             StartHttpPolling()
-            Return True ' HTTP ping succeeded, consider it connected
+            Return True
         End Try
     End Function
 
@@ -60,7 +56,6 @@ Public Class SwAddinClient
                     Exit While
                 End Try
             End While
-            ' Reconnect
             Debug.WriteLine("SwAddinClient: WebSocket disconnected, attempting reconnect...")
             Await ReconnectWsAsync()
         End Function)
@@ -70,16 +65,16 @@ Public Class SwAddinClient
         For attempt As Integer = 1 To 3
             Try
                 Await Task.Delay(1000 * CInt(Math.Pow(2, attempt - 1)))
-                _ws?.Dispose()
+                If _ws IsNot Nothing Then _ws.Dispose()
                 _ws = New ClientWebSocket()
-                _wsCts?.Cancel()
+                If _wsCts IsNot Nothing Then _wsCts.Cancel()
                 _wsCts = New CancellationTokenSource()
                 Await _ws.ConnectAsync(New Uri(_wsUrl), _wsCts.Token)
                 StartWsReadLoop()
-                Debug.WriteLine($"SwAddinClient: WebSocket reconnected on attempt {attempt}")
+                Debug.WriteLine("SwAddinClient: WebSocket reconnected on attempt " & attempt)
                 Return
             Catch ex As Exception
-                Debug.WriteLine($"SwAddinClient: WS reconnect attempt {attempt} failed: {ex.Message}")
+                Debug.WriteLine("SwAddinClient: WS reconnect attempt " & attempt & " failed: " & ex.Message)
             End Try
         Next
         Debug.WriteLine("SwAddinClient: WS reconnect exhausted, falling back to HTTP polling")
@@ -96,7 +91,7 @@ Public Class SwAddinClient
                         ProcessDocInfo(info)
                     End If
                 Catch ex As Exception
-                    Debug.WriteLine($"SwAddinClient: HTTP poll failed: {ex.Message}")
+                    Debug.WriteLine("SwAddinClient: HTTP poll failed: " & ex.Message)
                 End Try
             End Sub, Nothing, 5000, 5000)
     End Sub
@@ -105,29 +100,45 @@ Public Class SwAddinClient
         Try
             Dim msg = _json.Deserialize(Of Dictionary(Of String, Object))(json)
             If msg Is Nothing Then Return
-            Dim msgType As String = If(msg.ContainsKey("type"), msg("type")?.ToString(), "")
+
+            Dim msgType As String = Nothing
+            If msg.ContainsKey("type") AndAlso msg("type") IsNot Nothing Then
+                msgType = msg("type").ToString()
+            End If
+
             Select Case msgType
                 Case "ping"
-                    ' Heartbeat, ignore
                 Case "doc-changed"
                     Dim data = TryCast(msg("data"), Dictionary(Of String, Object))
                     If data IsNot Nothing Then
-                        Dim title = If(data.ContainsKey("title"), data("title")?.ToString(), "")
-                        Dim path = If(data.ContainsKey("path"), data("path")?.ToString(), "")
+                        Dim title As String = ""
+                        Dim path As String = ""
+                        If data.ContainsKey("title") AndAlso data("title") IsNot Nothing Then
+                            title = data("title").ToString()
+                        End If
+                        If data.ContainsKey("path") AndAlso data("path") IsNot Nothing Then
+                            path = data("path").ToString()
+                        End If
                         RaiseEvent DocChanged(title, path)
                     End If
                 Case "selection-changed"
                     Dim data = TryCast(msg("data"), Dictionary(Of String, Object))
                     If data IsNot Nothing Then
-                        Dim name = If(data.ContainsKey("name"), data("name")?.ToString(), "")
-                        Dim sType = If(data.ContainsKey("type"), data("type")?.ToString(), "")
+                        Dim name As String = ""
+                        Dim sType As String = ""
+                        If data.ContainsKey("name") AndAlso data("name") IsNot Nothing Then
+                            name = data("name").ToString()
+                        End If
+                        If data.ContainsKey("type") AndAlso data("type") IsNot Nothing Then
+                            sType = data("type").ToString()
+                        End If
                         RaiseEvent SelectionChanged(name, sType)
                     End If
                 Case "sw-shutdown"
                     RaiseEvent Disconnected()
             End Select
         Catch ex As Exception
-            Debug.WriteLine($"SwAddinClient: WS message parse error: {ex.Message}")
+            Debug.WriteLine("SwAddinClient: WS message parse error: " & ex.Message)
         End Try
     End Sub
 
@@ -135,8 +146,14 @@ Public Class SwAddinClient
         Try
             Dim dict = TryCast(info, Dictionary(Of String, Object))
             If dict IsNot Nothing Then
-                Dim title = If(dict.ContainsKey("title"), dict("title")?.ToString(), "")
-                Dim path = If(dict.ContainsKey("path"), dict("path")?.ToString(), "")
+                Dim title As String = ""
+                Dim path As String = ""
+                If dict.ContainsKey("title") AndAlso dict("title") IsNot Nothing Then
+                    title = dict("title").ToString()
+                End If
+                If dict.ContainsKey("path") AndAlso dict("path") IsNot Nothing Then
+                    path = dict("path").ToString()
+                End If
                 RaiseEvent DocChanged(title, path)
             End If
         Catch
@@ -158,26 +175,37 @@ Public Class SwAddinClient
             If result IsNot Nothing AndAlso result.ContainsKey("ok") AndAlso CBool(result("ok")) Then
                 Return If(result.ContainsKey("data"), result("data"), Nothing)
             Else
-                Dim errMsg = If(result IsNot Nothing AndAlso result.ContainsKey("error"), result("error")?.ToString(), "未知错误")
+                Dim errMsg As String = "未知错误"
+                If result IsNot Nothing AndAlso result.ContainsKey("error") AndAlso result("error") IsNot Nothing Then
+                    errMsg = result("error").ToString()
+                End If
                 Throw New InvalidOperationException(errMsg)
             End If
         Catch ex As InvalidOperationException
             Throw
         Catch ex As Exception
-            Throw New InvalidOperationException($"通信失败: {ex.Message}", ex)
+            Throw New InvalidOperationException("通信失败: " & ex.Message, ex)
         End Try
     End Function
 
     Public Sub Dispose() Implements IDisposable.Dispose
-        _pingTimer?.Dispose()
-        _pingTimer = Nothing
-        _wsCts?.Cancel()
-        Try
-            _ws?.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None).Wait(1000)
-        Catch
-        End Try
-        _ws?.Dispose()
-        _ws = Nothing
-        _http?.Dispose()
+        If _pingTimer IsNot Nothing Then
+            _pingTimer.Dispose()
+            _pingTimer = Nothing
+        End If
+        If _wsCts IsNot Nothing Then
+            _wsCts.Cancel()
+        End If
+        If _ws IsNot Nothing Then
+            Try
+                _ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", CancellationToken.None).Wait(1000)
+            Catch
+            End Try
+            _ws.Dispose()
+            _ws = Nothing
+        End If
+        If _http IsNot Nothing Then
+            _http.Dispose()
+        End If
     End Sub
 End Class

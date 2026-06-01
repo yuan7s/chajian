@@ -12,7 +12,10 @@
       "Bash(/c/Program Files/JetBrains/JetBrains Rider 2026.1/tools/MSBuild/Current/Bin/MSBuild.exe *)",
       "Bash(dotnet sln *)",
       "Bash(dotnet build *)",
-      "Bash(powershell *)"
+      "Bash(powershell *)",
+      "Bash(dotnet msbuild *)",
+      "Bash(cp \"C:/Users/yuan7/RiderProjects/chajian2/obj/Debug/\"*.baml \"C:/Users/yuan7/RiderProjects/chajian2/GeneratedCode/\")",
+      "Bash(cp \"C:/Users/yuan7/RiderProjects/chajian2/obj/Debug/\"*.g.vb \"C:/Users/yuan7/RiderProjects/chajian2/GeneratedCode/\")"
     ]
   }
 }

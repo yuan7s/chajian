@@ -83,7 +83,7 @@ Public Class Form1
         Await UpdateStatusBar()
     End Sub
 
-    Private Sub Form1_Closing(sender As Object, e As ComponentModel.CancelEventArgs)
+    Private Sub Form1_Closing(sender As Object, e As System.ComponentModel.CancelEventArgs)
         ' 拦截关闭按钮，隐藏到托盘
         If Not _allowClose Then
             e.Cancel = True
@@ -94,7 +94,7 @@ Public Class Form1
     Private Sub Form1_Closed(sender As Object, e As EventArgs)
         ' 清理热键
         If _mainWindowHandle <> IntPtr.Zero Then UnregisterHotKey(_mainWindowHandle, HotkeyId)
-        _client?.Dispose()
+        If _client IsNot Nothing Then _client.Dispose()
         _client = Nothing
         If _trayIcon IsNot Nothing Then
             _trayIcon.Visible = False
@@ -119,8 +119,14 @@ Public Class Form1
                 If info IsNot Nothing Then
                     Dim dict = TryCast(info, Dictionary(Of String, Object))
                     If dict IsNot Nothing Then
-                        Dim path = If(dict.ContainsKey("path"), dict("path")?.ToString(), "")
-                        Dim title = If(dict.ContainsKey("title"), dict("title")?.ToString(), "")
+                        Dim path As String = ""
+                        If dict.ContainsKey("path") AndAlso dict("path") IsNot Nothing Then
+                            path = dict("path").ToString()
+                        End If
+                        Dim title As String = ""
+                        If dict.ContainsKey("title") AndAlso dict("title") IsNot Nothing Then
+                            title = dict("title").ToString()
+                        End If
                         If Not String.IsNullOrWhiteSpace(path) Then
                             fileNameLabel.Text = IO.Path.GetFileNameWithoutExtension(path)
                         ElseIf Not String.IsNullOrWhiteSpace(title) Then
