@@ -9,7 +9,10 @@
       "Bash(\"C:\\\\Program Files\\\\JetBrains\\\\JetBrains Rider 2026.1\\\\tools\\\\MSBuild\\\\Current\\\\Bin\\\\MSBuild.exe\" \"C:\\\\Users\\\\yuan7\\\\RiderProjects\\\\chajian2\\\\外部程序.vbproj\" /t:Build /p:Configuration=Debug /nologo /v:minimal)",
       "Bash(git *)",
       "Bash('/c/Program Files/JetBrains/JetBrains Rider 2026.1/tools/MSBuild/Current/Bin/MSBuild.exe' /c/Users/yuan7/RiderProjects/chajian2/外部程序.vbproj //t:Build //p:Configuration=Debug //nologo //v:minimal)",
-      "Bash(/c/Program Files/JetBrains/JetBrains Rider 2026.1/tools/MSBuild/Current/Bin/MSBuild.exe *)"
+      "Bash(/c/Program Files/JetBrains/JetBrains Rider 2026.1/tools/MSBuild/Current/Bin/MSBuild.exe *)",
+      "Bash(dotnet sln *)",
+      "Bash(dotnet build *)",
+      "Bash(powershell *)"
     ]
   }
 }

@@ -250,8 +250,4 @@ internal sealed partial class AddinHttpServer : IDisposable
 
     // ExecuteCommand is defined in the partial class AddinHttpServer.Commands.cs
     // (Task 5-7)
-    private object ExecuteCommand(CommandRequest request)
-    {
-        throw new InvalidOperationException($"Command not yet implemented: {request.Command}");
-    }
 }

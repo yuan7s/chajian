@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "mcp__ide__getDiagnostics",
+      "Bash(ilspycmd *)",
       "Edit",
       "Write",
       "WebSearch",
