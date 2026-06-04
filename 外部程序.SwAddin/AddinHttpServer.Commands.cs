@@ -74,6 +74,14 @@ internal sealed partial class AddinHttpServer
                 result = SyncCodingProps();
                 break;
 
+            case "delete-custom-props":
+                result = DeleteCustomProperties();
+                break;
+
+            case "delete-config-props":
+                result = DeleteConfigurationProperties();
+                break;
+
             case "read-properties":
                 result = ReadProperties(args);
                 break;
@@ -131,6 +139,13 @@ internal sealed partial class AddinHttpServer
     {
         if (args.TryGetValue(key, out var val) && val != null) return val.ToString();
         return fallback;
+    }
+
+    private bool GetArgBool(Dictionary<string, object> args, string key, bool fallback = false)
+    {
+        if (!args.TryGetValue(key, out var val) || val == null) return fallback;
+        if (val is bool boolValue) return boolValue;
+        return bool.TryParse(val.ToString(), out var parsed) ? parsed : fallback;
     }
 
     private object GetActiveDocumentInfo()
@@ -224,25 +239,19 @@ internal sealed partial class AddinHttpServer
     private object GetActiveOrSelectedModelPath()
     {
         var model = GetActiveModel();
-        var path = model.GetPathName();
-        if (!string.IsNullOrWhiteSpace(path)) return new { path };
-
-        if (model.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY)
+        var selectedComponent = GetSelectedComponent(model);
+        if (selectedComponent != null)
         {
-            try
-            {
-                var selMgr = model.SelectionManager as SelectionMgr;
-                var comp = selMgr?.GetSelectedObjectsComponent(1) as Component2;
-                if (comp != null)
-                {
-                    path = comp.GetPathName();
-                    if (!string.IsNullOrWhiteSpace(path)) return new { path };
-                }
-            }
-            catch { }
+            var selectedPath = Safe(() => selectedComponent.GetPathName()) ?? "";
+            if (string.IsNullOrWhiteSpace(selectedPath))
+                selectedPath = Safe(() => (selectedComponent.GetModelDoc() as ModelDoc2)?.GetPathName()) ?? "";
+            if (!string.IsNullOrWhiteSpace(selectedPath)) return new { path = selectedPath, selected = true };
         }
 
-        return new { path = model.GetTitle() };
+        var path = Safe(() => model.GetPathName()) ?? "";
+        if (!string.IsNullOrWhiteSpace(path)) return new { path, selected = false };
+
+        return new { path = Safe(() => model.GetTitle()) ?? "", selected = false };
     }
 
     // --- Rotate Drawing View ---
@@ -589,43 +598,45 @@ internal sealed partial class AddinHttpServer
 
     private object ReadProperties(Dictionary<string, object> args)
     {
-        var model = GetActiveModel();
-        var configName = GetArgString(args, "configuration", "");
-        var manager = model.Extension.get_CustomPropertyManager(configName);
+        var target = ResolvePropertyTarget(args);
+        var manager = target.Model.Extension.get_CustomPropertyManager(target.ConfigurationName);
         var values = new Dictionary<string, string>();
 
         try
         {
-            var names = (string[])manager.GetNames();
-            if (names != null)
+            foreach (var name in GetPropertyNames(manager))
             {
-                foreach (var name in names)
+                try
                 {
-                    try
-                    {
-                        manager.Get5(name, false, out var val, out var _, out var _);
-                        values[name] = val ?? "";
-                    }
-                    catch { }
+                    manager.Get5(name, false, out var rawValue, out var resolvedValue, out var _);
+                    values[name] = !string.IsNullOrWhiteSpace(resolvedValue) ? resolvedValue : rawValue ?? "";
                 }
+                catch { }
             }
         }
         catch { }
 
-        return new { configuration = string.IsNullOrWhiteSpace(configName) ? "custom" : configName, properties = values };
+        return new
+        {
+            title = target.Title,
+            path = target.Path,
+            configuration = string.IsNullOrWhiteSpace(target.ConfigurationName) ? "custom" : target.ConfigurationName,
+            source = target.Source,
+            selectedComponent = target.SelectedComponent,
+            properties = values
+        };
     }
 
     // --- Write Properties ---
 
     private object WriteProperties(Dictionary<string, object> args)
     {
-        var model = GetActiveModel();
-        var configName = GetArgString(args, "configuration", "");
+        var target = ResolvePropertyTarget(args);
         var propsArg = args.TryGetValue("properties", out var p) ? p : null;
         var properties = propsArg as Dictionary<string, object>;
         if (properties == null) throw new InvalidOperationException("properties 不能为空");
 
-        var manager = model.Extension.get_CustomPropertyManager(configName);
+        var manager = target.Model.Extension.get_CustomPropertyManager(target.ConfigurationName);
         var written = new List<string>();
         foreach (var kvp in properties)
         {
@@ -633,9 +644,221 @@ internal sealed partial class AddinHttpServer
             written.Add(kvp.Key);
         }
 
-        try { model.SetSaveFlag(); } catch { }
+        try { target.Model.SetSaveFlag(); } catch { }
 
-        return new { configuration = configName, written = written.ToArray() };
+        return new
+        {
+            title = target.Title,
+            configuration = target.ConfigurationName,
+            source = target.Source,
+            selectedComponent = target.SelectedComponent,
+            written = written.ToArray()
+        };
+    }
+
+    private PropertyTarget ResolvePropertyTarget(Dictionary<string, object> args)
+    {
+        var activeModel = GetActiveModel();
+        var targetModel = activeModel;
+        var selectedComponent = false;
+        var title = Safe(() => activeModel.GetTitle()) ?? "";
+        var path = Safe(() => activeModel.GetPathName()) ?? "";
+
+        var comp = GetSelectedComponent(activeModel);
+        if (comp != null)
+        {
+            var componentModel = Safe(() => comp.GetModelDoc() as ModelDoc2);
+            if (componentModel != null)
+            {
+                targetModel = componentModel;
+                selectedComponent = true;
+                title = Safe(() => comp.Name2) ?? Safe(() => componentModel.GetTitle()) ?? title;
+                path = Safe(() => componentModel.GetPathName()) ?? path;
+            }
+        }
+
+        var hasExplicitConfiguration = args.ContainsKey("configuration");
+        var explicitSource = GetArgString(args, "source", "");
+        var useCustomProperties =
+            string.Equals(explicitSource, "custom", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(explicitSource, "file", StringComparison.OrdinalIgnoreCase) ||
+            (!hasExplicitConfiguration && GetArgBool(args, "customProperties", false));
+
+        var configName = hasExplicitConfiguration ? GetArgString(args, "configuration", "") : "";
+        if (!useCustomProperties && !hasExplicitConfiguration)
+        {
+            configName = selectedComponent
+                ? Safe(() => comp.ReferencedConfiguration) ?? ""
+                : Safe(() => targetModel.ConfigurationManager.ActiveConfiguration.Name) ?? "";
+        }
+
+        return new PropertyTarget
+        {
+            Model = targetModel,
+            Title = title,
+            Path = path,
+            ConfigurationName = configName ?? "",
+            Source = useCustomProperties ? "custom" : "configuration",
+            SelectedComponent = selectedComponent
+        };
+    }
+
+    private Component2 GetSelectedComponent(ModelDoc2 activeModel)
+    {
+        if (activeModel.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) return null;
+
+        try
+        {
+            var selMgr = activeModel.SelectionManager as SelectionMgr;
+            if (selMgr == null) return null;
+
+            var count = Safe(() => selMgr.GetSelectedObjectCount2(-1));
+            for (var i = 1; i <= count; i++)
+            {
+                var comp = Safe(() => selMgr.GetSelectedObjectsComponent(i) as Component2);
+                if (comp != null) return comp;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static IEnumerable<string> GetPropertyNames(CustomPropertyManager manager)
+    {
+        var names = manager.GetNames();
+        if (names is string[] stringNames)
+            return stringNames.Where(name => !string.IsNullOrWhiteSpace(name));
+
+        if (names is object[] objectNames)
+            return objectNames.Select(item => item?.ToString()).Where(name => !string.IsNullOrWhiteSpace(name));
+
+        return Enumerable.Empty<string>();
+    }
+
+    private object DeleteCustomProperties()
+    {
+        var model = GetActiveModel();
+        var stats = DeletePropertiesRecursive(model, deleteConfigurationProperties: false, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
+    }
+
+    private object DeleteConfigurationProperties()
+    {
+        var model = GetActiveModel();
+        var stats = DeletePropertiesRecursive(model, deleteConfigurationProperties: true, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
+    }
+
+    private DeletePropertyStats DeletePropertiesRecursive(ModelDoc2 model, bool deleteConfigurationProperties, HashSet<string> processed)
+    {
+        var stats = new DeletePropertyStats();
+        if (model == null) return stats;
+
+        var key = GetModelProcessKey(model);
+        if (!processed.Add(key)) return stats;
+
+        stats.Documents++;
+        stats.Deleted += deleteConfigurationProperties
+            ? DeleteAllConfigurationProperties(model)
+            : DeleteManagerProperties(model.Extension.get_CustomPropertyManager(""));
+
+        if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY) return stats;
+
+        try
+        {
+            var configuration = model.GetActiveConfiguration() as Configuration;
+            var rootComponent = configuration?.GetRootComponent() as Component2;
+            var children = rootComponent?.GetChildren() as object[];
+            if (children == null) return stats;
+
+            foreach (Component2 child in children)
+            {
+                var childModel = Safe(() => child.GetModelDoc() as ModelDoc2);
+                if (childModel == null) continue;
+
+                var childStats = DeletePropertiesRecursive(childModel, deleteConfigurationProperties, processed);
+                stats.Documents += childStats.Documents;
+                stats.Deleted += childStats.Deleted;
+            }
+        }
+        catch { }
+
+        return stats;
+    }
+
+    private int DeleteAllConfigurationProperties(ModelDoc2 model)
+    {
+        var deleted = 0;
+        var configurationNames = GetConfigurationNames(model).ToArray();
+        if (configurationNames.Length == 0)
+        {
+            var activeConfiguration = Safe(() => model.ConfigurationManager.ActiveConfiguration.Name);
+            if (!string.IsNullOrWhiteSpace(activeConfiguration))
+                configurationNames = new[] { activeConfiguration };
+        }
+
+        foreach (var configurationName in configurationNames)
+        {
+            deleted += DeleteManagerProperties(model.Extension.get_CustomPropertyManager(configurationName));
+        }
+
+        return deleted;
+    }
+
+    private int DeleteManagerProperties(CustomPropertyManager manager)
+    {
+        if (manager == null) return 0;
+
+        var deleted = 0;
+        foreach (var name in GetPropertyNames(manager).ToArray())
+        {
+            try
+            {
+                manager.Delete2(name);
+                deleted++;
+            }
+            catch { }
+        }
+
+        return deleted;
+    }
+
+    private static IEnumerable<string> GetConfigurationNames(ModelDoc2 model)
+    {
+        var names = model.GetConfigurationNames();
+        if (names is string[] stringNames)
+            return stringNames.Where(name => !string.IsNullOrWhiteSpace(name));
+
+        if (names is object[] objectNames)
+            return objectNames.Select(item => item?.ToString()).Where(name => !string.IsNullOrWhiteSpace(name));
+
+        return Enumerable.Empty<string>();
+    }
+
+    private string GetModelProcessKey(ModelDoc2 model)
+    {
+        var path = Safe(() => model.GetPathName()) ?? "";
+        if (!string.IsNullOrWhiteSpace(path)) return path;
+
+        var title = Safe(() => model.GetTitle()) ?? "";
+        return "unsaved:" + title + ":" + model.GetHashCode();
+    }
+
+    private sealed class PropertyTarget
+    {
+        public ModelDoc2 Model { get; set; }
+        public string Title { get; set; }
+        public string Path { get; set; }
+        public string ConfigurationName { get; set; }
+        public string Source { get; set; }
+        public bool SelectedComponent { get; set; }
+    }
+
+    private sealed class DeletePropertyStats
+    {
+        public int Documents { get; set; }
+        public int Deleted { get; set; }
     }
 
     // --- Get Bounding Box ---
@@ -671,9 +894,12 @@ internal sealed partial class AddinHttpServer
         var model = GetActiveModel();
         var configName = Safe(() => model.ConfigurationManager.ActiveConfiguration.Name);
 
-        var title = model.GetTitle();
-        var dotIdx = title.IndexOf(".");
-        if (dotIdx > 0) title = title.Substring(0, dotIdx);
+        var path = Safe(() => model.GetPathName()) ?? "";
+        var rawTitle = Safe(() => model.GetTitle()) ?? "";
+        var title = !string.IsNullOrWhiteSpace(path)
+            ? Path.GetFileNameWithoutExtension(path)
+            : Path.GetFileNameWithoutExtension(rawTitle);
+        if (string.IsNullOrWhiteSpace(title)) title = rawTitle;
 
         var materialCode = Safe(() => model.GetCustomInfoValue(configName, "物料编码"));
         var partNumber = Safe(() => model.GetCustomInfoValue(configName, "零件图号"));

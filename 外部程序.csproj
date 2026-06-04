@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0-windows7.0</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>外部程序</RootNamespace>
+    <AssemblyName>外部程序</AssemblyName>
+    <StartupObject>外部程序.Program</StartupObject>
+    <ApplicationManifest>Properties\app.manifest</ApplicationManifest>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <Nullable>disable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <NoWarn>41999,42016,42017,42018,42019,42032,42036,CA1416,CS4014,CS1998</NoWarn>
+    <SwAddinProject>$(MSBuildThisFileDirectory)外部程序.SwAddin\外部程序.SwAddin.csproj</SwAddinProject>
+    <SwAddinOutputDirectory>$(MSBuildThisFileDirectory)外部程序.SwAddin\bin\$(Configuration)\net48\</SwAddinOutputDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="9.0.0" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="外部程序.SwAddin\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+
+  <Target Name="BuildSwAddin" BeforeTargets="Build;Publish">
+    <MSBuild Projects="$(SwAddinProject)"
+             Targets="Build"
+             Properties="Configuration=$(Configuration)"
+             RemoveProperties="OutDir;OutputPath;PublishDir" />
+  </Target>
+
+  <Target Name="CopySwAddinToOutput" AfterTargets="Build">
+    <ItemGroup>
+      <SwAddinPackageFile Include="$(SwAddinOutputDirectory)外部程序.SwAddin.dll" />
+      <SwAddinPackageFile Include="$(SwAddinOutputDirectory)Interop.SldWorks.dll" />
+      <SwAddinPackageFile Include="$(SwAddinOutputDirectory)Interop.SwConst.dll" />
+      <SwAddinPackageFile Include="$(SwAddinOutputDirectory)SolidWorks.Interop.swpublished.dll" />
+      <SwAddinPackageFile Include="$(SwAddinOutputDirectory)SolidWorksTools.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SwAddinPackageFile)"
+          DestinationFolder="$(TargetDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('%(SwAddinPackageFile.FullPath)')" />
+  </Target>
+
+</Project>
