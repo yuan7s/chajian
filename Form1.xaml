@@ -37,6 +37,19 @@
             <SolidColorBrush x:Key="ConnectionOnlineBrush" Color="#16A34A" />
             <SolidColorBrush x:Key="ConnectionOfflineBrush" Color="#DC2626" />
 
+            <Style x:Key="ConnectionSelectorButtonStyle"
+                   TargetType="{x:Type ui:Button}"
+                   BasedOn="{StaticResource {x:Type ui:Button}}">
+                <Setter Property="Width" Value="98" />
+                <Setter Property="Height" Value="26" />
+                <Setter Property="Padding" Value="7,0" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="CornerRadius" Value="8" />
+                <Setter Property="Appearance" Value="Secondary" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+
             <Style x:Key="ToolbarButtonStyle"
                    TargetType="{x:Type ui:Button}"
                    BasedOn="{StaticResource {x:Type ui:Button}}">
@@ -59,7 +72,6 @@
             <Style x:Key="ToolbarPrimaryButtonStyle"
                    TargetType="{x:Type ui:Button}"
                    BasedOn="{StaticResource ToolbarWideButtonStyle}">
-                <Setter Property="Appearance" Value="Secondary" />
                 <Setter Property="FontWeight" Value="SemiBold" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                 <Setter Property="PressedForeground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -81,37 +93,47 @@
                 CornerRadius="12">
             <ScrollViewer Height="30"
                           HorizontalScrollBarVisibility="Auto"
-                          VerticalScrollBarVisibility="Disabled"
-                          VerticalContentAlignment="Center">
+                          VerticalScrollBarVisibility="Disabled">
                 <StackPanel x:Name="ToolbarPanel"
                             Orientation="Horizontal"
                             VerticalAlignment="Center">
-                    <Border Padding="7,5"
-                            Margin="0"
-                            Background="{StaticResource ToolbarGroupBrush}"
-                            BorderBrush="{StaticResource ToolbarGroupBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="8"
-                            Width="75"
-                            Height="26"
-                            VerticalAlignment="Center">
+                    <ui:Button x:Name="ConnectionSelectorButton"
+                               Style="{StaticResource ConnectionSelectorButtonStyle}"
+                               Click="ConnectionSelectorButton_Click"
+                               ToolTip="未连接"
+                               VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <Ellipse x:Name="ConnectionStatusIcon"
                                      Width="10"
                                      Height="10"
                                      Margin="0,0,6,0"
-                                     Fill="{StaticResource ConnectionOfflineBrush}"
-                                     ToolTip="未连接" />
-                            <TextBlock x:Name="fileNameLabel"
-                                       Width="36"
+                                     ToolTip="未连接">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource ConnectionOfflineBrush}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="ToolTip" Value="已连接">
+                                                <Setter Property="Fill" Value="{StaticResource ConnectionOnlineBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock x:Name="FileNameLabel"
+                                       Width="54"
                                        VerticalAlignment="Center"
                                        FontSize="11"
                                        Text="未连接"
                                        TextTrimming="CharacterEllipsis"
                                        TextWrapping="NoWrap"
                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock x:Name="ConnectionDropGlyph"
+                                       Margin="5,0,0,0"
+                                       VerticalAlignment="Center"
+                                       Text="▾"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </StackPanel>
-                    </Border>
+                    </ui:Button>
 
                     <Border Width="1"
                             Height="20"
@@ -123,10 +145,9 @@
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center">
                         <ui:Button x:Name="Button2" Content="打开目录" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button2_Click" Visibility="Collapsed" />
-                        <ui:Button x:Name="Button9" Content="同步属性" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button9_Click" Visibility="Collapsed" />
+                        <ui:Button x:Name="Button9" Content="图号编码" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button9_Click" Visibility="Collapsed" />
                         <ui:Button x:Name="Button16" Content="重命名" Style="{StaticResource ToolbarButtonStyle}" Click="Button16_Click" Visibility="Collapsed" />
                         <ui:Button x:Name="Button19" Content="属性窗" Style="{StaticResource ToolbarButtonStyle}" Click="Button19_Click" Visibility="Collapsed" />
-                        <ui:Button x:Name="Button20" Content="属性设置" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button20_Click" MinWidth="65" Visibility="Collapsed" />
                     </StackPanel>
 
                     <StackPanel x:Name="DrawingActionsPanel"
@@ -138,7 +159,6 @@
                         <ui:Button x:Name="Button8" Content="另存 PDF" Style="{StaticResource ToolbarPrimaryButtonStyle}" Click="Button8_Click" />
                         <ui:Button x:Name="Button4" Content="旋转视图" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button4_Click" />
                         <ui:Button x:Name="Button5" Content="ISO" Style="{StaticResource ToolbarButtonStyle}" Click="Button5_Click" />
-                        <ui:Button x:Name="Button14" Content="图纸设置" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button14_Click_1" />
                     </StackPanel>
 
                     <StackPanel x:Name="AssemblyActionsPanel"
@@ -147,8 +167,11 @@
                                 VerticalAlignment="Center"
                                 Visibility="Collapsed">
                         <ui:Button x:Name="Button18" Content="编码整理" Style="{StaticResource ToolbarPrimaryButtonStyle}" Click="Button18_Click" />
+                        <ui:Button x:Name="Button20" Content="基准面配合" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button20_Click" />
                         <ui:Button x:Name="Button13" Content="排序" Style="{StaticResource ToolbarButtonStyle}" Click="Button13_Click" />
                         <ui:Button x:Name="Button11" Content="树设置" Style="{StaticResource ToolbarButtonStyle}" Click="Button11_Click" />
+                        <ui:Button x:Name="Button22" Content="运行宏" Style="{StaticResource ToolbarButtonStyle}" Click="Button22_Click" />
+                        <ui:Button x:Name="Button21" Content="删错配合" Style="{StaticResource ToolbarDangerButtonStyle}" Click="Button21_Click" />
                         <ui:Button x:Name="Button6" Content="删自定义" Style="{StaticResource ToolbarDangerButtonStyle}" Click="Button6_Click_1" />
                         <ui:Button x:Name="Button17" Content="删配置" Style="{StaticResource ToolbarDangerButtonStyle}" Click="Button17_Click" />
                     </StackPanel>

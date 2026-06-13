@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using WinForms = System.Windows.Forms;
@@ -13,6 +14,7 @@ using WpfInput = System.Windows.Input;
 using WpfInterop = System.Windows.Interop;
 using WpfMedia = System.Windows.Media;
 using WpfPrimitives = System.Windows.Controls.Primitives;
+using WpfDialogs = Microsoft.Win32;
 using 外部程序.Properties;
 
 namespace 外部程序;
@@ -29,6 +31,7 @@ partial class Form1
     private WinForms.ContextMenuStrip _trayMenu;
     private WinForms.Form _sortProgressForm;
     private WinForms.Label _sortProgressLabel;
+    private SettingsWindow _settingsWindow;
     private bool _allowClose;
     private IntPtr _mainWindowHandle;
     private SwAddinClient _client;
@@ -61,6 +64,7 @@ partial class Form1
     {
         _trayMenu = new WinForms.ContextMenuStrip();
         _trayMenu.Items.Add("显示主窗口", null, TrayShow_Click);
+        _trayMenu.Items.Add("设置...", null, TraySettings_Click);
         _trayMenu.Items.Add("-");
         _trayMenu.Items.Add("退出", null, TrayExit_Click);
 
@@ -193,11 +197,11 @@ partial class Form1
                             docType = dict["type"].ToString();
                         var hasActiveDocument = HasActiveDocument(title, path, docType);
                         if (!string.IsNullOrWhiteSpace(path))
-                            fileNameLabel.Text = Path.GetFileNameWithoutExtension(path);
+                            FileNameLabel.Text = Path.GetFileNameWithoutExtension(path);
                         else if (!string.IsNullOrWhiteSpace(title))
-                            fileNameLabel.Text = title;
+                            FileNameLabel.Text = title;
                         else
-                            fileNameLabel.Text = "无文档";
+                            FileNameLabel.Text = "无文档";
                         SetConnected(true);
                         UpdatePanelVisibility(docType, hasActiveDocument);
                     }
@@ -205,56 +209,236 @@ partial class Form1
             }
             catch (InvalidOperationException ex) when (IsNoActiveDocumentError(ex))
             {
-                fileNameLabel.Text = "无文档";
+                FileNameLabel.Text = "无文档";
                 SetConnected(true);
                 UpdatePanelVisibility("", false);
             }
             catch
             {
-                fileNameLabel.Text = "未连接";
+                FileNameLabel.Text = "未连接";
                 SetConnected(false);
                 UpdatePanelVisibility("", false);
             }
+
+            await RefreshConnectionSelectorStateAsync();
         }
     }
 
     private void SetConnected(bool connected)
     {
-        var brushKey = connected ? "ConnectionOnlineBrush" : "ConnectionOfflineBrush";
-        var brush = (System.Windows.Media.Brush)FindResource(brushKey);
-        if (brush != null) ConnectionStatusIcon.Fill = brush;
         ConnectionStatusIcon.ToolTip = connected ? "已连接" : "未连接";
+        ConnectionSelectorButton.ToolTip = connected ? BuildConnectionToolTip() : "未连接";
+    }
+
+    private string BuildConnectionToolTip()
+    {
+        if (_client == null) return "未连接";
+
+        var mode = _client.IsManualEndpointSelection ? "手动连接" : "自动选择前台 SW";
+        var process = _client.CurrentProcessId > 0 ? "PID " + _client.CurrentProcessId : "未知进程";
+        return mode + Environment.NewLine + process + Environment.NewLine + "端口 " + _client.CurrentPort;
+    }
+
+    private async Task RefreshConnectionSelectorStateAsync()
+    {
+        if (_client == null) return;
+
+        try
+        {
+            var endpoints = await _client.GetAvailableEndpointsAsync();
+            if (endpoints.Count == 0)
+            {
+                ConnectionDropGlyph.Visibility = WpfNs.Visibility.Collapsed;
+                ConnectionSelectorButton.ToolTip = "未连接";
+                return;
+            }
+
+            ConnectionDropGlyph.Visibility = endpoints.Count > 1
+                ? WpfNs.Visibility.Visible
+                : WpfNs.Visibility.Collapsed;
+            ConnectionSelectorButton.ToolTip = BuildConnectionToolTip();
+        }
+        catch
+        {
+            ConnectionDropGlyph.Visibility = WpfNs.Visibility.Collapsed;
+        }
+    }
+
+    private async void ConnectionSelectorButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        if (_client == null) return;
+
+        var menu = new WpfControls.ContextMenu
+        {
+            PlacementTarget = ConnectionSelectorButton
+        };
+
+        var autoItem = new WpfControls.MenuItem
+        {
+            Header = "自动选择前台 SW",
+            IsCheckable = true,
+            IsChecked = !_client.IsManualEndpointSelection
+        };
+        autoItem.Click += async (_, _) =>
+        {
+            await _client.UseAutomaticEndpointSelectionAsync();
+            await UpdateStatusBar();
+        };
+        menu.Items.Add(autoItem);
+        menu.Items.Add(new WpfControls.Separator());
+
+        IReadOnlyList<SwAddinClient.SwAddinEndpoint> endpoints;
+        try
+        {
+            endpoints = await _client.GetAvailableEndpointsAsync();
+        }
+        catch (Exception ex)
+        {
+            var errorItem = new WpfControls.MenuItem
+            {
+                Header = "刷新连接失败: " + ex.Message,
+                IsEnabled = false
+            };
+            menu.Items.Add(errorItem);
+            ConnectionSelectorButton.ContextMenu = menu;
+            menu.IsOpen = true;
+            return;
+        }
+
+        if (endpoints.Count == 0)
+        {
+            menu.Items.Add(new WpfControls.MenuItem
+            {
+                Header = "未检测到 SolidWorks 插件连接",
+                IsEnabled = false
+            });
+        }
+        else
+        {
+            foreach (var endpoint in endpoints)
+            {
+                var item = new WpfControls.MenuItem
+                {
+                    Header = endpoint.DisplayName,
+                    IsCheckable = true,
+                    IsChecked = endpoint.Port == _client.CurrentPort,
+                    Tag = endpoint.Port
+                };
+                item.Click += async (_, _) =>
+                {
+                    await _client.SelectEndpointAsync((int)item.Tag);
+                    await UpdateStatusBar();
+                };
+                menu.Items.Add(item);
+            }
+        }
+
+        menu.Items.Add(new WpfControls.Separator());
+        var refreshItem = new WpfControls.MenuItem { Header = "刷新连接列表" };
+        refreshItem.Click += async (_, _) => await RefreshConnectionSelectorStateAsync();
+        menu.Items.Add(refreshItem);
+
+        ConnectionSelectorButton.ContextMenu = menu;
+        menu.IsOpen = true;
     }
 
     private void UpdatePanelVisibility(string docType, bool hasActiveDocument = true)
     {
-        Button2.Visibility = hasActiveDocument ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
+        DrawingActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
+        AssemblyActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
+
         if (!hasActiveDocument)
         {
-            DrawingActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
-            AssemblyActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
-            Button9.Visibility = WpfNs.Visibility.Collapsed;
-            Button16.Visibility = WpfNs.Visibility.Collapsed;
-            Button19.Visibility = WpfNs.Visibility.Collapsed;
-            Button20.Visibility = WpfNs.Visibility.Collapsed;
+            HideToolbarButtons();
             QueueAdjustWindowWidthToToolbar();
             return;
         }
 
         // Server returns integer type: 1=PART, 2=ASSEMBLY, 3=DRAWING
         // Events may pass string type like "PART", "DRAWING", "ASSEMBLY"
-        var isPart = docType == "1" || string.Equals(docType, "PART", StringComparison.OrdinalIgnoreCase);
-        var isDrawing = docType == "3" || string.Equals(docType, "DRAWING", StringComparison.OrdinalIgnoreCase);
-        var isAssembly = docType == "2" || string.Equals(docType, "ASSEMBLY", StringComparison.OrdinalIgnoreCase);
+        var group = GetToolbarGroupForDocType(docType);
+        if (string.IsNullOrWhiteSpace(group))
+            HideToolbarButtons();
+        else
+            ApplyToolbarGroupLayout(group);
 
-        DrawingActionsPanel.Visibility = isDrawing ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
-        AssemblyActionsPanel.Visibility = isAssembly ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
-        Button9.Visibility = isPart ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
-        var assemblyOnlyVisibility = isAssembly ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
-        Button16.Visibility = assemblyOnlyVisibility;
-        Button19.Visibility = assemblyOnlyVisibility;
-        Button20.Visibility = assemblyOnlyVisibility;
         QueueAdjustWindowWidthToToolbar();
+    }
+
+    private static string GetToolbarGroupForDocType(string docType)
+    {
+        if (docType == "1" || string.Equals(docType, "PART", StringComparison.OrdinalIgnoreCase))
+            return ToolbarButtonGroups.Part;
+        if (docType == "3" || string.Equals(docType, "DRAWING", StringComparison.OrdinalIgnoreCase))
+            return ToolbarButtonGroups.Drawing;
+        if (docType == "2" || string.Equals(docType, "ASSEMBLY", StringComparison.OrdinalIgnoreCase))
+            return ToolbarButtonGroups.Assembly;
+
+        return "";
+    }
+
+    private void ApplyToolbarGroupLayout(string group)
+    {
+        HideToolbarButtons();
+        var buttons = GetToolbarButtonMap();
+        var visibleCount = 0;
+
+        foreach (var item in ToolbarButtonLayoutStore.GetGroupItems(Settings.Default, group))
+        {
+            if (!buttons.TryGetValue(item.Id, out var button)) continue;
+
+            MoveToolbarButtonToPanel(button, CommonActionsPanel);
+            button.Visibility = WpfNs.Visibility.Visible;
+            visibleCount++;
+        }
+
+        CommonActionsPanel.Visibility = visibleCount > 0
+            ? WpfNs.Visibility.Visible
+            : WpfNs.Visibility.Collapsed;
+    }
+
+    private void HideToolbarButtons()
+    {
+        foreach (var button in GetToolbarButtonMap().Values)
+            button.Visibility = WpfNs.Visibility.Collapsed;
+
+        CommonActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
+    }
+
+    private Dictionary<string, WpfNs.UIElement> GetToolbarButtonMap()
+    {
+        return new Dictionary<string, WpfNs.UIElement>(StringComparer.OrdinalIgnoreCase)
+        {
+            { ToolbarButtonLayoutStore.OpenFolder, Button2 },
+            { ToolbarButtonLayoutStore.PartCoding, Button9 },
+            { ToolbarButtonLayoutStore.SaveDwg, Button1 },
+            { ToolbarButtonLayoutStore.SavePdf, Button8 },
+            { ToolbarButtonLayoutStore.RotateView, Button4 },
+            { ToolbarButtonLayoutStore.IsoView, Button5 },
+            { ToolbarButtonLayoutStore.AssemblyCleanup, Button18 },
+            { ToolbarButtonLayoutStore.ReferencePlaneMate, Button20 },
+            { ToolbarButtonLayoutStore.AssemblySort, Button13 },
+            { ToolbarButtonLayoutStore.TreeSettings, Button11 },
+            { ToolbarButtonLayoutStore.Rename, Button16 },
+            { ToolbarButtonLayoutStore.PropertyOverlay, Button19 },
+            { ToolbarButtonLayoutStore.RunSwpMacro, Button22 },
+            { ToolbarButtonLayoutStore.DeleteErrorMates, Button21 },
+            { ToolbarButtonLayoutStore.DeleteCustomProps, Button6 },
+            { ToolbarButtonLayoutStore.DeleteConfigProps, Button17 }
+        };
+    }
+
+    private static void MoveToolbarButtonToPanel(WpfNs.UIElement button, WpfControls.Panel targetPanel)
+    {
+        if (button is WpfNs.FrameworkElement frameworkElement &&
+            frameworkElement.Parent is WpfControls.Panel currentPanel &&
+            !ReferenceEquals(currentPanel, targetPanel))
+        {
+            currentPanel.Children.Remove(button);
+        }
+
+        if (!targetPanel.Children.Contains(button))
+            targetPanel.Children.Add(button);
     }
 
     private static bool HasActiveDocument(string title, string path, string docType = "")
@@ -405,7 +589,8 @@ partial class Form1
         ShowSortProgress("正在准备装配体排序...");
         try
         {
-            await _client.SendCommandAsync("sort-components");
+            UpdateSortProgress("正在排序装配体组件...");
+            await _client.SendCommandAsync("sort-components", BuildSortCommandArgs());
             ShowAutoCloseNotice("装配体排序完成");
         }
         catch (Exception ex)
@@ -449,14 +634,6 @@ partial class Form1
         }
     }
 
-    private void Button14_Click_1(object sender, EventArgs e)
-    {
-        var settingsWindow = new DrawingSettingsWindow();
-        var helper = new System.Windows.Interop.WindowInteropHelper(settingsWindow);
-        helper.Owner = _mainWindowHandle;
-        settingsWindow.Show();
-    }
-
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
     {
         if (msg == WmHotkey && wParam.ToInt32() == HotkeyId)
@@ -486,6 +663,11 @@ partial class Form1
         Activate();
     }
 
+    private void TraySettings_Click(object sender, EventArgs e)
+    {
+        ShowSettingsWindow();
+    }
+
     private void TrayExit_Click(object sender, EventArgs e)
     {
         _allowClose = true;
@@ -494,6 +676,8 @@ partial class Form1
 
     private void Button16_Click(object sender, EventArgs e)
     {
+        if (RenameWindow.ActivateExisting(_client)) return;
+
         var renameWindow = new RenameWindow();
         renameWindow.Client = _client;
         renameWindow.Show();
@@ -532,11 +716,19 @@ partial class Form1
 
     private void Button18_Click(object sender, EventArgs e)
     {
-        var cleanupWindow = new CodingCleanupWindow();
-        cleanupWindow.Client = _client;
-        var helper = new System.Windows.Interop.WindowInteropHelper(cleanupWindow);
-        helper.Owner = _mainWindowHandle;
-        cleanupWindow.Show();
+        try
+        {
+            var cleanupWindow = new CodingCleanupWindow
+            {
+                Client = _client,
+                Owner = this
+            };
+            cleanupWindow.Show();
+        }
+        catch (Exception ex)
+        {
+            WpfNs.MessageBox.Show(this, "打开编码整理窗口失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
     }
 
     private void Button19_Click(object sender, EventArgs e)
@@ -544,12 +736,132 @@ partial class Form1
         PropertyOverlayWindow.ShowOrActivate(_client);
     }
 
-    private void Button20_Click(object sender, EventArgs e)
+    private async void Button20_Click(object sender, EventArgs e)
     {
-        var settingsWindow = new PropertyOverlaySettingsWindow();
-        var helper = new System.Windows.Interop.WindowInteropHelper(settingsWindow);
+        try
+        {
+            await _client.SendCommandAsync("mate-reference-planes");
+            ShowAutoCloseNotice("基准面配合完成");
+        }
+        catch (Exception ex)
+        {
+            WpfNs.MessageBox.Show(this, "基准面配合失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private async void Button21_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            var result = await _client.SendCommandAsync("active-document");
+            var dict = result as Dictionary<string, object>;
+            var docName = "当前装配体";
+            if (dict != null && dict.ContainsKey("title") && dict["title"] != null)
+                docName = dict["title"].ToString();
+
+            var wasTopMost = Topmost;
+            Topmost = true;
+            var confirmResult = WinForms.MessageBox.Show(
+                "将删除【" + docName + "】中的错误配合，确定继续？",
+                "确认删除错误配合",
+                WinForms.MessageBoxButtons.OKCancel,
+                WinForms.MessageBoxIcon.Warning);
+            Topmost = wasTopMost;
+            if (confirmResult != WinForms.DialogResult.OK) return;
+
+            var deleteResult = await _client.SendCommandAsync("delete-error-mates");
+            var deleted = GetResultInt(deleteResult, "deleted");
+            ShowAutoCloseNotice(deleted > 0 ? "已删除错误配合：" + deleted : "没有发现错误配合");
+        }
+        catch (Exception ex)
+        {
+            WpfNs.MessageBox.Show(this, "删除错误配合失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private async void Button22_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            var dialog = new WpfDialogs.OpenFileDialog
+            {
+                CheckFileExists = true,
+                DefaultExt = ".swp",
+                Filter = "SolidWorks 宏 (*.swp)|*.swp",
+                Multiselect = false,
+                Title = "选择 SolidWorks 宏"
+            };
+
+            if (!dialog.ShowDialog(this).GetValueOrDefault()) return;
+
+            await _client.SendCommandAsync("run-swp-macro", new Dictionary<string, object>
+            {
+                { "path", dialog.FileName }
+            });
+            ShowAutoCloseNotice("宏执行完成");
+        }
+        catch (Exception ex)
+        {
+            WpfNs.MessageBox.Show(this, "运行宏失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private void ShowSettingsWindow(int selectedTabIndex = 0)
+    {
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.SelectTab(selectedTabIndex);
+            if (!_settingsWindow.IsVisible) _settingsWindow.Show();
+            _settingsWindow.WindowState = WpfNs.WindowState.Normal;
+            _settingsWindow.Activate();
+            return;
+        }
+
+        _settingsWindow = new SettingsWindow(selectedTabIndex);
+        _settingsWindow.SettingsApplied += SettingsWindow_SettingsApplied;
+        _settingsWindow.Closed += SettingsWindow_Closed;
+
+        var helper = new WpfInterop.WindowInteropHelper(_settingsWindow);
         helper.Owner = _mainWindowHandle;
-        settingsWindow.ShowDialog();
+        _settingsWindow.Show();
+    }
+
+    private async void SettingsWindow_SettingsApplied(object sender, EventArgs e)
+    {
+        await UpdateStatusBar();
+        QueueAdjustWindowWidthToToolbar();
+    }
+
+    private void SettingsWindow_Closed(object sender, EventArgs e)
+    {
+        if (_settingsWindow != null)
+        {
+            _settingsWindow.SettingsApplied -= SettingsWindow_SettingsApplied;
+            _settingsWindow.Closed -= SettingsWindow_Closed;
+            _settingsWindow = null;
+        }
+    }
+
+    private static Dictionary<string, object> BuildSortCommandArgs()
+    {
+        var settings = Settings.Default;
+        return new Dictionary<string, object>
+        {
+            { "assemblyFirst", settings.Sort_AssemblyFirst },
+            { "suppressedLast", settings.Sort_SuppressedLast },
+            { "sortFolders", settings.Sort_SortFolders },
+            { "recursiveSubAssemblies", settings.Sort_RecursiveSubAssemblies },
+            { "nameSource", string.IsNullOrWhiteSpace(settings.Sort_NameSource) ? "ComponentName" : settings.Sort_NameSource },
+            { "descending", string.Equals(settings.Sort_Direction, "Descending", StringComparison.OrdinalIgnoreCase) }
+        };
+    }
+
+    private static int GetResultInt(object result, string key)
+    {
+        if (result is not Dictionary<string, object> dict) return 0;
+        if (!dict.TryGetValue(key, out var value) || value == null) return 0;
+        if (value is int intValue) return intValue;
+        return int.TryParse(value.ToString(), out var parsed) ? parsed : 0;
     }
 
     private void OnAddinDocChanged(string title, string path)
@@ -559,14 +871,13 @@ partial class Form1
             SetConnected(true);
             var hasActiveDocument = HasActiveDocument(title, path);
             if (string.IsNullOrWhiteSpace(path))
-                fileNameLabel.Text = string.IsNullOrWhiteSpace(title) ? "无文档" : title;
+                FileNameLabel.Text = string.IsNullOrWhiteSpace(title) ? "无文档" : title;
             else
-                fileNameLabel.Text = Path.GetFileNameWithoutExtension(path);
+                FileNameLabel.Text = Path.GetFileNameWithoutExtension(path);
 
             if (hasActiveDocument)
             {
-                Button2.Visibility = WpfNs.Visibility.Visible;
-                QueueAdjustWindowWidthToToolbar();
+                _ = UpdateStatusBar();
             }
             else
             {
@@ -588,14 +899,8 @@ partial class Form1
         Dispatcher.Invoke(() =>
         {
             SetConnected(false);
-            fileNameLabel.Text = "插件断开";
-            Button2.Visibility = WpfNs.Visibility.Collapsed;
-            DrawingActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
-            AssemblyActionsPanel.Visibility = WpfNs.Visibility.Collapsed;
-            Button9.Visibility = WpfNs.Visibility.Collapsed;
-            Button16.Visibility = WpfNs.Visibility.Collapsed;
-            Button19.Visibility = WpfNs.Visibility.Collapsed;
-            Button20.Visibility = WpfNs.Visibility.Collapsed;
+            FileNameLabel.Text = "插件断开";
+            UpdatePanelVisibility("", false);
             QueueAdjustWindowWidthToToolbar();
         });
     }
@@ -691,4 +996,5 @@ partial class Form1
     }
 
 }
+
 

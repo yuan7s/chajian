@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
@@ -10,16 +11,22 @@ namespace 外部程序.SwAddin;
 
 [ComVisible(true)]
 [Guid("C8F7A3D2-6B51-4E92-A814-7F2D3C1E9A56")]
-[ProgId("外部程序.SwAddin")]
+[ProgId("ExternalProgram.SwAddin")]
 [SwAddin(Description = AddinDescription, Title = AddinTitle, LoadAtStartup = true)]
 public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
 {
-    private const string AddinTitle = "外部程序 HTTP Addin";
-    private const string AddinDescription = "外部程序 local HTTP/WS bridge for SolidWorks commands.";
+    private const string AddinTitle = "External Program Add-in";
+    private const string AddinDescription = "External Program local command bridge for SolidWorks.";
+    private const int ExternalBridgeBasePort = 32128;
+    private const int ReadBomBridgeBasePort = 32127;
+    private const int PortScanCount = 60;
     private SldWorks.SldWorks _swApp;
     private int _cookie;
     private AddinHttpServer _server;
+    private ReadBom.SwAddin.AddinHttpServer _readBomServer;
     private Control _mainThreadControl;
+    private int _serverPort;
+    private int _readBomServerPort;
 
     public bool ConnectToSW(object thisSw, int cookie)
     {
@@ -44,14 +51,19 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
                 AddinLog.Write("SetAddinCallbackInfo2 ignored: " + ex.Message);
             }
 
-            _server = new AddinHttpServer(_swApp, _mainThreadControl, "http://127.0.0.1:32128/");
-            _server.Start();
-            AddinLog.Write("HTTP+WS server started");
+            _server = StartExternalBridgeServer();
+            _readBomServer = StartReadBomBridgeServer();
+            AddinLog.Write("HTTP+WS server started on port " + _serverPort);
+            AddinLog.Write("ReadBom HTTP server started on port " + _readBomServerPort);
             return true;
         }
         catch (Exception ex)
         {
             AddinLog.Write("ConnectToSW failed: " + ex);
+            try { _readBomServer?.Dispose(); } catch { }
+            try { _server?.Dispose(); } catch { }
+            _readBomServer = null;
+            _server = null;
             return false;
         }
     }
@@ -59,11 +71,69 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
     public bool DisconnectFromSW()
     {
         AddinLog.Write("DisconnectFromSW called");
+        _readBomServer?.Dispose();
+        _readBomServer = null;
         _server?.Dispose();
         _server = null;
         _swApp = null;
         _cookie = 0;
         return true;
+    }
+
+    private AddinHttpServer StartExternalBridgeServer()
+    {
+        Exception lastError = null;
+        for (var port = ExternalBridgeBasePort; port < ExternalBridgeBasePort + PortScanCount; port++)
+        {
+            var server = new AddinHttpServer(_swApp, _mainThreadControl, BuildLoopbackPrefix(port));
+            try
+            {
+                server.Start();
+                _serverPort = port;
+                return server;
+            }
+            catch (Exception ex) when (IsPortStartFailure(ex))
+            {
+                lastError = ex;
+                AddinLog.Write("External bridge port unavailable: " + port + ", " + ex.Message);
+                try { server.Dispose(); } catch { }
+            }
+        }
+
+        throw new InvalidOperationException("No available External bridge port.", lastError);
+    }
+
+    private ReadBom.SwAddin.AddinHttpServer StartReadBomBridgeServer()
+    {
+        Exception lastError = null;
+        for (var port = ReadBomBridgeBasePort; port < ReadBomBridgeBasePort + PortScanCount; port++)
+        {
+            var server = new ReadBom.SwAddin.AddinHttpServer(_swApp, _mainThreadControl, BuildLoopbackPrefix(port));
+            try
+            {
+                server.Start();
+                _readBomServerPort = port;
+                return server;
+            }
+            catch (Exception ex) when (IsPortStartFailure(ex))
+            {
+                lastError = ex;
+                AddinLog.Write("ReadBom bridge port unavailable: " + port + ", " + ex.Message);
+                try { server.Dispose(); } catch { }
+            }
+        }
+
+        throw new InvalidOperationException("No available ReadBom bridge port.", lastError);
+    }
+
+    private static string BuildLoopbackPrefix(int port)
+    {
+        return "http://127.0.0.1:" + port + "/";
+    }
+
+    private static bool IsPortStartFailure(Exception ex)
+    {
+        return ex is HttpListenerException || ex is InvalidOperationException;
     }
 
     [ComRegisterFunction]

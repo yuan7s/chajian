@@ -110,7 +110,18 @@ internal sealed partial class AddinHttpServer : IDisposable
             // Health check
             if (context.Request.HttpMethod == "GET" && requestPath == "/health")
             {
-                WriteJson(context, new { ok = true, addin = "外部程序.SwAddin", prefix = _prefix, wsClients = _webSockets.Count });
+                var document = (HealthDocumentInfo)await RunOnMainThread(GetHealthDocumentInfo);
+                WriteJson(context, new
+                {
+                    ok = true,
+                    addin = "ExternalProgram.SwAddin",
+                    prefix = _prefix,
+                    processId = Process.GetCurrentProcess().Id,
+                    title = document.Title,
+                    path = document.Path,
+                    shortTitle = document.ShortTitle,
+                    wsClients = _webSockets.Count
+                });
                 AddinLog.Write($"HTTP health ok in {watch.ElapsedMilliseconds}ms");
                 return;
             }
@@ -147,6 +158,62 @@ internal sealed partial class AddinHttpServer : IDisposable
         var body = reader.ReadToEnd();
         if (string.IsNullOrWhiteSpace(body)) return new CommandRequest();
         return _json.Deserialize<CommandRequest>(body) ?? new CommandRequest();
+    }
+
+    private HealthDocumentInfo GetHealthDocumentInfo()
+    {
+        var model = Safe(() => _swApp.ActiveDoc as ModelDoc2);
+        if (model == null)
+        {
+            return new HealthDocumentInfo(string.Empty, string.Empty, "\u65e0\u6587\u6863");
+        }
+
+        var title = Safe(() => model.GetTitle()) ?? string.Empty;
+        var path = Safe(() => model.GetPathName()) ?? string.Empty;
+        return new HealthDocumentInfo(title, path, BuildShortDocumentTitle(title, path));
+    }
+
+    private static string BuildShortDocumentTitle(string title, string path)
+    {
+        var candidate = GetFileTitle(path);
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            candidate = GetFileTitle(title);
+        }
+
+        return string.IsNullOrWhiteSpace(candidate) ? "\u65e0\u6587\u6863" : candidate.Trim();
+    }
+
+    private static string GetFileTitle(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var fileName = Path.GetFileNameWithoutExtension(value.Trim());
+            return string.IsNullOrWhiteSpace(fileName) ? value.Trim() : fileName;
+        }
+        catch
+        {
+            return value.Trim();
+        }
+    }
+
+    private sealed class HealthDocumentInfo
+    {
+        public HealthDocumentInfo(string title, string path, string shortTitle)
+        {
+            Title = title ?? string.Empty;
+            Path = path ?? string.Empty;
+            ShortTitle = string.IsNullOrWhiteSpace(shortTitle) ? "\u65e0\u6587\u6863" : shortTitle.Trim();
+        }
+
+        public string Title { get; }
+        public string Path { get; }
+        public string ShortTitle { get; }
     }
 
     // --- WebSocket ---

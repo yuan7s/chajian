@@ -1,18 +1,20 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
+using System.Text.Json;
 using System.Windows.Forms;
 using System.Windows.Threading;
 using Drawing = System.Drawing;
 using WpfNs = System.Windows;
 using WpfControls = System.Windows.Controls;
 using WpfMedia = System.Windows.Media;
-using WpfUiControls = Wpf.Ui.Controls;
 
 namespace 外部程序;
+using 外部程序.Properties;
 
-partial class RenameWindow : WpfUiControls.FluentWindow
+partial class RenameWindow : WpfNs.Window
 {
     private static readonly List<RenameWindow> OpenWindows = new List<RenameWindow>();
     private SwAddinClient _client;
@@ -25,6 +27,8 @@ partial class RenameWindow : WpfUiControls.FluentWindow
     public RenameWindow()
     {
         InitializeComponent();
+        Topmost = true;
+        LoadDefaultParameters();
 
         _nameCheckTimer = new DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(500) };
         _nameCheckTimer.Tick += NameCheckTimer_Tick;
@@ -34,6 +38,110 @@ partial class RenameWindow : WpfUiControls.FluentWindow
 
         Closed += RenameWindow_Closed;
         OpenWindows.Add(this);
+    }
+
+    private void LoadDefaultParameters()
+    {
+        // Rename parameter controls were moved to SettingsWindow.
+    }
+
+    private static string GetRenamePropertyTarget()
+    {
+        var target = Properties.Settings.Default.Rename_PropertyTarget;
+        return string.Equals(target, "custom", StringComparison.OrdinalIgnoreCase) ? "custom" : "configuration";
+    }
+
+    private static RenameParameterDefaults GetRenameParameterDefaults()
+    {
+        var settings = Properties.Settings.Default;
+        var renameProperties = GetRenamePropertyDefaults();
+        var designProperty = renameProperties.FirstOrDefault(item => IsDesignPropertyName(GetPropertyName(item)));
+        var versionProperty = renameProperties.FirstOrDefault(item => IsVersionPropertyName(GetPropertyName(item)));
+
+        return new RenameParameterDefaults
+        {
+            WriteFileName = settings.Rename_WriteFileName,
+            WriteMaterialCode = settings.Rename_WriteMaterialCode,
+            WritePartNumber = settings.Rename_WritePartNumber,
+            WriteBlankSize = settings.Rename_WriteBlankSize,
+            WriteDesign = designProperty != null || settings.Rename_WriteDesign,
+            DesignText = designProperty != null ? GetPropertyValue(designProperty) : settings.Rename_DesignText ?? "",
+            WriteVersion = versionProperty != null || settings.Rename_WriteVersion,
+            VersionText = versionProperty != null
+                ? GetPropertyValue(versionProperty)
+                : string.IsNullOrWhiteSpace(settings.Rename_VersionText) ? "A" : settings.Rename_VersionText,
+            RenameProperties = renameProperties
+        };
+    }
+
+    private static string ToCommandBool(bool value)
+    {
+        return value ? "true" : "false";
+    }
+
+    private static List<Dictionary<string, object>> GetRenamePropertyDefaults()
+    {
+        var raw = Properties.Settings.Default.Rename_CustomProperties;
+        if (string.IsNullOrWhiteSpace(raw)) return new List<Dictionary<string, object>>();
+
+        try
+        {
+            var items = JsonSerializer.Deserialize<List<Dictionary<string, object>>>(raw);
+            if (items == null) return new List<Dictionary<string, object>>();
+
+            return items
+                .Where(item => !string.IsNullOrWhiteSpace(GetPropertyName(item)))
+                .Select(item => new Dictionary<string, object>
+                {
+                    { "name", GetPropertyName(item).Trim() },
+                    { "value", GetPropertyValue(item) }
+                })
+                .ToList();
+        }
+        catch
+        {
+            return new List<Dictionary<string, object>>();
+        }
+    }
+
+    private static string GetPropertyName(Dictionary<string, object> item)
+    {
+        if (item == null) return "";
+        if (item.TryGetValue("Name", out var name) && name != null) return name.ToString();
+        if (item.TryGetValue("name", out name) && name != null) return name.ToString();
+        return "";
+    }
+
+    private static string GetPropertyValue(Dictionary<string, object> item)
+    {
+        if (item == null) return "";
+        if (item.TryGetValue("Value", out var value) && value != null) return value.ToString();
+        if (item.TryGetValue("value", out value) && value != null) return value.ToString();
+        return "";
+    }
+
+    private static bool IsDesignPropertyName(string name)
+    {
+        return string.Equals(name, "设计出图", StringComparison.OrdinalIgnoreCase) ||
+               string.Equals(name, "设计", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsVersionPropertyName(string name)
+    {
+        return string.Equals(name, "版本", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class RenameParameterDefaults
+    {
+        public bool WriteFileName { get; init; }
+        public bool WriteMaterialCode { get; init; }
+        public bool WritePartNumber { get; init; }
+        public bool WriteBlankSize { get; init; }
+        public bool WriteDesign { get; init; }
+        public string DesignText { get; init; } = "";
+        public bool WriteVersion { get; init; }
+        public string VersionText { get; init; } = "A";
+        public List<Dictionary<string, object>> RenameProperties { get; init; } = new List<Dictionary<string, object>>();
     }
 
     public SwAddinClient Client
@@ -76,6 +184,21 @@ partial class RenameWindow : WpfUiControls.FluentWindow
         }
     }
 
+    public static bool ActivateExisting(SwAddinClient client)
+    {
+        var window = OpenWindows.FirstOrDefault(item => item != null && item.IsVisible);
+        if (window == null) return false;
+
+        window.Client = client;
+        if (window.WindowState == WpfNs.WindowState.Minimized)
+            window.WindowState = WpfNs.WindowState.Normal;
+
+        window.Activate();
+        window.Topmost = true;
+        window.Focus();
+        return true;
+    }
+
     private void RenameWindow_Closed(object sender, EventArgs e)
     {
         _nameCheckTimer.Stop();
@@ -105,7 +228,7 @@ partial class RenameWindow : WpfUiControls.FluentWindow
         try
         {
             if (_client == null) return;
-            var result = await _client.SendCommandAsync("active-document");
+            var result = await _client.SendCommandAsync("rename-target");
             var dict = result as Dictionary<string, object>;
             if (dict == null) return;
 
@@ -149,7 +272,7 @@ partial class RenameWindow : WpfUiControls.FluentWindow
                 return;
             }
 
-            var result = await _client.SendCommandAsync("active-document");
+            var result = await _client.SendCommandAsync("rename-target");
             var dict = result as Dictionary<string, object>;
             if (dict == null)
             {
@@ -158,10 +281,16 @@ partial class RenameWindow : WpfUiControls.FluentWindow
             }
 
             var filePath = "";
-            if (dict.ContainsKey("path") && dict["path"] != null)
+            if (dict.ContainsKey("targetPath") && dict["targetPath"] != null)
+                filePath = dict["targetPath"].ToString();
+            if (string.IsNullOrWhiteSpace(filePath) && dict.ContainsKey("path") && dict["path"] != null)
                 filePath = dict["path"].ToString();
             var title = "";
-            if (dict.ContainsKey("title") && dict["title"] != null)
+            if (dict.ContainsKey("baseName") && dict["baseName"] != null)
+                title = dict["baseName"].ToString();
+            if (string.IsNullOrWhiteSpace(title) && dict.ContainsKey("targetTitle") && dict["targetTitle"] != null)
+                title = dict["targetTitle"].ToString();
+            if (string.IsNullOrWhiteSpace(title) && dict.ContainsKey("title") && dict["title"] != null)
                 title = dict["title"].ToString();
             var docType = "";
             if (dict.ContainsKey("type") && dict["type"] != null)
@@ -171,7 +300,11 @@ partial class RenameWindow : WpfUiControls.FluentWindow
             OldNameBox.Text = baseName;
             NewNameBox.Text = baseName;
 
-            var ext = string.IsNullOrEmpty(filePath) ? DocTypeToExtensionString(docType) : Path.GetExtension(filePath).ToLowerInvariant();
+            var ext = "";
+            if (dict.ContainsKey("extension") && dict["extension"] != null)
+                ext = dict["extension"].ToString();
+            if (string.IsNullOrWhiteSpace(ext))
+                ext = string.IsNullOrEmpty(filePath) ? DocTypeToExtensionString(docType) : Path.GetExtension(filePath).ToLowerInvariant();
             OldExtText.Text = ext;
             NewExtText.Text = ext;
             UpdateDrawingExistsIndicator(filePath);
@@ -329,12 +462,17 @@ partial class RenameWindow : WpfUiControls.FluentWindow
 
     private void RenameButton_Click(object sender, WpfNs.RoutedEventArgs e)
     {
-        SaveAsAndReplaceSelectedComponent();
+        RenameSelectedOrActiveDocument();
     }
 
     private void SaveAsButton_Click(object sender, WpfNs.RoutedEventArgs e)
     {
         SaveAsNewDocumentAndOpen();
+    }
+
+    private void SaveAsReplaceButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        SaveAsAndReplaceSelectedComponent();
     }
 
     private async void SaveAsNewDocumentAndOpen()
@@ -354,17 +492,23 @@ partial class RenameWindow : WpfUiControls.FluentWindow
                 return;
             }
 
+            var propertyTarget = GetRenamePropertyTarget();
+            var defaults = GetRenameParameterDefaults();
             var args = new Dictionary<string, object>
             {
                 { "newName", newName },
-                { "fileName", FileNameCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "materialCode", MaterialCodeCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "partNumber", PartNumberCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "version", VersionCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "design", DesignCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "blankSize", BlankSizeCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "versionText", VersionBox.Text.Trim() },
-                { "designText", DesignBox.Text.Trim() },
+                { "propertyTarget", propertyTarget },
+                { "source", propertyTarget },
+                { "customProperties", propertyTarget == "custom" ? "true" : "false" },
+                { "renameProperties", defaults.RenameProperties },
+                { "fileName", ToCommandBool(defaults.WriteFileName) },
+                { "materialCode", ToCommandBool(defaults.WriteMaterialCode) },
+                { "partNumber", ToCommandBool(defaults.WritePartNumber) },
+                { "version", ToCommandBool(defaults.WriteVersion) },
+                { "design", ToCommandBool(defaults.WriteDesign) },
+                { "blankSize", ToCommandBool(defaults.WriteBlankSize) },
+                { "versionText", defaults.VersionText.Trim() },
+                { "designText", defaults.DesignText.Trim() },
                 { "copyDrawing", "true" }
             };
             var result = await _client.SendCommandAsync("save-as-new", args);
@@ -373,6 +517,7 @@ partial class RenameWindow : WpfUiControls.FluentWindow
             {
                 UpdateSelectionInfo();
                 ShowAutoCloseNotice("另存完成");
+                ShowDrawingWarningIfNeeded(dict);
             }
             else
             {
@@ -384,6 +529,63 @@ partial class RenameWindow : WpfUiControls.FluentWindow
         catch (Exception ex)
         {
             MessageBox.Show("另存失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async void RenameSelectedOrActiveDocument()
+    {
+        var newName = NewNameBox.Text.Trim();
+        if (string.IsNullOrEmpty(newName))
+        {
+            MessageBox.Show("请输入新文件名", "提示", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            return;
+        }
+
+        try
+        {
+            if (_client == null)
+            {
+                MessageBox.Show("未连接到 SolidWorks", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            var propertyTarget = GetRenamePropertyTarget();
+            var defaults = GetRenameParameterDefaults();
+            var args = new Dictionary<string, object>
+            {
+                { "newName", newName },
+                { "propertyTarget", propertyTarget },
+                { "source", propertyTarget },
+                { "customProperties", propertyTarget == "custom" ? "true" : "false" },
+                { "renameProperties", defaults.RenameProperties },
+                { "fileName", ToCommandBool(defaults.WriteFileName) },
+                { "materialCode", ToCommandBool(defaults.WriteMaterialCode) },
+                { "partNumber", ToCommandBool(defaults.WritePartNumber) },
+                { "version", ToCommandBool(defaults.WriteVersion) },
+                { "design", ToCommandBool(defaults.WriteDesign) },
+                { "blankSize", ToCommandBool(defaults.WriteBlankSize) },
+                { "versionText", defaults.VersionText.Trim() },
+                { "designText", defaults.DesignText.Trim() },
+                { "copyDrawing", "true" }
+            };
+            var result = await _client.SendCommandAsync("rename-component", args);
+            var dict = result as Dictionary<string, object>;
+            if (dict != null && dict.ContainsKey("success") && Convert.ToBoolean(dict["success"]))
+            {
+                UpdateSelectionInfo();
+                ShowAutoCloseNotice("重命名完成");
+                ShowDrawingWarningIfNeeded(dict);
+            }
+            else
+            {
+                var errMsg = "重命名失败";
+                if (dict != null && dict.ContainsKey("error")) errMsg = dict["error"].ToString();
+                MessageBox.Show(errMsg, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("重命名失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
@@ -404,39 +606,72 @@ partial class RenameWindow : WpfUiControls.FluentWindow
                 return;
             }
 
+            var propertyTarget = GetRenamePropertyTarget();
+            var defaults = GetRenameParameterDefaults();
             var args = new Dictionary<string, object>
             {
                 { "newName", newName },
-                { "fileName", FileNameCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "materialCode", MaterialCodeCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "partNumber", PartNumberCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "version", VersionCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "design", DesignCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "blankSize", BlankSizeCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
-                { "versionText", VersionBox.Text.Trim() },
-                { "designText", DesignBox.Text.Trim() },
+                { "propertyTarget", propertyTarget },
+                { "source", propertyTarget },
+                { "customProperties", propertyTarget == "custom" ? "true" : "false" },
+                { "renameProperties", defaults.RenameProperties },
+                { "fileName", ToCommandBool(defaults.WriteFileName) },
+                { "materialCode", ToCommandBool(defaults.WriteMaterialCode) },
+                { "partNumber", ToCommandBool(defaults.WritePartNumber) },
+                { "version", ToCommandBool(defaults.WriteVersion) },
+                { "design", ToCommandBool(defaults.WriteDesign) },
+                { "blankSize", ToCommandBool(defaults.WriteBlankSize) },
+                { "versionText", defaults.VersionText.Trim() },
+                { "designText", defaults.DesignText.Trim() },
                 { "copyDrawing", "true" }
             };
-            var result = await _client.SendCommandAsync("rename-component", args);
+            var result = await _client.SendCommandAsync("save-as-replace", args);
             var dict = result as Dictionary<string, object>;
             if (dict != null && dict.ContainsKey("success") && Convert.ToBoolean(dict["success"]))
             {
                 UpdateSelectionInfo();
-                ShowAutoCloseNotice("重命名完成");
+                ShowAutoCloseNotice("另存替换完成");
+                ShowDrawingWarningIfNeeded(dict);
             }
             else
             {
-                var errMsg = "重命名失败";
+                var errMsg = "另存替换失败";
                 if (dict != null && dict.ContainsKey("error")) errMsg = dict["error"].ToString();
                 MessageBox.Show(errMsg, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
         catch (Exception ex)
         {
-            MessageBox.Show("重命名失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("另存替换失败: " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 
+    private void ShowDrawingWarningIfNeeded(Dictionary<string, object> result)
+    {
+        if (result == null || !result.TryGetValue("drawing", out var rawDrawing)) return;
+
+        var drawing = rawDrawing as Dictionary<string, object>;
+        if (drawing == null) return;
+
+        var attempted = GetDictionaryBool(drawing, "attempted");
+        var success = GetDictionaryBool(drawing, "success");
+        if (!attempted || success) return;
+
+        var message = "工程图关联失败，文件改名已继续完成。";
+        if (drawing.TryGetValue("error", out var error) && error != null && !string.IsNullOrWhiteSpace(error.ToString()))
+            message += Environment.NewLine + error;
+        if (drawing.TryGetValue("path", out var path) && path != null && !string.IsNullOrWhiteSpace(path.ToString()))
+            message += Environment.NewLine + path;
+
+        MessageBox.Show(message, "工程图关联错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    private static bool GetDictionaryBool(Dictionary<string, object> dict, string key)
+    {
+        if (dict == null || !dict.TryGetValue(key, out var value) || value == null) return false;
+        if (value is bool boolValue) return boolValue;
+        return bool.TryParse(value.ToString(), out var parsed) && parsed;
+    }
     private void ShowAutoCloseNotice(string message, string title = "提示")
     {
         try
