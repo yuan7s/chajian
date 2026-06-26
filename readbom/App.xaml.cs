@@ -1,6 +1,6 @@
-using System.Windows;
+﻿using System.Windows;
 
-namespace readbom;
+namespace ReadBom;
 
 /// <summary>
 /// Interaction logic for App.xaml

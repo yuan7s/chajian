@@ -15,9 +15,9 @@ using WpfInterop = System.Windows.Interop;
 using WpfMedia = System.Windows.Media;
 using WpfPrimitives = System.Windows.Controls.Primitives;
 using WpfDialogs = Microsoft.Win32;
-using 外部程序.Properties;
+using ExternalProgram.Properties;
 
-namespace 外部程序;
+namespace ExternalProgram;
 
 partial class Form1
 {
@@ -29,9 +29,12 @@ partial class Form1
     private WinForms.Timer _statusTimer;
     private WinForms.NotifyIcon _trayIcon;
     private WinForms.ContextMenuStrip _trayMenu;
+    private WinForms.ToolStripMenuItem _trayToggleWindowItem;
+    private WinForms.ToolStripMenuItem _trayTogglePropertyOverlayItem;
     private WinForms.Form _sortProgressForm;
     private WinForms.Label _sortProgressLabel;
     private SettingsWindow _settingsWindow;
+    private CodingCleanupWindow _codingCleanupWindow;
     private bool _allowClose;
     private IntPtr _mainWindowHandle;
     private SwAddinClient _client;
@@ -63,19 +66,23 @@ partial class Form1
     private async void Form1_Load(object sender, WpfNs.RoutedEventArgs e)
     {
         _trayMenu = new WinForms.ContextMenuStrip();
-        _trayMenu.Items.Add("显示主窗口", null, TrayShow_Click);
+        _trayToggleWindowItem = new WinForms.ToolStripMenuItem("隐藏主窗口", null, TrayToggleWindow_Click);
+        _trayMenu.Items.Add(_trayToggleWindowItem);
+        _trayTogglePropertyOverlayItem = new WinForms.ToolStripMenuItem("显示属性悬浮框", null, TrayPropertyOverlay_Click);
+        _trayMenu.Items.Add(_trayTogglePropertyOverlayItem);
         _trayMenu.Items.Add("设置...", null, TraySettings_Click);
         _trayMenu.Items.Add("-");
         _trayMenu.Items.Add("退出", null, TrayExit_Click);
+        _trayMenu.Opening += TrayMenu_Opening;
 
         _trayIcon = new WinForms.NotifyIcon()
         {
-            Icon = Drawing.SystemIcons.Application,
-            Text = "外部程序",
+            Icon = LoadTrayIcon(),
+            Text = "External Program",
             Visible = true,
             ContextMenuStrip = _trayMenu
         };
-        _trayIcon.DoubleClick += TrayShow_Click;
+        _trayIcon.DoubleClick += TrayToggleWindow_Click;
 
         _client = new SwAddinClient();
         _client.DocChanged += OnAddinDocChanged;
@@ -100,6 +107,28 @@ partial class Form1
         {
             System.Windows.MessageBox.Show("快捷键 Ctrl+F1 注册失败，可能已被其他程序占用。");
         }
+    }
+
+    private static Drawing.Icon LoadTrayIcon()
+    {
+        try
+        {
+            var resource = WpfNs.Application.GetResourceStream(new Uri("Properties/AppIcon.ico", UriKind.Relative));
+            if (resource?.Stream != null)
+            {
+                using (resource.Stream)
+                using (var icon = new Drawing.Icon(resource.Stream))
+                {
+                    return (Drawing.Icon)icon.Clone();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("LoadTrayIcon ignored: " + ex.Message);
+        }
+
+        return Drawing.SystemIcons.Application;
     }
 
     private void WindowDragArea_MouseLeftButtonDown(object sender, WpfInput.MouseButtonEventArgs e)
@@ -146,7 +175,7 @@ partial class Form1
         if (!_allowClose)
         {
             e.Cancel = true;
-            Hide();
+            HideMainWindow();
         }
     }
 
@@ -163,9 +192,12 @@ partial class Form1
         }
         if (_trayMenu != null)
         {
+            _trayMenu.Opening -= TrayMenu_Opening;
             _trayMenu.Dispose();
             _trayMenu = null;
         }
+        _trayToggleWindowItem = null;
+        _trayTogglePropertyOverlayItem = null;
         if (_statusTimer != null)
         {
             _statusTimer.Stop();
@@ -420,7 +452,6 @@ partial class Form1
             { ToolbarButtonLayoutStore.AssemblySort, Button13 },
             { ToolbarButtonLayoutStore.TreeSettings, Button11 },
             { ToolbarButtonLayoutStore.Rename, Button16 },
-            { ToolbarButtonLayoutStore.PropertyOverlay, Button19 },
             { ToolbarButtonLayoutStore.RunSwpMacro, Button22 },
             { ToolbarButtonLayoutStore.DeleteErrorMates, Button21 },
             { ToolbarButtonLayoutStore.DeleteCustomProps, Button6 },
@@ -590,8 +621,11 @@ partial class Form1
         try
         {
             UpdateSortProgress("正在排序装配体组件...");
-            await _client.SendCommandAsync("sort-components", BuildSortCommandArgs());
-            ShowAutoCloseNotice("装配体排序完成");
+            var result = await _client.SendCommandAsync("sort-components", BuildSortCommandArgs(), TimeSpan.FromMinutes(10));
+            var foldersSorted = GetResultInt(result, "foldersSorted");
+            ShowAutoCloseNotice(foldersSorted > 0
+                ? "装配体排序完成，已处理 " + foldersSorted + " 个文件夹"
+                : "装配体排序完成");
         }
         catch (Exception ex)
         {
@@ -646,26 +680,67 @@ partial class Form1
 
     private void ToggleVisibility()
     {
-        if (IsVisible)
-            Hide();
+        if (IsMainWindowVisible())
+            HideMainWindow();
         else
         {
-            Show();
-            WindowState = WpfNs.WindowState.Normal;
-            Activate();
+            ShowMainWindow();
         }
     }
 
-    private void TrayShow_Click(object sender, EventArgs e)
+    private bool IsMainWindowVisible()
+    {
+        return IsVisible && WindowState != WpfNs.WindowState.Minimized;
+    }
+
+    private void ShowMainWindow()
     {
         Show();
         WindowState = WpfNs.WindowState.Normal;
         Activate();
+        UpdateTrayWindowMenuItem();
+    }
+
+    private void HideMainWindow()
+    {
+        Hide();
+        UpdateTrayWindowMenuItem();
+    }
+
+    private void UpdateTrayWindowMenuItem()
+    {
+        if (_trayToggleWindowItem == null) return;
+        _trayToggleWindowItem.Text = IsMainWindowVisible() ? "隐藏主窗口" : "显示主窗口";
+    }
+
+    private void UpdateTrayPropertyOverlayMenuItem()
+    {
+        if (_trayTogglePropertyOverlayItem == null) return;
+        _trayTogglePropertyOverlayItem.Text = PropertyOverlayWindow.IsAnyVisible()
+            ? "隐藏属性悬浮框"
+            : "显示属性悬浮框";
+    }
+
+    private void TrayMenu_Opening(object sender, CancelEventArgs e)
+    {
+        UpdateTrayWindowMenuItem();
+        UpdateTrayPropertyOverlayMenuItem();
+    }
+
+    private void TrayToggleWindow_Click(object sender, EventArgs e)
+    {
+        ToggleVisibility();
     }
 
     private void TraySettings_Click(object sender, EventArgs e)
     {
         ShowSettingsWindow();
+    }
+
+    private void TrayPropertyOverlay_Click(object sender, EventArgs e)
+    {
+        PropertyOverlayWindow.ToggleVisibility(_client);
+        UpdateTrayPropertyOverlayMenuItem();
     }
 
     private void TrayExit_Click(object sender, EventArgs e)
@@ -718,16 +793,45 @@ partial class Form1
     {
         try
         {
-            var cleanupWindow = new CodingCleanupWindow
-            {
-                Client = _client,
-                Owner = this
-            };
-            cleanupWindow.Show();
+            ShowCodingCleanupWindow();
         }
         catch (Exception ex)
         {
+            ResetCodingCleanupWindow();
             WpfNs.MessageBox.Show(this, "打开编码整理窗口失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private void ShowCodingCleanupWindow()
+    {
+        if (_codingCleanupWindow == null)
+        {
+            _codingCleanupWindow = new CodingCleanupWindow { Client = _client };
+            _codingCleanupWindow.Closed += CodingCleanupWindow_Closed;
+        }
+        else
+        {
+            _codingCleanupWindow.Client = _client;
+        }
+
+        if (!_codingCleanupWindow.IsVisible)
+            _codingCleanupWindow.Show();
+
+        _codingCleanupWindow.WindowState = WpfNs.WindowState.Normal;
+        _codingCleanupWindow.Activate();
+    }
+
+    private void CodingCleanupWindow_Closed(object sender, EventArgs e)
+    {
+        ResetCodingCleanupWindow();
+    }
+
+    private void ResetCodingCleanupWindow()
+    {
+        if (_codingCleanupWindow != null)
+        {
+            _codingCleanupWindow.Closed -= CodingCleanupWindow_Closed;
+            _codingCleanupWindow = null;
         }
     }
 
@@ -914,7 +1018,7 @@ partial class Form1
                 _trayIcon.BalloonTipTitle = noticeTitle;
                 _trayIcon.BalloonTipText = message;
                 _trayIcon.BalloonTipIcon = WinForms.ToolTipIcon.Info;
-                _trayIcon.ShowBalloonTip(1800);
+                _trayIcon.ShowBalloonTip(900);
                 return;
             }
         }

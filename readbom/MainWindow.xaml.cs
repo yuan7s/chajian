@@ -12,7 +12,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using Microsoft.Win32;
 
-namespace readbom;
+namespace ReadBom;
 
 public partial class MainWindow : Window
 {

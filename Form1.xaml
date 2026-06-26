@@ -1,8 +1,9 @@
-﻿<ui:FluentWindow x:Class="外部程序.Form1"
+﻿<ui:FluentWindow x:Class="ExternalProgram.Form1"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
-                 Title="外部程序"
+                 Title="External Program"
+                 Icon="Properties/AppIcon.ico"
                  Width="510"
                  Height="45"
                  MinWidth="500"
@@ -147,7 +148,6 @@
                         <ui:Button x:Name="Button2" Content="打开目录" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button2_Click" Visibility="Collapsed" />
                         <ui:Button x:Name="Button9" Content="图号编码" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button9_Click" Visibility="Collapsed" />
                         <ui:Button x:Name="Button16" Content="重命名" Style="{StaticResource ToolbarButtonStyle}" Click="Button16_Click" Visibility="Collapsed" />
-                        <ui:Button x:Name="Button19" Content="属性窗" Style="{StaticResource ToolbarButtonStyle}" Click="Button19_Click" Visibility="Collapsed" />
                     </StackPanel>
 
                     <StackPanel x:Name="DrawingActionsPanel"

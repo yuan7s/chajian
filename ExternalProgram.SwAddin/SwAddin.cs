@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Net;
 using System.Reflection;
@@ -7,7 +7,7 @@ using System.Windows.Forms;
 using Microsoft.Win32;
 using SolidWorksTools;
 
-namespace 外部程序.SwAddin;
+namespace ExternalProgram.SwAddin;
 
 [ComVisible(true)]
 [Guid("C8F7A3D2-6B51-4E92-A814-7F2D3C1E9A56")]

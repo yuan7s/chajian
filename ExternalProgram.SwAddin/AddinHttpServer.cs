@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -12,7 +12,7 @@ using System.Web.Script.Serialization;
 using SldWorks;
 using SwConst;
 
-namespace 外部程序.SwAddin;
+namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer : IDisposable
 {

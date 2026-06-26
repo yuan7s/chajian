@@ -1,6 +1,6 @@
-using System.IO;
+﻿using System.IO;
 
-namespace readbom;
+namespace ReadBom;
 
 internal static class DrawingFileHelper
 {

@@ -1,6 +1,6 @@
-using System.Configuration;
+﻿using System.Configuration;
 
-namespace 外部程序.Properties
+namespace ExternalProgram.Properties
 {
     internal sealed partial class Settings : ApplicationSettingsBase
     {

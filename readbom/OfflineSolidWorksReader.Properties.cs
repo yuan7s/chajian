@@ -1,10 +1,10 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Globalization;
 using System.IO;
 using System.Xml.Linq;
 using SolidWorks.Interop.swdocumentmgr;
 
-namespace readbom;
+namespace ReadBom;
 
 internal static partial class OfflineSolidWorksReader
 {

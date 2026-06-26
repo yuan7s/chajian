@@ -5,7 +5,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.Json;
 
-namespace readbom;
+namespace ReadBom;
 
 internal static partial class SolidWorksAddinClient
 {
@@ -82,7 +82,7 @@ internal static partial class SolidWorksAddinClient
         var endpoints = await DiscoverEndpointsAsync();
         var endpoint = endpoints.Find(item => item.Port == port);
         if (endpoint is null)
-            throw new InvalidOperationException("鏈壘鍒版寚瀹氱殑 SolidWorks 杩炴帴: " + port);
+            throw new InvalidOperationException("未找到指定的 SolidWorks 连接: " + port);
 
         ManualPort = port;
         LastEndpointDiscoveryUtc = DateTime.MinValue;
@@ -415,7 +415,7 @@ internal static partial class SolidWorksAddinClient
         Action<string>? log = null)
     {
         var total = Math.Max(rows.Count, 1);
-        progress?.Invoke(new ReadProgress("淇濆瓨TXT灞炴€у埌SW(Add-in)", 0, total));
+        progress?.Invoke(new ReadProgress("保存 TXT 属性到 SW (Add-in)", 0, total));
         var response = await PostCommandAsync<AddinSavePropertiesResult>(
             new
             {
@@ -424,12 +424,12 @@ internal static partial class SolidWorksAddinClient
             },
             TimeSpan.FromMinutes(10),
             log);
-        progress?.Invoke(new ReadProgress("淇濆瓨TXT灞炴€у埌SW(Add-in)", rows.Count, total));
+        progress?.Invoke(new ReadProgress("保存 TXT 属性到 SW (Add-in)", rows.Count, total));
         if (response.Failures is { Count: > 0 })
         {
             foreach (var failure in response.Failures.Take(5))
             {
-                log?.Invoke($"Add-in淇濆瓨澶辫触: {failure.DisplayName ?? failure.Path} - {failure.Error}");
+                log?.Invoke($"Add-in 保存失败: {failure.DisplayName ?? failure.Path} - {failure.Error}");
             }
         }
 
@@ -442,7 +442,7 @@ internal static partial class SolidWorksAddinClient
         Action<string>? log = null)
     {
         var total = Math.Max(rows.Count, 1);
-        progress?.Invoke(new ReadProgress("鑾峰彇鍖呭洿鐩?Add-in)", 0, total));
+        progress?.Invoke(new ReadProgress("获取包围盒 (Add-in)", 0, total));
         var response = await PostCommandAsync<AddinBoxBatchResult>(
             new
             {
@@ -451,7 +451,7 @@ internal static partial class SolidWorksAddinClient
             },
             TimeSpan.FromMinutes(10),
             log);
-        progress?.Invoke(new ReadProgress("鑾峰彇鍖呭洿鐩?Add-in)", rows.Count, total));
+        progress?.Invoke(new ReadProgress("获取包围盒 (Add-in)", rows.Count, total));
         response.Results ??= [];
         return response;
     }
@@ -462,7 +462,7 @@ internal static partial class SolidWorksAddinClient
         Action<ReadProgress>? progress = null,
         Action<string>? log = null)
     {
-        progress?.Invoke(new ReadProgress("Add-in璇诲彇BOM", 0, 1));
+        progress?.Invoke(new ReadProgress("Add-in 读取 BOM", 0, 1));
         var requestPropertyMappings = BuildAddinReadPropertyMappings(propertiesToRead);
         var requestPropertyNames = requestPropertyMappings.Select(item => item.Name).ToList();
         var request = new
@@ -478,7 +478,7 @@ internal static partial class SolidWorksAddinClient
         };
         var requestWatch = Stopwatch.StartNew();
         var response = await PostCommandAsync<ReadBomResponse>(request, TimeSpan.FromMinutes(10), log);
-        log?.Invoke($"Add-in璁℃椂: HTTP璇锋眰鍒板搷搴斿璞?{requestWatch.ElapsedMilliseconds}ms");
+        log?.Invoke($"Add-in 计时: HTTP 请求到响应对象 {requestWatch.ElapsedMilliseconds}ms");
 
         var convertWatch = Stopwatch.StartNew();
         var rows = new List<BomRow>();
@@ -510,8 +510,8 @@ internal static partial class SolidWorksAddinClient
             rows = DeduplicateBomRows(rows, options.GroupByConfig, log);
         }
 
-        log?.Invoke($"Add-in璁℃椂: 涓荤▼搴忚浆鎹omRow {rows.Count} 琛?{convertWatch.ElapsedMilliseconds}ms");
-        progress?.Invoke(new ReadProgress("Add-in璇诲彇BOM", 1, 1));
+        log?.Invoke($"Add-in 计时: 主程序转换 BomRow {rows.Count} 行 {convertWatch.ElapsedMilliseconds}ms");
+        progress?.Invoke(new ReadProgress("Add-in 读取 BOM", 1, 1));
         return rows;
     }
 
@@ -648,7 +648,7 @@ internal static partial class SolidWorksAddinClient
                     Configuration =
                         string.IsNullOrWhiteSpace(table.MainConfiguration) ? "Default" : table.MainConfiguration,
                     Quantity = 1,
-                    Material = "鏃犻渶璁剧疆",
+                    Material = "无须设置",
                     Properties = mainProperties,
                     OriginalProperties =
                         new Dictionary<string, string>(mainProperties, StringComparer.OrdinalIgnoreCase),
@@ -720,7 +720,7 @@ internal static partial class SolidWorksAddinClient
             });
         }
 
-        log?.Invoke($"Add-in璁℃椂: CSV杞珺omRow {rows.Count} 琛岋紝headerRow={headerIndex + 1}");
+        log?.Invoke($"Add-in 计时: CSV 转 BomRow {rows.Count} 行，headerRow={headerIndex + 1}");
         var deduplicatedRows = DeduplicateBomRows(rows, groupByConfig, log);
         SaveLastBomCsv(BuildLastBomCsv(deduplicatedRows, propertyNames), log);
         if (mainRow is not null)
@@ -861,7 +861,7 @@ internal static partial class SolidWorksAddinClient
     {
         return string.IsNullOrWhiteSpace(value)
                || value.Equals("\u672a\u8bbe\u7f6e", StringComparison.OrdinalIgnoreCase)
-               || value.Equals("鏃犻渶璁剧疆", StringComparison.OrdinalIgnoreCase);
+               || value.Equals("无须设置", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, string> CreateEmptyProperties(IReadOnlyList<string> propertyNames)

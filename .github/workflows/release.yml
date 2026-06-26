@@ -9,7 +9,7 @@ permissions:
   contents: write
 
 env:
-  PROJECT_NAME: chajian
+  PROJECT_NAME: ExternalProgram
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
@@ -24,17 +24,97 @@ jobs:
       - name: Setup MSBuild
         uses: microsoft/setup-msbuild@v2
 
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore ExternalProgram.sln
+
       - name: Build Release
-        run: msbuild 外部程序.vbproj -p:Configuration=Release -p:Platform="AnyCPU" -v:minimal -t:Build
+        shell: pwsh
+        run: |
+          dotnet build ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj -c Release --no-restore -v minimal
+          dotnet build ExternalProgram.sln -c Release --no-restore -v minimal
 
       - name: Package artifacts
-        shell: bash
+        shell: pwsh
         run: |
-          mkdir -p publish
-          cp bin/Release/外部程序.exe publish/
-          cp bin/Release/外部程序.exe.config publish/
-          cp bin/Release/外部程序.pdb publish/
-          cp bin/Release/外部程序.xml publish/
+          $ErrorActionPreference = 'Stop'
+
+          $externalProgramOut = 'bin/Release/net9.0-windows'
+          $readBomOut = 'ReadBom/bin/Release/net9.0-windows'
+          $addinOut = 'ExternalProgram.SwAddin/bin/Release/net48'
+
+          $externalProgramPublish = 'publish/ExternalProgram'
+          $readBomPublish = 'publish/ReadBom'
+
+          New-Item -ItemType Directory -Force -Path $externalProgramPublish, $readBomPublish | Out-Null
+
+          $externalProgramFiles = @(
+            'ExternalProgram.exe',
+            'ExternalProgram.dll',
+            'ExternalProgram.dll.config',
+            'ExternalProgram.deps.json',
+            'ExternalProgram.runtimeconfig.json',
+            'Wpf.Ui.dll',
+            'Wpf.Ui.Abstractions.dll',
+            'ExternalProgram.SwAddin.dll',
+            'Interop.SldWorks.dll',
+            'Interop.SwConst.dll',
+            'SolidWorks.Interop.swdocumentmgr.dll',
+            'SolidWorks.Interop.swpublished.dll',
+            'SolidWorksTools.dll'
+          )
+
+          $readBomFiles = @(
+            'ReadBom.exe',
+            'ReadBom.dll',
+            'ReadBom.deps.json',
+            'ReadBom.runtimeconfig.json',
+            'Wpf.Ui.dll',
+            'Wpf.Ui.Abstractions.dll',
+            'SolidWorks.Interop.swdocumentmgr.dll'
+          )
+
+          $addinFiles = @(
+            'ExternalProgram.SwAddin.dll',
+            'Interop.SldWorks.dll',
+            'Interop.SwConst.dll',
+            'SolidWorks.Interop.swdocumentmgr.dll',
+            'SolidWorks.Interop.swpublished.dll',
+            'SolidWorksTools.dll'
+          )
+
+          foreach ($file in $externalProgramFiles) {
+            $source = Join-Path $externalProgramOut $file
+            if (-not (Test-Path -LiteralPath $source)) {
+              throw "Missing ExternalProgram release file: $source"
+            }
+            Copy-Item -LiteralPath $source -Destination $externalProgramPublish
+          }
+
+          foreach ($file in $readBomFiles) {
+            $source = Join-Path $readBomOut $file
+            if (-not (Test-Path -LiteralPath $source)) {
+              throw "Missing ReadBom release file: $source"
+            }
+            Copy-Item -LiteralPath $source -Destination $readBomPublish
+          }
+
+          foreach ($file in $addinFiles) {
+            $source = Join-Path $addinOut $file
+            if (-not (Test-Path -LiteralPath $source)) {
+              throw "Missing add-in release file: $source"
+            }
+          }
+
+          $externalProgramCultureFile = "$externalProgramOut/zh-CN/ExternalProgram.resources.dll"
+          if (Test-Path -LiteralPath $externalProgramCultureFile) {
+            New-Item -ItemType Directory -Force -Path "$externalProgramPublish/zh-CN" | Out-Null
+            Copy-Item -LiteralPath $externalProgramCultureFile -Destination "$externalProgramPublish/zh-CN"
+          }
 
       - name: Create zip
         shell: pwsh
@@ -45,6 +125,19 @@ jobs:
         shell: pwsh
         run: |
           $tag = '${{ github.ref_name }}'
+
+          if (-not (Test-Path -LiteralPath CHANGELOG.md)) {
+            $previousTag = git describe --tags --abbrev=0 "$tag^{}^" 2>$null
+            if ($LASTEXITCODE -eq 0 -and $previousTag) {
+              $notes = "Full Changelog: https://github.com/${{ github.repository }}/compare/$previousTag...$tag"
+            } else {
+              $notes = "Release: https://github.com/${{ github.repository }}/releases/tag/$tag"
+            }
+
+            Set-Content -Path release-notes.md -Value $notes -Encoding UTF8
+            return
+          }
+
           $lines = Get-Content -Path CHANGELOG.md -Encoding UTF8
           $start = -1
 

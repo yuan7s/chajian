@@ -1,6 +1,6 @@
-using SolidWorks.Interop.swdocumentmgr;
+﻿using SolidWorks.Interop.swdocumentmgr;
 
-namespace readbom;
+namespace ReadBom;
 
 internal static partial class OfflineSolidWorksReader
 {

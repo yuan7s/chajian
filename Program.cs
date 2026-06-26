@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Windows;
 using System.Windows.Markup;
 using WpfNs = System.Windows;
 
-namespace 外部程序;
+namespace ExternalProgram;
 
 public class Program
 {
@@ -20,7 +20,7 @@ public class Program
         }
         catch (Exception ex)
         {
-            var logPath = Path.Combine(Path.GetTempPath(), "外部程序-startup-error.log");
+            var logPath = Path.Combine(Path.GetTempPath(), "ExternalProgram-startup-error.log");
             File.WriteAllText(logPath, ex.ToString());
             throw;
         }
@@ -43,3 +43,4 @@ public class Program
         app.Resources.MergedDictionaries.Add(resources);
     }
 }
+

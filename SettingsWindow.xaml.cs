@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -10,8 +10,8 @@ using WpfMedia = System.Windows.Media;
 using WpfPrimitives = System.Windows.Controls.Primitives;
 using WpfUiControls = Wpf.Ui.Controls;
 
-namespace 外部程序;
-using 外部程序.Properties;
+namespace ExternalProgram;
+using ExternalProgram.Properties;
 
 partial class SettingsWindow : WpfUiControls.FluentWindow
 {

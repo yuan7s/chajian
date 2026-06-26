@@ -1,11 +1,11 @@
-<Window x:Class="readbom.MainWindow"
+﻿<Window x:Class="ReadBom.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         mc:Ignorable="d"
-        Title="SW 属性/BOM工具"
+        Title="SW Properties/BOM Tool"
         Icon="Assets/app.ico"
         Height="720"
         Width="1200"
@@ -180,7 +180,7 @@
                                 </Grid.RowDefinitions>
                                 <WrapPanel Grid.Row="0">
                                     <Button Name="ConnectButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ConnectButton_OnClick">连接 SW ▾</Button>
-                                    <Button Name="ReadButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ReadButton_OnClick">读取属性/BOM</Button>
+                                    <Button Name="ReadButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ReadButton_OnClick">读取 BOM</Button>
                                     <Button Name="SaveToSwButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="SaveToSwButton_OnClick">保存到 SW</Button>
                                 </WrapPanel>
                                 <WrapPanel Grid.Row="1">
@@ -223,7 +223,7 @@
                                     <Button Name="ExportExcelButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ExportExcelButton_OnClick">导出 Excel</Button>
                                 </WrapPanel>
                                 <WrapPanel Grid.Row="1">
-                                    <Button Name="ThumbnailButton" Style="{StaticResource ToolbarButtonStyle}" Click="ThumbnailButton_OnClick">缩略图关</Button>
+                                    <Button Name="ThumbnailButton" Style="{StaticResource ToolbarButtonStyle}" Click="ThumbnailButton_OnClick">缩略图开</Button>
                                 </WrapPanel>
                             </Grid>
                         </StackPanel>
@@ -239,7 +239,7 @@
                                 </Grid.RowDefinitions>
                                 <WrapPanel Grid.Row="0">
                                     <Button Name="HeaderFilterButton" Style="{StaticResource ToolbarButtonStyle}" Click="HeaderFilterButton_OnClick">表头筛选</Button>
-                                    <Button Name="ExcludeStandardPartsButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ExcludeStandardPartsButton_OnClick">去除标准件</Button>
+                                    <Button Name="ExcludeStandardPartsButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ExcludeStandardPartsButton_OnClick">排除标准件</Button>
                                     <Button Name="ExcludeAssemblyComponentsButton" Style="{StaticResource ToolbarWideButtonStyle}" Click="ExcludeAssemblyComponentsButton_OnClick">去除组件装配</Button>
                                 </WrapPanel>
                                 <WrapPanel Grid.Row="1">
@@ -317,7 +317,7 @@
                     <MenuItem Header="填充列" Click="FillColumnButton_OnClick"/>
                     <MenuItem Header="查找替换" Click="FindReplaceButton_OnClick"/>
                     <Separator/>
-                    <MenuItem Header="打开零件/装配体" Click="OpenModelMenuItem_OnClick"/>
+                    <MenuItem Header="打开模型" Click="OpenModelMenuItem_OnClick"/>
                     <MenuItem Header="打开工程图" Click="OpenDrawingMenuItem_OnClick"/>
                     <Separator/>
                     <MenuItem Name="SaveContextMenuItem" Header="保存到 SW" Click="SaveToSwButton_OnClick"/>
@@ -419,9 +419,9 @@
                         </Style>
                     </DataGridTextColumn.ElementStyle>
                 </DataGridTextColumn>
-                <DataGridTextColumn Header="文件名" Binding="{Binding FileName}" Width="220"/>
+                <DataGridTextColumn Header="文件名称" Binding="{Binding FileName}" Width="220"/>
                 <DataGridTextColumn Header="配置" Binding="{Binding Configuration}" Width="70"/>
-                <DataGridTextColumn Header="SW-文件夹名称" Binding="{Binding FolderName}" Width="180" IsReadOnly="True"/>
+                <DataGridTextColumn Header="文件夹名称" Binding="{Binding FolderName}" Width="180" IsReadOnly="True"/>
                 <DataGridTextColumn Header="数量" Binding="{Binding Quantity}" Width="50">
                     <DataGridTextColumn.CellStyle>
                         <Style TargetType="DataGridCell" BasedOn="{StaticResource {x:Type DataGridCell}}">
@@ -476,3 +476,4 @@
         </Border>
     </Grid>
 </Window>
+

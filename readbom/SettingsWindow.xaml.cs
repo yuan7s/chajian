@@ -1,9 +1,9 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 
-namespace readbom;
+namespace ReadBom;
 
 public partial class SettingsWindow : Window
 {

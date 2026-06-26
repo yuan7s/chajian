@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -11,8 +11,8 @@ using WpfInput = System.Windows.Input;
 using WpfInterop = System.Windows.Interop;
 using WpfMedia = System.Windows.Media;
 
-namespace 外部程序;
-using 外部程序.Properties;
+namespace ExternalProgram;
+using ExternalProgram.Properties;
 
 public class PropertyOverlayWindow : WpfNs.Window
 {
@@ -77,17 +77,18 @@ public class PropertyOverlayWindow : WpfNs.Window
         var closeButton = new WpfControls.Button()
         {
             Content = "X",
-            Width = 28,
+            Width = 32,
             Height = 28,
             FontWeight = WpfNs.FontWeights.Bold,
             Foreground = WpfMedia.Brushes.Black,
             Background = WpfMedia.Brushes.Transparent,
             BorderThickness = new WpfNs.Thickness(0),
-            Cursor = WpfInput.Cursors.Hand
+            Cursor = WpfInput.Cursors.Hand,
+            Margin = new WpfNs.Thickness(0, 0, 8, 0)
         };
         closeButton.Click += (s, e) => Close();
 
-        var header = new WpfControls.Grid() { Margin = new WpfNs.Thickness(18, 14, 14, 6) };
+        var header = new WpfControls.Grid() { Margin = new WpfNs.Thickness(18, 14, 18, 6) };
         header.ColumnDefinitions.Add(new WpfControls.ColumnDefinition() { Width = new WpfNs.GridLength(1, WpfNs.GridUnitType.Star) });
         header.ColumnDefinitions.Add(new WpfControls.ColumnDefinition() { Width = WpfNs.GridLength.Auto });
         WpfControls.Grid.SetColumn(_titleText, 0);
@@ -175,6 +176,29 @@ public class PropertyOverlayWindow : WpfNs.Window
         }
 
         window.BringToFront();
+    }
+
+    public static bool IsAnyVisible()
+    {
+        return OpenWindows.Any(window => window != null && window.IsVisible);
+    }
+
+    public static void ToggleVisibility(SwAddinClient client)
+    {
+        if (IsAnyVisible())
+        {
+            foreach (var window in OpenWindows.ToArray())
+            {
+                if (window != null && window.IsVisible)
+                {
+                    window.Hide();
+                }
+            }
+
+            return;
+        }
+
+        ShowOrActivate(client);
     }
 
     public static void ApplySettingsToOpenWindows()

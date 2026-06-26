@@ -1,11 +1,11 @@
-using System.Reflection;
+﻿using System.Reflection;
 using System.Runtime.InteropServices;
 
-[assembly: AssemblyTitle("外部程序")]
+[assembly: AssemblyTitle("ExternalProgram")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("外部程序")]
-[assembly: AssemblyCopyright("Copyright ©  2025")]
+[assembly: AssemblyProduct("ExternalProgram")]
+[assembly: AssemblyCopyright("Copyright (c) 2025")]
 [assembly: AssemblyTrademark("")]
 
 [assembly: ComVisible(false)]
@@ -14,3 +14,4 @@ using System.Runtime.InteropServices;
 
 [assembly: AssemblyVersion("1.0.0.0")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
+

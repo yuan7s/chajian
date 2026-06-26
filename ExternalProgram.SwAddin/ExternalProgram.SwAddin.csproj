@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>net48</TargetFramework>
@@ -8,8 +8,7 @@
         <Prefer32Bit>false</Prefer32Bit>
         <RegisterForComInterop>false</RegisterForComInterop>
         <AssemblyName>ExternalProgram.SwAddin</AssemblyName>
-        <RootNamespace>外部程序.SwAddin</RootNamespace>
-        <OutputPath>bin\Debug\</OutputPath>
+        <RootNamespace>ExternalProgram.SwAddin</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,6 +24,10 @@
             <HintPath>..\lib\SolidWorks.Interop.swpublished.dll</HintPath>
             <EmbedInteropTypes>False</EmbedInteropTypes>
         </Reference>
+        <Reference Include="SolidWorks.Interop.swdocumentmgr">
+            <HintPath>..\lib\SolidWorks\SolidWorks.Interop.swdocumentmgr.dll</HintPath>
+            <EmbedInteropTypes>False</EmbedInteropTypes>
+        </Reference>
         <Reference Include="SolidWorksTools">
             <HintPath>..\lib\SolidWorksTools.dll</HintPath>
         </Reference>
@@ -38,3 +41,4 @@
     </Target>
 
 </Project>
+

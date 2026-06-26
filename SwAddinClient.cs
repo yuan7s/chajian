@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace 外部程序;
+namespace ExternalProgram;
 
 public class SwAddinClient : IDisposable
 {
@@ -18,7 +18,8 @@ public class SwAddinClient : IDisposable
     public event Action<string, string> SelectionChanged;
     public event Action Disconnected;
 
-    private readonly HttpClient _http = new HttpClient() { Timeout = TimeSpan.FromSeconds(30) };
+    private static readonly TimeSpan DefaultCommandTimeout = TimeSpan.FromSeconds(30);
+    private readonly HttpClient _http = new HttpClient() { Timeout = Timeout.InfiniteTimeSpan };
     private readonly int _basePort;
     private readonly SemaphoreSlim _endpointDiscoveryLock = new SemaphoreSlim(1, 1);
     private string _baseUrl;
@@ -232,17 +233,17 @@ public class SwAddinClient : IDisposable
         }
     }
 
-    public async Task<object> SendCommandAsync(string command, Dictionary<string, object> args = null)
+    public async Task<object> SendCommandAsync(string command, Dictionary<string, object> args = null, TimeSpan? timeout = null)
     {
         await RefreshEndpointAsync(false);
         try
         {
-            return await SendCommandCoreAsync(command, args);
+            return await SendCommandCoreAsync(command, args, timeout);
         }
         catch (InvalidOperationException ex) when (IsTransportFailure(ex.InnerException))
         {
             await RefreshEndpointAsync(true);
-            return await SendCommandCoreAsync(command, args);
+            return await SendCommandCoreAsync(command, args, timeout);
         }
     }
 
@@ -275,7 +276,7 @@ public class SwAddinClient : IDisposable
         await RefreshEndpointAsync(true);
     }
 
-    private async Task<object> SendCommandCoreAsync(string command, Dictionary<string, object> args = null)
+    private async Task<object> SendCommandCoreAsync(string command, Dictionary<string, object> args = null, TimeSpan? timeout = null)
     {
         try
         {
@@ -286,7 +287,8 @@ public class SwAddinClient : IDisposable
             };
             var json = JsonSerializer.Serialize(req);
             var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var response = await _http.PostAsync(_baseUrl + "command", content);
+            using var timeoutCts = new CancellationTokenSource(timeout ?? DefaultCommandTimeout);
+            var response = await _http.PostAsync(_baseUrl + "command", content, timeoutCts.Token);
             var body = await response.Content.ReadAsStringAsync();
             var result = DeserializeJson(body) as Dictionary<string, object>;
 

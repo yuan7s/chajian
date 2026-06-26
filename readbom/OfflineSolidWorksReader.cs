@@ -1,8 +1,8 @@
-using System.IO;
+﻿using System.IO;
 using System.Runtime.InteropServices;
 using SolidWorks.Interop.swdocumentmgr;
 
-namespace readbom;
+namespace ReadBom;
 
 internal static partial class OfflineSolidWorksReader
 {

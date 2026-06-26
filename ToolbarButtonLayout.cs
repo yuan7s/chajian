@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
-using 外部程序.Properties;
+using ExternalProgram.Properties;
 
-namespace 外部程序;
+namespace ExternalProgram;
 
 internal static class ToolbarButtonGroups
 {
@@ -60,7 +60,6 @@ internal static class ToolbarButtonLayoutStore
     public const string AssemblySort = "AssemblySort";
     public const string TreeSettings = "TreeSettings";
     public const string Rename = "Rename";
-    public const string PropertyOverlay = "PropertyOverlay";
     public const string DeleteCustomProps = "DeleteCustomProps";
     public const string DeleteConfigProps = "DeleteConfigProps";
     public const string DeleteErrorMates = "DeleteErrorMates";
@@ -79,7 +78,6 @@ internal static class ToolbarButtonLayoutStore
         new ToolbarButtonDefinition { Id = AssemblySort, Text = "排序", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = TreeSettings, Text = "树设置", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = Rename, Text = "重命名", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
-        new ToolbarButtonDefinition { Id = PropertyOverlay, Text = "属性窗", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = RunSwpMacro, Text = "运行宏", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = DeleteErrorMates, Text = "删错配合", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = DeleteCustomProps, Text = "删自定义", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
@@ -139,7 +137,6 @@ internal static class ToolbarButtonLayoutStore
         settings.Toolbar_ShowAssemblySort = ids.Contains(AssemblySort);
         settings.Toolbar_ShowAssemblyTreeSettings = ids.Contains(TreeSettings);
         settings.Toolbar_ShowAssemblyRename = ids.Contains(Rename);
-        settings.Toolbar_ShowAssemblyPropertyOverlay = ids.Contains(PropertyOverlay);
         settings.Toolbar_ShowAssemblyDeleteCustomProps = ids.Contains(DeleteCustomProps);
         settings.Toolbar_ShowAssemblyDeleteConfigProps = ids.Contains(DeleteConfigProps);
     }
@@ -158,7 +155,6 @@ internal static class ToolbarButtonLayoutStore
         AddDefault(items, settings.Toolbar_ShowAssemblySort, AssemblySort, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowAssemblyTreeSettings, TreeSettings, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowAssemblyRename, Rename, ToolbarButtonGroups.Assembly);
-        AddDefault(items, settings.Toolbar_ShowAssemblyPropertyOverlay, PropertyOverlay, ToolbarButtonGroups.Assembly);
         AddDefault(items, true, RunSwpMacro, ToolbarButtonGroups.Assembly);
         AddDefault(items, true, DeleteErrorMates, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowAssemblyDeleteCustomProps, DeleteCustomProps, ToolbarButtonGroups.Assembly);

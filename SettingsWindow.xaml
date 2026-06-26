@@ -1,4 +1,4 @@
-<ui:FluentWindow x:Class="外部程序.SettingsWindow"
+﻿<ui:FluentWindow x:Class="ExternalProgram.SettingsWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
@@ -55,6 +55,148 @@
                 <Setter Property="Margin" Value="0,0,0,5" />
             </Style>
 
+            <Style TargetType="{x:Type ComboBoxItem}">
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="10,0" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            </Style>
+
+            <Style TargetType="{x:Type ComboBox}">
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="10,0,32,0" />
+                <Setter Property="Background" Value="#F7FAFC" />
+                <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ComboBox}">
+                            <Grid>
+                                <ToggleButton x:Name="ToggleButton"
+                                              Focusable="False"
+                                              IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              ClickMode="Press">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                            <Border x:Name="Chrome"
+                                                    MinHeight="{TemplateBinding MinHeight}"
+                                                    Background="{TemplateBinding Background}"
+                                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                                    CornerRadius="8"
+                                                    SnapsToDevicePixels="True">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="32" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ContentPresenter Grid.Column="0"
+                                                                      Margin="10,0,4,0"
+                                                                      HorizontalAlignment="Stretch"
+                                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                                      Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
+                                                                      ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
+                                                                      ContentStringFormat="{Binding SelectionBoxItemStringFormat, RelativeSource={RelativeSource AncestorType={x:Type ComboBox}}}"
+                                                                      ClipToBounds="True"
+                                                                      RecognizesAccessKey="True" />
+                                                    <Path Grid.Column="1"
+                                                          Width="10"
+                                                          Height="6"
+                                                          HorizontalAlignment="Center"
+                                                          VerticalAlignment="Center"
+                                                          Data="M 0 0 L 5 5 L 10 0 Z"
+                                                          Fill="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="#C8D4E1" />
+                                                    <Setter TargetName="Chrome" Property="Background" Value="#FFFFFF" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="#8FB8E8" />
+                                                    <Setter TargetName="Chrome" Property="Background" Value="#FFFFFF" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter TargetName="Chrome" Property="Opacity" Value="0.55" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                </ToggleButton>
+                                <Popup x:Name="Popup"
+                                       Placement="Bottom"
+                                       IsOpen="{TemplateBinding IsDropDownOpen}"
+                                       AllowsTransparency="True"
+                                       Focusable="False"
+                                       PopupAnimation="Slide">
+                                    <Border Width="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                            MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                            Margin="0,4,0,0"
+                                            Padding="0"
+                                            Background="White"
+                                            BorderBrush="{StaticResource PanelBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="8">
+                                        <ScrollViewer CanContentScroll="True"
+                                                      HorizontalScrollBarVisibility="Disabled"
+                                                      VerticalScrollBarVisibility="Auto">
+                                            <ItemsPresenter />
+                                        </ScrollViewer>
+                                    </Border>
+                                </Popup>
+                            </Grid>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="HasItems" Value="False">
+                                    <Setter TargetName="Popup" Property="MinHeight" Value="36" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style TargetType="{x:Type TextBox}">
+                <Setter Property="MinHeight" Value="36" />
+                <Setter Property="Padding" Value="10,4" />
+                <Setter Property="Background" Value="#F7FAFC" />
+                <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type TextBox}">
+                            <Border x:Name="Chrome"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    SnapsToDevicePixels="True">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="#C8D4E1" />
+                                    <Setter TargetName="Chrome" Property="Background" Value="#FFFFFF" />
+                                </Trigger>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="Chrome" Property="BorderBrush" Value="#8FB8E8" />
+                                    <Setter TargetName="Chrome" Property="Background" Value="#FFFFFF" />
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Chrome" Property="Opacity" Value="0.55" />
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
             <Style TargetType="{x:Type CheckBox}"
                    BasedOn="{StaticResource {x:Type CheckBox}}">
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
@@ -105,6 +247,23 @@
                 <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
                 <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ListBox}">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}">
+                                <ScrollViewer Focusable="False"
+                                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
                 <Setter Property="ItemContainerStyle">
                     <Setter.Value>
                         <Style TargetType="{x:Type ListBoxItem}">
@@ -112,6 +271,31 @@
                             <Setter Property="Padding" Value="0" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         </Style>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="SettingsListBoxStyle" TargetType="{x:Type ListBox}">
+                <Setter Property="Padding" Value="6" />
+                <Setter Property="Background" Value="#F7FAFC" />
+                <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+                <Setter Property="BorderThickness" Value="1" />
+                <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ListBox}">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="8"
+                                    Padding="{TemplateBinding Padding}">
+                                <ScrollViewer Focusable="False"
+                                              HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                              VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}">
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </ControlTemplate>
                     </Setter.Value>
                 </Setter>
             </Style>
@@ -264,7 +448,7 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="颜色方案" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox x:Name="OverlayColorCombo" Height="32">
+                                        <ComboBox x:Name="OverlayColorCombo" MinHeight="36">
                                             <ComboBoxItem Content="自适应" />
                                             <ComboBoxItem Content="终端绿" />
                                             <ComboBoxItem Content="白字" />
@@ -273,7 +457,7 @@
 
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Text="显示范围" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox x:Name="OverlayDisplayModeCombo" Height="32">
+                                        <ComboBox x:Name="OverlayDisplayModeCombo" MinHeight="36">
                                             <ComboBoxItem Content="关键属性" />
                                             <ComboBoxItem Content="全部属性" />
                                         </ComboBox>
@@ -289,7 +473,7 @@
 
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Text="属性来源" Style="{StaticResource FieldLabelStyle}" />
-                                        <ComboBox x:Name="OverlayPropSourceCombo" Height="32">
+                                        <ComboBox x:Name="OverlayPropSourceCombo" MinHeight="36">
                                             <ComboBoxItem Content="配置属性" />
                                             <ComboBoxItem Content="自定义属性" />
                                         </ComboBox>
@@ -329,8 +513,7 @@
                                      Grid.Row="1"
                                      Grid.Column="0"
                                      MinHeight="310"
-                                     BorderBrush="{StaticResource PanelBorderBrush}"
-                                     Background="White" />
+                                     Style="{StaticResource SettingsListBoxStyle}" />
 
                             <StackPanel Grid.Row="1"
                                         Grid.Column="1"
@@ -358,7 +541,7 @@
 
                                 <TextBox x:Name="OverlayNewKeyText"
                                          Grid.Column="0"
-                                         Height="32"
+                                         MinHeight="36"
                                          VerticalContentAlignment="Center" />
                                 <ui:Button Grid.Column="2"
                                            Content="添加"
@@ -389,7 +572,7 @@
                                     <StackPanel>
                                         <TextBlock Text="写入位置" Style="{StaticResource SectionTitleStyle}" />
                                         <ComboBox x:Name="RenamePropertyTargetCombo"
-                                                  Height="32">
+                                                  MinHeight="36">
                                             <ComboBoxItem Content="配置属性" Tag="configuration" />
                                             <ComboBoxItem Content="自定义属性" Tag="custom" />
                                         </ComboBox>
@@ -444,8 +627,7 @@
                                     <ListBox x:Name="RenamePropertyList"
                                              Grid.Row="1"
                                              MinHeight="150"
-                                             BorderBrush="{StaticResource PanelBorderBrush}"
-                                             Background="White">
+                                             Style="{StaticResource SettingsListBoxStyle}">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
                                                 <Grid Margin="0,3">
@@ -453,11 +635,11 @@
                                                         <ColumnDefinition Width="*" />
                                                         <ColumnDefinition Width="1.2*" />
                                                     </Grid.ColumnDefinitions>
-                                                    <TextBox Height="28"
+                                                    <TextBox MinHeight="32"
                                                              VerticalContentAlignment="Center"
                                                              Text="{Binding Name, UpdateSourceTrigger=PropertyChanged}" />
                                                     <TextBox Grid.Column="1"
-                                                             Height="28"
+                                                             MinHeight="32"
                                                              Margin="8,0,0,0"
                                                              VerticalContentAlignment="Center"
                                                              Text="{Binding Value, UpdateSourceTrigger=PropertyChanged}" />
@@ -494,11 +676,11 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <TextBox x:Name="RenameNewPropertyNameText"
-                                             Height="32"
+                                             MinHeight="36"
                                              VerticalContentAlignment="Center" />
                                     <TextBox x:Name="RenameNewPropertyValueText"
                                              Grid.Column="1"
-                                             Height="32"
+                                             MinHeight="36"
                                              Margin="8,0,0,0"
                                              VerticalContentAlignment="Center" />
                                     <ui:Button Grid.Column="3"
@@ -530,13 +712,13 @@
 
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Text="名称依据" Style="{StaticResource FieldLabelStyle}" />
-                                    <ComboBox x:Name="SortNameSourceCombo" Height="32" Margin="0,0,0,14">
+                                    <ComboBox x:Name="SortNameSourceCombo" MinHeight="36" Margin="0,0,0,14">
                                         <ComboBoxItem Content="组件名" Tag="ComponentName" />
                                         <ComboBoxItem Content="文件名" Tag="FileName" />
                                     </ComboBox>
 
                                     <TextBlock Text="方向" Style="{StaticResource FieldLabelStyle}" />
-                                    <ComboBox x:Name="SortDirectionCombo" Height="32">
+                                    <ComboBox x:Name="SortDirectionCombo" MinHeight="36">
                                         <ComboBoxItem Content="升序" Tag="Ascending" />
                                         <ComboBoxItem Content="降序" Tag="Descending" />
                                     </ComboBox>

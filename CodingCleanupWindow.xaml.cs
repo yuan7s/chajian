@@ -1,35 +1,37 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using WpfNs = System.Windows;
 using WpfInput = System.Windows.Input;
-using WpfUiControls = Wpf.Ui.Controls;
 
-namespace 外部程序;
-using 外部程序.Properties;
+namespace ExternalProgram;
+using ExternalProgram.Properties;
 
-partial class CodingCleanupWindow : WpfUiControls.FluentWindow
+partial class CodingCleanupWindow : WpfNs.Window
 {
     public CodingCleanupWindow()
     {
         InitializeComponent();
     }
 
-    private bool _isLoading;
+    private bool _isLoading = true;
 
     public SwAddinClient Client { get; set; }
 
     private void Window_Loaded(object sender, WpfNs.RoutedEventArgs e)
     {
-        Topmost = true;
-        LoadSettings();
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            LoadSettings();
+            Activate();
+        }));
     }
 
     private void LoadSettings()
     {
         _isLoading = true;
         NameFilterBox.Text = Properties.Settings.Default.CodingCleanup_NameFilter;
-        ProcessAsmCheck.IsChecked = true;
+        ProcessAsmCheck.IsChecked = Properties.Settings.Default.CodingCleanup_ProcessAsm;
         ProcessPartCheck.IsChecked = Properties.Settings.Default.CodingCleanup_ProcessPart;
         ExcludeVirtualCheck.IsChecked = Properties.Settings.Default.CodingCleanup_ExcludeVirtual;
         ExcludeStandardCheck.IsChecked = Properties.Settings.Default.CodingCleanup_ExcludeStandard;
@@ -61,12 +63,23 @@ partial class CodingCleanupWindow : WpfUiControls.FluentWindow
     private void SettingCheck_Changed(object sender, WpfNs.RoutedEventArgs e)
     {
         if (_isLoading) return;
+        if (!AreSettingControlsReady()) return;
+
         Properties.Settings.Default.CodingCleanup_ProcessAsm = ProcessAsmCheck.IsChecked.GetValueOrDefault();
         Properties.Settings.Default.CodingCleanup_ProcessPart = ProcessPartCheck.IsChecked.GetValueOrDefault();
         Properties.Settings.Default.CodingCleanup_ExcludeVirtual = ExcludeVirtualCheck.IsChecked.GetValueOrDefault();
         Properties.Settings.Default.CodingCleanup_ExcludeStandard = ExcludeStandardCheck.IsChecked.GetValueOrDefault();
         Properties.Settings.Default.CodingCleanup_ExcludePurchased = ExcludePurchasedCheck.IsChecked.GetValueOrDefault();
         Properties.Settings.Default.Save();
+    }
+
+    private bool AreSettingControlsReady()
+    {
+        return ProcessAsmCheck != null &&
+               ProcessPartCheck != null &&
+               ExcludeVirtualCheck != null &&
+               ExcludeStandardCheck != null &&
+               ExcludePurchasedCheck != null;
     }
 
     private async void ExecuteButton_Click(object sender, WpfNs.RoutedEventArgs e)
@@ -81,6 +94,7 @@ partial class CodingCleanupWindow : WpfUiControls.FluentWindow
         ExecuteButton.IsEnabled = false;
         try
         {
+            SaveNameFilter();
             var args = new Dictionary<string, object>
             {
                 { "nameFilter", NameFilterBox.Text },
@@ -90,8 +104,11 @@ partial class CodingCleanupWindow : WpfUiControls.FluentWindow
                 { "excludeStandard", ExcludeStandardCheck.IsChecked.GetValueOrDefault() ? "true" : "false" },
                 { "excludePurchased", ExcludePurchasedCheck.IsChecked.GetValueOrDefault() ? "true" : "false" }
             };
-            await Client.SendCommandAsync("coding-cleanup", args);
-            WpfNs.MessageBox.Show(this, "编码清理完成。", "提示", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Information);
+            var result = await Client.SendCommandAsync("coding-cleanup", args, TimeSpan.FromMinutes(10)) as Dictionary<string, object>;
+            var processed = 0;
+            if (result != null && result.TryGetValue("processed", out var processedValue) && processedValue != null)
+                int.TryParse(processedValue.ToString(), out processed);
+            WpfNs.MessageBox.Show(this, "编码整理完成，已更新 " + processed + " 个组件。", "提示", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Information);
         }
         catch (Exception ex)
         {

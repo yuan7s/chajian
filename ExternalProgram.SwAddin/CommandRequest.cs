@@ -1,6 +1,6 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 
-namespace 外部程序.SwAddin;
+namespace ExternalProgram.SwAddin;
 
 public sealed class CommandRequest
 {

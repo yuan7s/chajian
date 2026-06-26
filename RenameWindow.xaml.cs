@@ -11,8 +11,8 @@ using WpfNs = System.Windows;
 using WpfControls = System.Windows.Controls;
 using WpfMedia = System.Windows.Media;
 
-namespace 外部程序;
-using 外部程序.Properties;
+namespace ExternalProgram;
+using ExternalProgram.Properties;
 
 partial class RenameWindow : WpfNs.Window
 {
@@ -682,9 +682,9 @@ partial class RenameWindow : WpfNs.Window
             ni.BalloonTipTitle = title;
             ni.BalloonTipText = message;
             ni.BalloonTipIcon = ToolTipIcon.Info;
-            ni.ShowBalloonTip(1800);
+            ni.ShowBalloonTip(900);
 
-            var t = new Timer() { Interval = 2200 };
+            var t = new Timer() { Interval = 1200 };
             t.Tick += (s, ev) =>
             {
                 t.Stop();

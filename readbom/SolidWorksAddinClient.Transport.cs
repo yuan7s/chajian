@@ -1,4 +1,4 @@
-namespace readbom;
+﻿namespace ReadBom;
 
 internal static partial class SolidWorksAddinClient
 {

@@ -1,7 +1,7 @@
-using WpfNs = System.Windows;
+﻿using WpfNs = System.Windows;
 using WpfUiControls = Wpf.Ui.Controls;
 
-namespace 外部程序;
+namespace ExternalProgram;
 
 partial class DrawingSettingsWindow : WpfUiControls.FluentWindow
 {

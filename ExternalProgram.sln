@@ -3,11 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.14.36221.1
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "外部程序", "外部程序.csproj", "{5D125CEE-0277-4899-AF83-0D064A191686}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExternalProgram", "ExternalProgram.csproj", "{5D125CEE-0277-4899-AF83-0D064A191686}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "外部程序.SwAddin", "外部程序.SwAddin\外部程序.SwAddin.csproj", "{DA9247D5-F555-4BB4-A35D-F29DDBE490BA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ExternalProgram.SwAddin", "ExternalProgram.SwAddin\ExternalProgram.SwAddin.csproj", "{DA9247D5-F555-4BB4-A35D-F29DDBE490BA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "readbom", "readbom\readbom.csproj", "{1A58AE1B-E743-4339-971A-2D789EB01F8D}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReadBom", "ReadBom\ReadBom.csproj", "{1A58AE1B-E743-4339-971A-2D789EB01F8D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
