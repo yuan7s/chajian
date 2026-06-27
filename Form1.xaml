@@ -159,6 +159,7 @@
                         <ui:Button x:Name="Button8" Content="另存 PDF" Style="{StaticResource ToolbarPrimaryButtonStyle}" Click="Button8_Click" ToolTip="将当前工程图另存为同名 PDF 文件" />
                         <ui:Button x:Name="Button4" Content="旋转视图" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button4_Click" ToolTip="将选中的工程图视图旋转 90 度" />
                         <ui:Button x:Name="Button5" Content="ISO" Style="{StaticResource ToolbarButtonStyle}" Click="Button5_Click" ToolTip="把当前工程图的标注标准设置为 ISO" />
+                        <ui:Button x:Name="Button23" Content="标准格式" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button23_Click" Visibility="Collapsed" ToolTip="按设置中的绘图标准和图纸格式替换当前工程图，并先删除工程图图层" />
                     </StackPanel>
 
                     <StackPanel x:Name="AssemblyActionsPanel"

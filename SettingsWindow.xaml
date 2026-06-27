@@ -463,6 +463,7 @@
                                                Style="{StaticResource SettingsButtonStyle}"
                                                Click="SelectSheetFormat_Click" />
                                 </Grid>
+
                             </StackPanel>
                         </Border>
 

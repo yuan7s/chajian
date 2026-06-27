@@ -447,6 +447,7 @@ partial class Form1
             { ToolbarButtonLayoutStore.SavePdf, Button8 },
             { ToolbarButtonLayoutStore.RotateView, Button4 },
             { ToolbarButtonLayoutStore.IsoView, Button5 },
+            { ToolbarButtonLayoutStore.ReplaceDrawingSettings, Button23 },
             { ToolbarButtonLayoutStore.AssemblyCleanup, Button18 },
             { ToolbarButtonLayoutStore.ReferencePlaneMate, Button20 },
             { ToolbarButtonLayoutStore.AssemblySort, Button13 },
@@ -587,6 +588,33 @@ partial class Form1
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show("保存 PDF 失败: " + ex.Message);
+        }
+    }
+
+    private async void Button23_Click(object sender, EventArgs e)
+    {
+        var standardPath = Settings.Default.Drawing_StandardPath;
+        var sheetFormatPath = Settings.Default.Drawing_SheetFormatPath;
+        if (string.IsNullOrWhiteSpace(standardPath) || string.IsNullOrWhiteSpace(sheetFormatPath))
+        {
+            WpfNs.MessageBox.Show(this, "请先在设置的工程图页选择绘图标准和图纸格式文件。", "提示",
+                WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Information);
+            return;
+        }
+
+        try
+        {
+            await _client.SendCommandAsync("replace-drawing-settings", new Dictionary<string, object>
+            {
+                { "standardPath", standardPath },
+                { "sheetFormatPath", sheetFormatPath }
+            });
+            ShowAutoCloseNotice("绘图标准和图纸格式替换完成");
+        }
+        catch (Exception ex)
+        {
+            WpfNs.MessageBox.Show(this, "替换绘图标准和图纸格式失败: " + ex.Message, "错误",
+                WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
         }
     }
 

@@ -533,7 +533,7 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
     {
         SelectFileInto(
             SheetFormatBox,
-            "SolidWorks 图纸格式 (*.slddrt)|*.slddrt|工程图模板 (*.drwdot)|*.drwdot|所有文件 (*.*)|*.*");
+            "SolidWorks 图纸格式 (*.slddrt)|*.slddrt|所有文件 (*.*)|*.*");
     }
 
     private void SelectFileInto(WpfControls.TextBox target, string filter)

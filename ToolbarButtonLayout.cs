@@ -55,6 +55,7 @@ internal static class ToolbarButtonLayoutStore
     public const string SavePdf = "SavePdf";
     public const string RotateView = "RotateView";
     public const string IsoView = "IsoView";
+    public const string ReplaceDrawingSettings = "ReplaceDrawingSettings";
     public const string ReferencePlaneMate = "ReferencePlaneMate";
     public const string AssemblyCleanup = "AssemblyCleanup";
     public const string AssemblySort = "AssemblySort";
@@ -73,6 +74,7 @@ internal static class ToolbarButtonLayoutStore
         new ToolbarButtonDefinition { Id = SavePdf, Text = "另存 PDF", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
         new ToolbarButtonDefinition { Id = RotateView, Text = "旋转视图", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
         new ToolbarButtonDefinition { Id = IsoView, Text = "ISO", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
+        new ToolbarButtonDefinition { Id = ReplaceDrawingSettings, Text = "标准格式" },
         new ToolbarButtonDefinition { Id = ReferencePlaneMate, Text = "基准面配合", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = AssemblyCleanup, Text = "编码整理", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = AssemblySort, Text = "排序", DefaultGroups = new[] { ToolbarButtonGroups.Assembly } },

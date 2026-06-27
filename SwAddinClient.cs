@@ -344,6 +344,7 @@ public class SwAddinClient : IDisposable
             case "drawing_required": return "请在工程图环境下使用";
             case "drawing_must_be_saved": return "当前工程图还没有保存，无法另存 " + format + "。";
             case "drawing_view_required": return "请选择一个视图";
+            case "drawing_doc_unavailable": return "无法获取当前工程图对象";
             case "assembly_required": return "请在装配体环境下使用";
             case "assembly_doc_unavailable": return "无法获取装配体对象";
             case "assembly_component_selection_required": return "请在装配体中选中一个组件";
