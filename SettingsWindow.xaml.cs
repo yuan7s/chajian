@@ -52,6 +52,9 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
 
         LoadToolbarButtonLayout(settings);
 
+        DrawingStandardBox.Text = settings.Drawing_StandardPath ?? "";
+        SheetFormatBox.Text = settings.Drawing_SheetFormatPath ?? "";
+
         OverlayOpacitySlider.Value = Math.Max(15, Math.Min(100, settings.Form5_Opacity * 100));
         UpdateOverlayOpacityLabel();
         SetComboText(OverlayColorCombo, string.IsNullOrWhiteSpace(settings.Form5_ColorScheme) ? "自适应" : settings.Form5_ColorScheme);
@@ -79,6 +82,9 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
         var settings = Properties.Settings.Default;
 
         SaveToolbarButtonLayout(settings);
+
+        settings.Drawing_StandardPath = DrawingStandardBox.Text.Trim();
+        settings.Drawing_SheetFormatPath = SheetFormatBox.Text.Trim();
 
         settings.Form5_Opacity = OverlayOpacitySlider.Value / 100.0;
         settings.Form5_ColorScheme = GetComboText(OverlayColorCombo, "自适应");
@@ -405,11 +411,7 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
         var raw = Properties.Settings.Default.Form5_KeyProperties;
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return new[]
-            {
-                "物料编码", "零件图号", "文件名称", "零件类型", "零件材质",
-                "表面处理/热处理", "下料尺寸", "版本", "设计者", "出图者"
-            };
+            return PropertyOverlayDefaults.KeyProperties;
         }
 
         return raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
@@ -518,6 +520,35 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
         RenamePropertyList.SelectedIndex = newIndex;
         RenamePropertyList.ScrollIntoView(_renameProperties[newIndex]);
         SaveStatusText.Text = "重命名写入属性已修改，点击应用保存";
+    }
+
+    private void SelectDrawingStandard_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        SelectFileInto(
+            DrawingStandardBox,
+            "SolidWorks 绘图标准 (*.sldstd)|*.sldstd|所有文件 (*.*)|*.*");
+    }
+
+    private void SelectSheetFormat_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        SelectFileInto(
+            SheetFormatBox,
+            "SolidWorks 图纸格式 (*.slddrt)|*.slddrt|工程图模板 (*.drwdot)|*.drwdot|所有文件 (*.*)|*.*");
+    }
+
+    private void SelectFileInto(WpfControls.TextBox target, string filter)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            CheckFileExists = true,
+            Filter = filter
+        };
+
+        if (dialog.ShowDialog(this).GetValueOrDefault())
+        {
+            target.Text = dialog.FileName;
+            SaveStatusText.Text = "工程图设置已修改，点击应用保存";
+        }
     }
 
     private void OverlayOpacitySlider_ValueChanged(object sender, WpfNs.RoutedPropertyChangedEventArgs<double> e)

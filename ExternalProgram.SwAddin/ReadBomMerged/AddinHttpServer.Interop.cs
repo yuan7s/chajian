@@ -241,17 +241,33 @@ internal sealed partial class AddinHttpServer
         }
     }
 
+    private static AssemblyDoc GetAssemblyDoc(ModelDoc2 model)
+    {
+        if (model == null || Safe(() => model.GetType()) != (int)swDocumentTypes_e.swDocASSEMBLY) return null;
+
+        object swModel = model;
+        return (AssemblyDoc)swModel;
+    }
+
+    private static PartDoc GetPartDoc(ModelDoc2 model)
+    {
+        if (model == null || Safe(() => model.GetType()) != (int)swDocumentTypes_e.swDocPART) return null;
+
+        object swModel = model;
+        return (PartDoc)swModel;
+    }
+
     private static List<double> GetModelBoxValues(ModelDoc2 model, string path)
     {
         var docType = GetDocumentTypeFromPath(path);
         object corners = null;
         if (docType == (int)swDocumentTypes_e.swDocPART)
         {
-            try { corners = ((PartDoc)model).GetPartBox(true); } catch { }
+            try { corners = GetPartDoc(model)?.GetPartBox(true); } catch { }
         }
         else if (docType == (int)swDocumentTypes_e.swDocASSEMBLY)
         {
-            try { corners = ((AssemblyDoc)model).GetBox(1); } catch { }
+            try { corners = GetAssemblyDoc(model)?.GetBox(1); } catch { }
         }
 
         return ToDoubleList(corners);

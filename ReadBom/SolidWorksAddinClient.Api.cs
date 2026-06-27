@@ -429,7 +429,7 @@ internal static partial class SolidWorksAddinClient
         {
             foreach (var failure in response.Failures.Take(5))
             {
-                log?.Invoke($"Add-in 保存失败: {failure.DisplayName ?? failure.Path} - {failure.Error}");
+                log?.Invoke($"Add-in 保存失败: {failure.DisplayName ?? failure.Path} - {FormatAddinError(failure.ErrorCode, failure.ErrorArgs, failure.Error)}");
             }
         }
 

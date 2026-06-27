@@ -2,6 +2,7 @@ namespace ReadBom.SwAddin;
 
 public sealed class CommandRequest
 {
+    // ReSharper disable once UnusedAutoPropertyAccessor.Global
     public string Command { get; set; }
     public string Configuration { get; set; }
     public string Name { get; set; }

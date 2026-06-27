@@ -356,15 +356,7 @@ public class PropertyOverlayWindow : WpfNs.Window
         var raw = Properties.Settings.Default.Form5_KeyProperties;
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return new[] {
-                TextByCodes(0x7269, 0x6599, 0x7F16, 0x7801),
-                TextByCodes(0x96F6, 0x4EF6, 0x56FE, 0x53F7),
-                TextByCodes(0x6587, 0x4EF6, 0x540D, 0x79F0),
-                TextByCodes(0x96F6, 0x4EF6, 0x7C7B, 0x578B),
-                TextByCodes(0x4E0B, 0x6599, 0x5C3A, 0x5BF8),
-                TextByCodes(0x7248, 0x672C),
-                TextByCodes(0x8BBE, 0x8BA1),
-                TextByCodes(0x51FA, 0x56FE) };
+            return PropertyOverlayDefaults.KeyProperties;
         }
 
         return raw.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)

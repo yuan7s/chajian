@@ -249,6 +249,22 @@ namespace ExternalProgram.Properties
         }
 
         [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string Drawing_StandardPath
+        {
+            get => (string)this["Drawing_StandardPath"];
+            set => this["Drawing_StandardPath"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string Drawing_SheetFormatPath
+        {
+            get => (string)this["Drawing_SheetFormatPath"];
+            set => this["Drawing_SheetFormatPath"] = value;
+        }
+
+        [UserScopedSetting]
         [DefaultSettingValue("True")]
         public bool Rename_WriteFileName
         {

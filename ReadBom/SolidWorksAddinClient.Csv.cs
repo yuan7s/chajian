@@ -645,10 +645,53 @@ internal static partial class SolidWorksAddinClient
         log?.Invoke($"Add-in计时: JSON反序列化 {deserializeWatch.ElapsedMilliseconds}ms");
         if (!envelope.Ok)
         {
-            throw new InvalidOperationException(envelope.Error ?? "Add-in返回失败");
+            throw new InvalidOperationException(FormatAddinError(envelope.ErrorCode, envelope.ErrorArgs, envelope.Error));
         }
 
         return envelope.Data!;
+    }
+
+    private static string FormatAddinError(string? code, Dictionary<string, object>? args, string? fallback)
+    {
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return string.IsNullOrWhiteSpace(fallback) ? "Add-in返回失败" : fallback;
+        }
+
+        var path = GetArg(args, "path");
+        var name = GetArg(args, "name");
+        var command = GetArg(args, "command");
+        var configuration = GetArg(args, "configuration");
+        var detail = GetArg(args, "detail");
+
+        return code switch
+        {
+            "unknown_command" => "未知命令: " + command,
+            "active_document_required" => "SolidWorks 当前没有活动文档",
+            "property_name_required" => "属性名不能为空",
+            "property_write_failed" => "属性写入失败: " + name,
+            "save_model_failed" => string.IsNullOrWhiteSpace(detail) ? "保存模型失败" : detail,
+            "configuration_property_name_unavailable" => "无法确定当前配置属性名称",
+            "property_verify_failed" => "属性写入后回读不一致: " + detail,
+            "argument_required" => string.IsNullOrWhiteSpace(name) ? "缺少必要参数" : name + " 不能为空",
+            "path_required" => "缺少完整路径",
+            "unsupported_solidworks_file_type" => string.IsNullOrWhiteSpace(path) ? "不支持的 SolidWorks 文件类型" : "不支持的 SolidWorks 文件类型: " + path,
+            "file_not_found" => string.IsNullOrWhiteSpace(path) ? "文件不存在" : "文件不存在: " + path,
+            "open_model_failed" => string.IsNullOrWhiteSpace(detail) ? "无法打开模型" : detail,
+            "configuration_property_manager_unavailable" => "无法获取配置属性管理器: " + configuration,
+            "custom_property_manager_unavailable" => "无法获取自定义属性管理器",
+            "bounding_box_unavailable" => "无法获取包围盒",
+            "bom_table_unavailable" => "InsertBomTable3 返回空",
+            "bom_csv_export_failed" => "导出 BOM CSV 失败: SaveAsText2 未生成文件",
+            "bom_template_create_failed" => string.IsNullOrWhiteSpace(detail) ? "创建专用 BOM 模板失败" : detail,
+            "internal_error" => "Add-in内部错误，请查看插件日志。",
+            _ => "Add-in返回失败: " + code
+        };
+    }
+
+    private static string GetArg(Dictionary<string, object>? args, string key)
+    {
+        return args != null && args.TryGetValue(key, out var value) && value != null ? value.ToString() ?? string.Empty : string.Empty;
     }
 
     private static string GetDocumentIconPathFromLabel(string? label)

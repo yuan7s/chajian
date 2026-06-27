@@ -420,6 +420,59 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem Header="工程图">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,10,0">
+                        <Border Style="{StaticResource SectionCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="绘图标准与模板" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="这些路径会保存到用户设置，供后续工程图相关命令读取。"
+                                           Style="{StaticResource HintTextStyle}"
+                                           Margin="0,0,0,12" />
+
+                                <TextBlock Text="绘图标准文件" Style="{StaticResource FieldLabelStyle}" />
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="DrawingStandardBox"
+                                             Grid.Column="0"
+                                             MinHeight="36"
+                                             VerticalContentAlignment="Center" />
+                                    <ui:Button Grid.Column="2"
+                                               Content="选择文件"
+                                               Style="{StaticResource SettingsButtonStyle}"
+                                               Click="SelectDrawingStandard_Click" />
+                                </Grid>
+
+                                <TextBlock Text="图纸格式文件" Style="{StaticResource FieldLabelStyle}" />
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="SheetFormatBox"
+                                             Grid.Column="0"
+                                             MinHeight="36"
+                                             VerticalContentAlignment="Center" />
+                                    <ui:Button Grid.Column="2"
+                                               Content="选择文件"
+                                               Style="{StaticResource SettingsButtonStyle}"
+                                               Click="SelectSheetFormat_Click" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="常用格式: 绘图标准通常为 .sldstd，图纸格式通常为 .slddrt。"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="4,0,4,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="属性悬浮窗">
                 <Grid Margin="0,12,10,0">
                     <Grid.ColumnDefinitions>

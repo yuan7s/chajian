@@ -507,7 +507,7 @@ partial class Form1
     {
         try
         {
-            var result = await _client.SendCommandAsync("active-document");
+            var result = await _client.SendCommandAsync("open-file-location");
             var dict = result as Dictionary<string, object>;
             var path = "";
             if (dict != null && dict.ContainsKey("path") && dict["path"] != null)
@@ -540,7 +540,7 @@ partial class Form1
                 return;
             }
 
-            Process.Start(new ProcessStartInfo("explorer.exe", "\"" + fileDirectory + "\"") { UseShellExecute = true });
+            Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + targetPath + "\"") { UseShellExecute = true });
             return;
         }
 

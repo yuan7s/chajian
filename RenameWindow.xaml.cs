@@ -659,11 +659,28 @@ partial class RenameWindow : WpfNs.Window
 
         var message = "工程图关联失败，文件改名已继续完成。";
         if (drawing.TryGetValue("error", out var error) && error != null && !string.IsNullOrWhiteSpace(error.ToString()))
-            message += Environment.NewLine + error;
+            message += Environment.NewLine + FormatDrawingCopyError(error.ToString());
         if (drawing.TryGetValue("path", out var path) && path != null && !string.IsNullOrWhiteSpace(path.ToString()))
             message += Environment.NewLine + path;
 
         MessageBox.Show(message, "工程图关联错误", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+    }
+
+    private static string FormatDrawingCopyError(string code)
+    {
+        switch (code)
+        {
+            case "target_drawing_exists":
+                return "目标工程图已存在，已继续改名但未复制工程图。";
+            case "source_drawing_reference_mismatch":
+                return "原工程图未关联当前模型，已继续改名但未复制工程图。";
+            case "drawing_reference_replace_failed":
+                return "工程图引用替换失败，已继续改名但未保留新工程图。";
+            case "drawing_copy_failed":
+                return "工程图处理失败，已继续改名。";
+            default:
+                return "工程图处理失败，已继续改名。";
+        }
     }
 
     private static bool GetDictionaryBool(Dictionary<string, object> dict, string key)

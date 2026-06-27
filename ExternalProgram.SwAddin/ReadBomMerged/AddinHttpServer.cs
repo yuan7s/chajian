@@ -144,10 +144,16 @@ internal sealed partial class AddinHttpServer : IDisposable
             AddinLog.Write($"Command response written: {commandName} in {writeWatch.ElapsedMilliseconds}ms");
             AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
         }
+        catch (InvalidOperationException ex)
+        {
+            var failure = ReadBomCommandFailure.FromInvalidOperation(ex);
+            WriteJson(context, new { ok = false, errorCode = failure.Code, errorArgs = failure.Details });
+            AddinLog.Write($"Command failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {failure.Code}");
+        }
         catch (Exception ex)
         {
             context.Response.StatusCode = 500;
-            WriteJson(context, new { ok = false, error = ex.Message });
+            WriteJson(context, new { ok = false, errorCode = "internal_error" });
             AddinLog.Write($"HTTP failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex}");
         }
     }
@@ -381,7 +387,8 @@ internal sealed partial class AddinHttpServer : IDisposable
             catch (Exception ex)
             {
                 failedRows++;
-                failures.Add(new { displayName, path = row?.Path, error = ex.Message });
+                var failure = ReadBomCommandFailure.FromException(ex);
+                failures.Add(new { displayName, path = row?.Path, error = failure.Code, errorCode = failure.Code, errorArgs = failure.Details });
                 AddinLog.Write($"SavePropertiesBatch row failed: {displayName}, index={i + 1}/{rows.Length}: {ex}");
             }
         }
@@ -462,7 +469,8 @@ internal sealed partial class AddinHttpServer : IDisposable
             catch (Exception ex)
             {
                 failedRows++;
-                results.Add(new { path = row?.Path, displayName, box = new List<double>(), success = false, error = ex.Message });
+                var failure = ReadBomCommandFailure.FromException(ex);
+                results.Add(new { path = row?.Path, displayName, box = new List<double>(), success = false, error = failure.Code, errorCode = failure.Code, errorArgs = failure.Details });
                 AddinLog.Write($"CalculateBlankSizeBatch row failed: {displayName}, index={i + 1}/{rows.Length}: {ex}");
             }
         }

@@ -2,9 +2,8 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
-using SolidWorks.Interop.swdocumentmgr;
 using SldWorks;
+using SolidWorks.Interop.swdocumentmgr;
 using SwConst;
 
 namespace ExternalProgram.SwAddin;
@@ -14,14 +13,15 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
-    private static readonly string[] StandardComponentFlagProperties = { "标准件"};
-    private static readonly string[] PurchasedComponentFlagProperties = { "外购件" };
+    private static readonly string[] StandardComponentFlagProperties = ["标准件"];
+    private static readonly string[] PurchasedComponentFlagProperties = ["外购件"];
+
     private static readonly string[][] ReferencePlaneMateNameGroups =
-    {
-        new[] { "前视基准面", "Front Plane" },
-        new[] { "上视基准面", "Top Plane" },
-        new[] { "右视基准面", "Right Plane" }
-    };
+    [
+        ["前视基准面", "Front Plane"],
+        ["上视基准面", "Top Plane"],
+        ["右视基准面", "Right Plane"]
+    ];
 
     private string _lastDocPath;
 
@@ -30,11 +30,11 @@ internal sealed partial class AddinHttpServer
         try
         {
             var model = _swApp.ActiveDoc as ModelDoc2;
-            var currentPath = model != null ? Safe(() => model.GetPathName()) ?? "" : "";
+            var currentPath = model != null ? Safe(model.GetPathName) ?? "" : "";
             if (currentPath != _lastDocPath)
             {
                 _lastDocPath = currentPath;
-                var title = model != null ? Safe(() => model.GetTitle()) ?? "" : "";
+                var title = model != null ? Safe(model.GetTitle) ?? "" : "";
                 BroadcastEvent("doc-changed", new { title, path = currentPath });
             }
         }
@@ -173,7 +173,7 @@ internal sealed partial class AddinHttpServer
                 break;
 
             default:
-                throw new InvalidOperationException($"未知命令: {request.Command}");
+                throw CommandFailure("unknown_command", "command", request.Command);
         }
 
         CheckAndBroadcastDocChange();
@@ -183,13 +183,21 @@ internal sealed partial class AddinHttpServer
     private ModelDoc2 GetActiveModel()
     {
         var model = _swApp.ActiveDoc as ModelDoc2;
-        if (model == null) throw new InvalidOperationException("没有活动文档");
+        if (model == null) throw CommandFailure("active_document_required");
         return model;
+    }
+
+    private static CommandFailureException CommandFailure(string code, params object[] details)
+    {
+        return CommandFailureException.Create(code, details);
     }
 
     private static T Safe<T>(Func<T> work)
     {
-        try { return work(); }
+        try
+        {
+            return work();
+        }
         catch (Exception ex)
         {
             LogIgnoredException("Safe", ex);
@@ -252,15 +260,13 @@ internal sealed partial class AddinHttpServer
     private static IEnumerable<Component2> EnumerateComponents(object[] items)
     {
         foreach (var item in items)
-        {
             if (item is Component2 component)
                 yield return component;
-        }
     }
 
     private static CustomPropertyManager GetCustomPropertyManager(ModelDoc2 model, string configurationName)
     {
-        return model?.Extension?.get_CustomPropertyManager(configurationName ?? "");
+        return model?.Extension?.CustomPropertyManager[configurationName ?? ""];
     }
 
     private static string GetActiveConfigurationName(ModelDoc2 model)
@@ -270,37 +276,18 @@ internal sealed partial class AddinHttpServer
 
     private static AssemblyDoc GetAssemblyDoc(ModelDoc2 model)
     {
-        return GetComInterface<AssemblyDoc>(model);
+        if (model == null || Safe(model.GetType) != (int)swDocumentTypes_e.swDocASSEMBLY) return null;
+
+        object swModel = model;
+        return (AssemblyDoc)swModel;
     }
 
     private static PartDoc GetPartDoc(ModelDoc2 model)
     {
-        return GetComInterface<PartDoc>(model);
-    }
+        if (model == null || Safe(model.GetType) != (int)swDocumentTypes_e.swDocPART) return null;
 
-    private static T GetComInterface<T>(object comObject) where T : class
-    {
-        if (comObject == null) return null;
-
-        var unknown = IntPtr.Zero;
-        try
-        {
-            unknown = Marshal.GetIUnknownForObject(comObject);
-            return (T)Marshal.GetTypedObjectForIUnknown(unknown, typeof(T));
-        }
-        catch (InvalidCastException)
-        {
-            return null;
-        }
-        catch (COMException)
-        {
-            return null;
-        }
-        finally
-        {
-            if (unknown != IntPtr.Zero)
-                Marshal.Release(unknown);
-        }
+        object swModel = model;
+        return (PartDoc)swModel;
     }
 
     private static string GetArgString(Dictionary<string, object> args, string key, string fallback = "")
@@ -321,10 +308,10 @@ internal sealed partial class AddinHttpServer
         var model = GetActiveModel();
         return new
         {
-            title = Safe(() => model.GetTitle()) ?? "",
-            path = Safe(() => model.GetPathName()) ?? "",
+            title = Safe(model.GetTitle) ?? "",
+            path = Safe(model.GetPathName) ?? "",
             configuration = GetActiveConfigurationName(model),
-            type = Safe(() => model.GetType())
+            type = Safe(model.GetType)
         };
     }
 
@@ -345,29 +332,27 @@ internal sealed partial class AddinHttpServer
     private object OpenDocument(Dictionary<string, object> args)
     {
         var path = GetArgString(args, "path");
-        if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("path 不能为空");
-        if (!File.Exists(path)) throw new InvalidOperationException("文件不存在");
+        if (string.IsNullOrWhiteSpace(path)) throw CommandFailure("argument_required", "name", "path");
+        if (!File.Exists(path)) throw CommandFailure("file_not_found", "path", path);
 
         var docType = GetDocumentTypeFromPath(path);
-        if (docType == 0) throw new InvalidOperationException("不支持的文件类型");
+        if (docType == 0) throw CommandFailure("unsupported_file_type", "path", path);
 
         var existing = TryGetOpenModelByPath(path);
-        if (existing != null)
-        {
-            return new { path, title = Safe(() => existing.GetTitle()), alreadyOpen = true };
-        }
+        if (existing != null) return new { path, title = Safe(existing.GetTitle), alreadyOpen = true };
 
         var errors = 0;
         var warnings = 0;
-        var model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errors, ref warnings);
+        var model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errors,
+            ref warnings);
         return new { path, title = Safe(() => model?.GetTitle()), errors, warnings };
     }
 
     private object ListExternalReferences(Dictionary<string, object> args)
     {
         var path = GetArgString(args, "path");
-        if (string.IsNullOrWhiteSpace(path)) throw new InvalidOperationException("path is required");
-        if (!File.Exists(path)) throw new InvalidOperationException("file does not exist: " + path);
+        if (string.IsNullOrWhiteSpace(path)) throw CommandFailure("argument_required", "name", "path");
+        if (!File.Exists(path)) throw CommandFailure("file_not_found", "path", path);
 
         var dependencies = ToStringArray(_swApp.GetDocumentDependencies2(path, false, true, false));
         return new { path, dependencies };
@@ -405,11 +390,11 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
-            throw new InvalidOperationException("请在工程图环境下使用");
+            throw CommandFailure("drawing_required");
 
         var docPath = model.GetPathName();
         if (string.IsNullOrWhiteSpace(docPath))
-            throw new InvalidOperationException($"当前工程图还没有保存，无法另存 {formatName}。");
+            throw CommandFailure("drawing_must_be_saved", "format", formatName);
 
         var outputPath = Path.ChangeExtension(docPath, extension);
         model.SaveAs3(outputPath, 0, 2);
@@ -424,16 +409,16 @@ internal sealed partial class AddinHttpServer
         var selectedComponent = GetSelectedComponent(model);
         if (selectedComponent != null)
         {
-            var selectedPath = Safe(() => selectedComponent.GetPathName()) ?? "";
+            var selectedPath = Safe(selectedComponent.GetPathName) ?? "";
             if (string.IsNullOrWhiteSpace(selectedPath))
                 selectedPath = Safe(() => (selectedComponent.GetModelDoc() as ModelDoc2)?.GetPathName()) ?? "";
             if (!string.IsNullOrWhiteSpace(selectedPath)) return new { path = selectedPath, selected = true };
         }
 
-        var path = Safe(() => model.GetPathName()) ?? "";
+        var path = Safe(model.GetPathName) ?? "";
         if (!string.IsNullOrWhiteSpace(path)) return new { path, selected = false };
 
-        return new { path = Safe(() => model.GetTitle()) ?? "", selected = false };
+        return new { path = Safe(model.GetTitle) ?? "", selected = false };
     }
 
     // --- Rotate Drawing View ---
@@ -442,12 +427,12 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
-            throw new InvalidOperationException("请在工程图环境下使用");
+            throw CommandFailure("drawing_required");
 
         var selMgr = model.SelectionManager as SelectionMgr;
         var swView = selMgr?.GetSelectedObject6(1, -1) as View;
         if (swView == null)
-            throw new InvalidOperationException("请选择一个视图");
+            throw CommandFailure("drawing_view_required");
 
         if (swView.Angle > 4.5)
             swView.Angle = 0;
@@ -464,11 +449,11 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
-            throw new InvalidOperationException("请在工程图环境下使用");
+            throw CommandFailure("drawing_required");
 
         var extension = model.Extension;
         if (extension == null)
-            throw new InvalidOperationException("无法获取当前文档扩展对象");
+            throw CommandFailure("document_extension_unavailable");
 
         var ok = extension.SetUserPreferenceInteger(
             (int)swUserPreferenceIntegerValue_e.swDetailingDimensionStandard,
@@ -476,7 +461,7 @@ internal sealed partial class AddinHttpServer
             (int)swDetailingStandard_e.swDetailingStandardISO);
 
         if (!ok)
-            throw new InvalidOperationException("SolidWorks 未接受 ISO 标准设置");
+            throw CommandFailure("solidworks_operation_failed", "operation", "set_iso_standard");
 
         MarkDocDirty(model);
         return new { standard = "ISO", success = true };
@@ -486,14 +471,14 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var assemblyDoc = GetAssemblyDoc(model);
-        if (assemblyDoc == null) throw new InvalidOperationException("无法获取 AssemblyDoc");
+        if (assemblyDoc == null) throw CommandFailure("assembly_doc_unavailable");
 
         var selectedComponents = GetSelectedComponentsForReferencePlaneMate(model);
         if (selectedComponents.Count == 0)
-            throw new InvalidOperationException("请先选中一个或多个组件");
+            throw CommandFailure("component_selection_required");
 
         var totalMates = 0;
         var failed = 0;
@@ -506,8 +491,7 @@ internal sealed partial class AddinHttpServer
             var failures = new List<string>();
 
             foreach (var planeNames in ReferencePlaneMateNameGroups)
-            {
-                if (TryAddReferencePlaneMate(model, assemblyDoc, component, planeNames, out _, out var errorMessage))
+                if (TryAddReferencePlaneMate(model, assemblyDoc, component, planeNames, out var errorMessage))
                 {
                     totalMates++;
                     componentMates++;
@@ -517,13 +501,12 @@ internal sealed partial class AddinHttpServer
                     failed++;
                     failures.Add(errorMessage);
                 }
-            }
 
             details.Add(new { component = componentName, mates = componentMates, failures });
         }
 
         if (totalMates == 0)
-            throw new InvalidOperationException("未能添加基准面配合，请确认组件和装配体基准面名称匹配");
+            throw CommandFailure("reference_plane_mate_failed");
 
         model.EditRebuild3();
         MarkDocDirty(model);
@@ -558,16 +541,14 @@ internal sealed partial class AddinHttpServer
         AssemblyDoc assemblyDoc,
         Component2 component,
         string[] planeNames,
-        out string usedPlaneName,
         out string errorMessage)
     {
-        usedPlaneName = "";
         errorMessage = "";
 
         var componentSelectionName = GetComponentSelectionName(component);
         if (string.IsNullOrWhiteSpace(componentSelectionName))
         {
-            errorMessage = "无法获取组件选择路径";
+            errorMessage = "component_selection_path_unavailable";
             return false;
         }
 
@@ -578,14 +559,14 @@ internal sealed partial class AddinHttpServer
             {
                 model.ClearSelection2(true);
                 var assemblyPlaneSelected = model.Extension.SelectByID2(planeName, "PLANE", 0, 0, 0, false, 1, null, 0);
-                var componentPlaneSelected = model.Extension.SelectByID2(componentPlaneName, "PLANE", 0, 0, 0, true, 1, null, 0);
+                var componentPlaneSelected =
+                    model.Extension.SelectByID2(componentPlaneName, "PLANE", 0, 0, 0, true, 1, null, 0);
                 if (!assemblyPlaneSelected || !componentPlaneSelected)
                 {
-                    errorMessage = planeName + ": 基准面选择失败";
+                    errorMessage = "reference_plane_select_failed:" + planeName;
                     continue;
                 }
 
-                var errorStatus = 0;
                 var mate = assemblyDoc.AddMate4(
                     (int)swMateType_e.swMateCOINCIDENT,
                     (int)swMateAlign_e.swMateAlignALIGNED,
@@ -600,25 +581,27 @@ internal sealed partial class AddinHttpServer
                     0,
                     false,
                     false,
-                    out errorStatus);
+                    out var errorStatus);
 
-                if (mate != null && errorStatus == 0)
-                {
-                    usedPlaneName = planeName;
-                    return true;
-                }
+                if (mate != null && errorStatus == 0) return true;
 
-                errorMessage = planeName + ": AddMate4 错误 " + errorStatus;
+                errorMessage = "add_mate_failed:" + planeName + ":" + errorStatus;
             }
             catch (Exception ex)
             {
-                errorMessage = planeName + ": " + ex.Message;
+                errorMessage = "add_mate_exception:" + planeName;
                 LogIgnoredException("TryAddReferencePlaneMate", ex);
             }
             finally
             {
-                try { model.ClearSelection2(true); }
-                catch (Exception ex) { LogIgnoredException("TryAddReferencePlaneMate.ClearSelection", ex); }
+                try
+                {
+                    model.ClearSelection2(true);
+                }
+                catch (Exception ex)
+                {
+                    LogIgnoredException("TryAddReferencePlaneMate.ClearSelection", ex);
+                }
             }
         }
 
@@ -627,7 +610,7 @@ internal sealed partial class AddinHttpServer
 
     private static string GetComponentSelectionName(Component2 component)
     {
-        var selectionName = Safe(() => component.GetSelectByIDString());
+        var selectionName = Safe(component.GetSelectByIDString);
         if (!string.IsNullOrWhiteSpace(selectionName)) return selectionName;
 
         return Safe(() => component.Name2);
@@ -637,28 +620,28 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var name = GetArgString(args, "name");
         if (string.IsNullOrWhiteSpace(name))
-            throw new InvalidOperationException("name 不能为空");
+            throw CommandFailure("argument_required", "name", "name");
 
         var component = FindComponentByName(model, name);
         if (component == null)
-            throw new InvalidOperationException("未找到组件: " + name);
+            throw CommandFailure("component_not_found", "name", name);
 
         model.ClearSelection2(true);
         var ok = Safe(() => component.Select4(false, null, false));
         if (!ok)
             ok = Safe(() => component.Select2(false, 0));
         if (!ok)
-            throw new InvalidOperationException("组件选择失败: " + name);
+            throw CommandFailure("component_select_failed", "name", name);
 
         return new
         {
             selected = true,
             name = Safe(() => component.Name2) ?? "",
-            path = Safe(() => component.GetPathName()) ?? ""
+            path = Safe(component.GetPathName) ?? ""
         };
     }
 
@@ -686,49 +669,55 @@ internal sealed partial class AddinHttpServer
 
     private static void MarkDocDirty(ModelDoc2 model)
     {
-        try { model?.SetSaveFlag(); }
-        catch (Exception ex) { LogIgnoredException("MarkDocDirty", ex); }
+        try
+        {
+            model?.SetSaveFlag();
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("MarkDocDirty", ex);
+        }
     }
 
     private object DeleteErrorMates()
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var mateGroups = 0;
         var selected = 0;
         var feature = Safe(() => model.FirstFeature() as Feature);
         while (feature != null)
         {
-            var typeName = Safe(() => feature.GetTypeName2()) ?? "";
+            var currentFeature = feature;
+            var typeName = Safe(currentFeature.GetTypeName2) ?? "";
             if (string.Equals(typeName, "MateGroup", StringComparison.OrdinalIgnoreCase))
             {
                 mateGroups++;
                 model.ClearSelection2(true);
 
                 var groupSelected = 0;
-                var subFeature = Safe(() => feature.GetFirstSubFeature() as Feature);
+                var subFeature = Safe(() => currentFeature.GetFirstSubFeature() as Feature);
                 while (subFeature != null)
                 {
-                    var errorCode = GetFeatureErrorCode(subFeature, out var isWarning);
+                    var currentSubFeature = subFeature;
+                    var errorCode = GetFeatureErrorCode(currentSubFeature, out var isWarning);
                     if (errorCode != 0 && !isWarning)
-                    {
-                        if (Safe(() => subFeature.Select2(true, 0)))
+                        if (Safe(() => currentSubFeature.Select2(true, 0)))
                         {
                             groupSelected++;
                             selected++;
                         }
-                    }
 
-                    subFeature = Safe(() => subFeature.GetNextSubFeature() as Feature);
+                    subFeature = Safe(() => currentSubFeature.GetNextSubFeature() as Feature);
                 }
 
                 if (groupSelected > 0)
                     model.EditDelete();
             }
 
-            feature = Safe(() => feature.GetNextFeature() as Feature);
+            feature = Safe(() => currentFeature.GetNextFeature() as Feature);
         }
 
         if (selected > 0)
@@ -758,16 +747,15 @@ internal sealed partial class AddinHttpServer
     {
         var path = GetArgString(args, "path");
         if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException("请选择 .swp 宏文件");
+            throw CommandFailure("macro_file_required");
         if (!File.Exists(path))
-            throw new InvalidOperationException("宏文件不存在: " + path);
+            throw CommandFailure("file_not_found", "path", path);
         if (!string.Equals(Path.GetExtension(path), ".swp", StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("只支持 .swp 宏文件");
+            throw CommandFailure("unsupported_macro_file", "path", path);
 
-        var error = 0;
-        var ok = _swApp.RunMacro2(path, "", "main", 0, out error);
+        var ok = _swApp.RunMacro2(path, "", "main", 0, out var error);
         if (!ok || error != 0)
-            throw new InvalidOperationException("宏执行失败，错误码: " + error);
+            throw CommandFailure("macro_run_failed", "error", error);
 
         CheckAndBroadcastDocChange();
         return new { done = true, path };
@@ -779,10 +767,10 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var featMgr = model.FeatureManager;
-        if (featMgr == null) throw new InvalidOperationException("无法获取 FeatureManager");
+        if (featMgr == null) throw CommandFailure("feature_manager_unavailable");
 
         ConfigureFeatureManagerDisplay(featMgr);
 
@@ -797,7 +785,6 @@ internal sealed partial class AddinHttpServer
         var rootComponent = configuration?.GetRootComponent() as Component2;
 
         foreach (var child in EnumerateComponents(GetComponentChildren(rootComponent)))
-        {
             try
             {
                 var childModel = child.GetModelDoc() as ModelDoc2;
@@ -828,7 +815,6 @@ internal sealed partial class AddinHttpServer
             {
                 LogIgnoredException("RecursiveHideConfigNames", ex);
             }
-        }
     }
 
     private static void ConfigureFeatureManagerDisplay(FeatureManager featureManager)
@@ -847,7 +833,7 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var components = new List<object>();
         var configuration = model.GetActiveConfiguration() as Configuration;
@@ -859,11 +845,11 @@ internal sealed partial class AddinHttpServer
             var info = new
             {
                 name = Safe(() => child.Name2),
-                path = Safe(() => child.GetPathName()),
-                referencedPath = childModel != null ? Safe(() => childModel.GetPathName()) : null,
-                type = childModel != null ? Safe(() => childModel.GetType()) : -1,
-                isSuppressed = Safe(() => child.IsSuppressed()),
-                isEnvelope = Safe(() => child.IsEnvelope())
+                path = Safe(child.GetPathName),
+                referencedPath = childModel != null ? Safe(childModel.GetPathName) : null,
+                type = childModel != null ? Safe(childModel.GetType) : -1,
+                isSuppressed = Safe(child.IsSuppressed),
+                isEnvelope = Safe(child.IsEnvelope)
             };
             components.Add(info);
         }
@@ -877,10 +863,10 @@ internal sealed partial class AddinHttpServer
     {
         var model = GetActiveModel();
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var assemblyDoc = GetAssemblyDoc(model);
-        if (assemblyDoc == null) throw new InvalidOperationException("无法获取 AssemblyDoc");
+        if (assemblyDoc == null) throw CommandFailure("assembly_doc_unavailable");
         var options = SortOptions.FromArgs(args);
 
         var vFeats = GetFeatureArray(model);
@@ -893,9 +879,13 @@ internal sealed partial class AddinHttpServer
             var feature = vFeats[i] as Feature;
             if (feature == null) continue;
 
-            var t = Safe(() => feature.GetTypeName2()) ?? "";
+            var t = Safe(feature.GetTypeName2) ?? "";
             if (t == "OriginProfileFeature") startIdx = i + 1;
-            if (t == "MateGroup") { endIdx = i - 1; break; }
+            if (t == "MateGroup")
+            {
+                endIdx = i - 1;
+                break;
+            }
         }
 
         // Group features
@@ -910,7 +900,7 @@ internal sealed partial class AddinHttpServer
             var feat = vFeats[i] as Feature;
             if (feat == null) continue;
 
-            var featType = Safe(() => feat.GetTypeName2()) ?? "";
+            var featType = Safe(feat.GetTypeName2) ?? "";
             if (featType == "FtrFolder")
             {
                 var featureName = Safe(() => feat.Name) ?? "";
@@ -930,13 +920,14 @@ internal sealed partial class AddinHttpServer
                 var isSupOrEnv = false;
                 try
                 {
-                    var comp = feat.GetSpecificFeature2() as Component2;
-                    if (comp != null) isSupOrEnv = comp.IsSuppressed() || comp.IsEnvelope();
+                    if (feat.GetSpecificFeature2() is Component2 comp)
+                        isSupOrEnv = comp.IsSuppressed() || comp.IsEnvelope();
                 }
                 catch (Exception ex)
                 {
                     LogIgnoredException("SortComponents.ReferenceState", ex);
                 }
+
                 if (isSupOrEnv)
                 {
                     if (currentFolderComps != null) currentFolderComps.Add(feat);
@@ -959,27 +950,27 @@ internal sealed partial class AddinHttpServer
         var sortedSupPart = CollectAndSort(suppressedEnvFeats, false, options);
         var sortedSupAsm = CollectAndSort(suppressedEnvFeats, true, options);
 
-        var allSorted = BuildSortedComponentOrder(sortedAsmComps, sortedPartComps, sortedSupAsm, sortedSupPart, options);
+        var allSorted =
+            BuildSortedComponentOrder(sortedAsmComps, sortedPartComps, sortedSupAsm, sortedSupPart, options);
 
         if (allSorted.Count > 0)
         {
             var lastFolder = folders.Count > 0 ? folders[folders.Count - 1] : null;
             if (lastFolder != null)
-                assemblyDoc.ReorderComponents(allSorted[0], lastFolder, (int)swReorderComponentsWhere_e.swReorderComponents_After);
+                assemblyDoc.ReorderComponents(allSorted[0], lastFolder,
+                    (int)swReorderComponentsWhere_e.swReorderComponents_After);
             for (var i = 1; i < allSorted.Count; i++)
                 assemblyDoc.ReorderComponents(allSorted[i], allSorted[i - 1], 1);
         }
 
         var foldersSorted = 0;
         if (options.SortFolders)
-        {
             for (var i = 0; i < folders.Count; i++)
             {
                 var folderFeats = i < folderComponents.Count ? folderComponents[i] : null;
                 if (SortComponentsInFolder(folders[i], folderFeats, assemblyDoc, options))
                     foldersSorted++;
             }
-        }
 
         if (options.RecursiveSubAssemblies)
         {
@@ -1005,15 +996,15 @@ internal sealed partial class AddinHttpServer
             if (comp == null) continue;
             try
             {
-                var childModel = comp.GetModelDoc() as ModelDoc2;
-                var childType = childModel != null ? childModel.GetType() : -1;
-                if (childType == targetType) result.Add(comp);
+                if (comp.GetModelDoc() is ModelDoc2 childModel && childModel.GetType() == targetType)
+                    result.Add(comp);
             }
             catch (Exception ex)
             {
                 LogIgnoredException("CollectAndSort", ex);
             }
         }
+
         result.Sort((a, b) => CompareComponents(a, b, options));
         return result;
     }
@@ -1048,7 +1039,8 @@ internal sealed partial class AddinHttpServer
         return all;
     }
 
-    private static void AppendTypeGroups(List<Component2> target, List<Component2> asmComps, List<Component2> partComps, SortOptions options)
+    private static void AppendTypeGroups(List<Component2> target, List<Component2> asmComps, List<Component2> partComps,
+        SortOptions options)
     {
         if (options.AssemblyFirst)
         {
@@ -1076,7 +1068,7 @@ internal sealed partial class AddinHttpServer
 
         if (string.Equals(options.NameSource, "FileName", StringComparison.OrdinalIgnoreCase))
         {
-            var path = Safe(() => component.GetPathName()) ?? "";
+            var path = Safe(component.GetPathName) ?? "";
             var fileName = Path.GetFileNameWithoutExtension(path);
             if (!string.IsNullOrWhiteSpace(fileName)) return fileName;
         }
@@ -1084,38 +1076,38 @@ internal sealed partial class AddinHttpServer
         return Safe(() => component.Name2) ?? "";
     }
 
-    private static bool SortComponentsInFolder(Feature folder, List<Feature> folderFeats, AssemblyDoc assemblyDoc, SortOptions options)
+    private static bool SortComponentsInFolder(Feature folder, List<Feature> folderFeats, AssemblyDoc assemblyDoc,
+        SortOptions options)
     {
         var partComps = new List<Component2>();
         var asmComps = new List<Component2>();
         var supPartComps = new List<Component2>();
         var supAsmComps = new List<Component2>();
 
-        var feats = folderFeats != null && folderFeats.Count > 0
+        var feats = folderFeats is { Count: > 0 }
             ? folderFeats
             : GetFolderReferenceFeaturesFromSubFeatures(folder);
 
         foreach (var currentSubFeat in feats)
-        {
-            if ((Safe(() => currentSubFeat.GetTypeName2()) ?? "") == "Reference")
+            if ((Safe(currentSubFeat.GetTypeName2) ?? "") == "Reference")
             {
                 var comp = Safe(() => currentSubFeat.GetSpecificFeature2() as Component2);
                 if (comp != null)
                 {
-                    var isSupEnv = Safe(() => comp.IsSuppressed()) || Safe(() => comp.IsEnvelope());
+                    var isSupEnv = Safe(comp.IsSuppressed) || Safe(comp.IsEnvelope);
                     var childModel = Safe(() => comp.GetModelDoc() as ModelDoc2);
-                    var childType = childModel != null ? childModel.GetType() : -1;
-                    if (childType == (int)swDocumentTypes_e.swDocASSEMBLY)
+                    if (childModel is { } && childModel.GetType() == (int)swDocumentTypes_e.swDocASSEMBLY)
                     {
-                        if (isSupEnv) supAsmComps.Add(comp); else asmComps.Add(comp);
+                        if (isSupEnv) supAsmComps.Add(comp);
+                        else asmComps.Add(comp);
                     }
-                    else if (childType == (int)swDocumentTypes_e.swDocPART)
+                    else if (childModel is { } && childModel.GetType() == (int)swDocumentTypes_e.swDocPART)
                     {
-                        if (isSupEnv) supPartComps.Add(comp); else partComps.Add(comp);
+                        if (isSupEnv) supPartComps.Add(comp);
+                        else partComps.Add(comp);
                     }
                 }
             }
-        }
 
         asmComps.Sort((a, b) => CompareComponents(a, b, options));
         partComps.Sort((a, b) => CompareComponents(a, b, options));
@@ -1141,7 +1133,7 @@ internal sealed partial class AddinHttpServer
         while (subFeat != null)
         {
             var currentSubFeat = subFeat;
-            if ((Safe(() => currentSubFeat.GetTypeName2()) ?? "") == "Reference")
+            if ((Safe(currentSubFeat.GetTypeName2) ?? "") == "Reference")
                 result.Add(currentSubFeat);
 
             subFeat = Safe(() => currentSubFeat.GetNextSubFeature() as Feature);
@@ -1154,7 +1146,7 @@ internal sealed partial class AddinHttpServer
     {
         foreach (var feat in feats)
         {
-            if ((Safe(() => feat.GetTypeName2()) ?? "") != "Reference") continue;
+            if ((Safe(feat.GetTypeName2) ?? "") != "Reference") continue;
             var comp = Safe(() => feat.GetSpecificFeature2() as Component2);
             if (comp == null) continue;
             try
@@ -1178,25 +1170,23 @@ internal sealed partial class AddinHttpServer
         {
             var vFeats = GetFeatureArray(asmModel);
             var refFeats = new List<Feature>();
-            for (var i = 0; i < vFeats.Length; i++)
+            foreach (var item in vFeats)
             {
-                var feature = vFeats[i] as Feature;
-                if (feature != null && (Safe(() => feature.GetTypeName2()) ?? "") == "Reference")
+                if (item is Feature feature && (Safe(feature.GetTypeName2) ?? "") == "Reference")
                     refFeats.Add(feature);
             }
 
             var asmComps = CollectAndSort(refFeats, true, options);
             var partComps = CollectAndSort(refFeats, false, options);
-            var all = BuildSortedComponentOrder(asmComps, partComps, new List<Component2>(), new List<Component2>(), options);
+            var all = BuildSortedComponentOrder(asmComps, partComps, new List<Component2>(), new List<Component2>(),
+                options);
 
             if (all.Count > 1)
             {
                 var asmDoc = GetAssemblyDoc(asmModel);
                 if (asmDoc != null)
-                {
                     for (var i = 1; i < all.Count; i++)
                         asmDoc.ReorderComponents(all[i], all[i - 1], 1);
-                }
             }
 
             RecursiveSortSubAssemblies(refFeats, processed, options);
@@ -1207,81 +1197,41 @@ internal sealed partial class AddinHttpServer
         }
     }
 
-    private sealed class SortOptions
-    {
-        public bool AssemblyFirst { get; set; } = true;
-        public bool SuppressedLast { get; set; } = true;
-        public bool SortFolders { get; set; } = true;
-        public bool RecursiveSubAssemblies { get; set; } = true;
-        public bool Descending { get; set; }
-        public string NameSource { get; set; } = "ComponentName";
-
-        public static SortOptions FromArgs(Dictionary<string, object> args)
-        {
-            var options = new SortOptions();
-            if (args == null) return options;
-
-            options.AssemblyFirst = GetBool(args, "assemblyFirst", true);
-            options.SuppressedLast = GetBool(args, "suppressedLast", true);
-            options.SortFolders = GetBool(args, "sortFolders", true);
-            options.RecursiveSubAssemblies = GetBool(args, "recursiveSubAssemblies", true);
-            options.Descending = GetBool(args, "descending", false);
-            options.NameSource = GetString(args, "nameSource", "ComponentName");
-            return options;
-        }
-
-        private static bool GetBool(Dictionary<string, object> args, string key, bool fallback)
-        {
-            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
-            if (value is bool boolValue) return boolValue;
-            return bool.TryParse(value.ToString(), out var parsed) ? parsed : fallback;
-        }
-
-        private static string GetString(Dictionary<string, object> args, string key, string fallback)
-        {
-            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
-            var text = value.ToString();
-            return string.IsNullOrWhiteSpace(text) ? fallback : text;
-        }
-    }
-
     // --- Read Properties ---
 
     private object ReadProperties(Dictionary<string, object> args)
     {
         var target = ResolvePropertyTarget(args);
         if (target.FileProperties != null)
-        {
             return new
             {
                 title = target.Title,
                 path = target.Path,
-                configuration = string.IsNullOrWhiteSpace(target.ConfigurationName) ? "custom" : target.ConfigurationName,
+                configuration = string.IsNullOrWhiteSpace(target.ConfigurationName)
+                    ? "custom"
+                    : target.ConfigurationName,
                 source = target.Source,
                 selectedComponent = target.SelectedComponent,
                 properties = target.FileProperties
             };
-        }
 
         var manager = GetCustomPropertyManager(target.Model, target.ConfigurationName);
-        if (manager == null) throw new InvalidOperationException("无法获取属性管理器");
+        if (manager == null) throw CommandFailure("property_manager_unavailable");
 
         var values = new Dictionary<string, string>();
 
         try
         {
             foreach (var name in GetPropertyNames(manager))
-            {
                 try
                 {
-                    manager.Get5(name, false, out var rawValue, out var resolvedValue, out var _);
+                    manager.Get5(name, false, out var rawValue, out var resolvedValue, out _);
                     values[name] = !string.IsNullOrWhiteSpace(resolvedValue) ? resolvedValue : rawValue ?? "";
                 }
                 catch (Exception ex)
                 {
                     LogIgnoredException("ReadProperties.GetValue", ex);
                 }
-            }
         }
         catch (Exception ex)
         {
@@ -1304,17 +1254,14 @@ internal sealed partial class AddinHttpServer
     private object WriteProperties(Dictionary<string, object> args)
     {
         var target = ResolvePropertyTarget(args);
-        if (target.FileProperties != null)
-        {
-            throw new InvalidOperationException("选中子件为轻化状态时仅支持读取文件属性，写入前请在 SolidWorks 中还原该子件。");
-        }
+        if (target.FileProperties != null) throw CommandFailure("lightweight_component_write_unsupported");
 
         var propsArg = args.TryGetValue("properties", out var p) ? p : null;
         var properties = propsArg as Dictionary<string, object>;
-        if (properties == null) throw new InvalidOperationException("properties 不能为空");
+        if (properties == null) throw CommandFailure("argument_required", "name", "properties");
 
         var manager = GetCustomPropertyManager(target.Model, target.ConfigurationName);
-        if (manager == null) throw new InvalidOperationException("无法获取属性管理器");
+        if (manager == null) throw CommandFailure("property_manager_unavailable");
 
         var written = new List<string>();
         foreach (var kvp in properties)
@@ -1340,8 +1287,8 @@ internal sealed partial class AddinHttpServer
         var activeModel = GetActiveModel();
         var targetModel = activeModel;
         var selectedComponent = false;
-        var title = Safe(() => activeModel.GetTitle()) ?? "";
-        var path = Safe(() => activeModel.GetPathName()) ?? "";
+        var title = Safe(activeModel.GetTitle) ?? "";
+        var path = Safe(activeModel.GetPathName) ?? "";
 
         var comp = GetSelectedComponent(activeModel);
         if (comp != null)
@@ -1352,14 +1299,14 @@ internal sealed partial class AddinHttpServer
             {
                 targetModel = componentModel;
                 selectedComponent = true;
-                title = Safe(() => comp.Name2) ?? Safe(() => componentModel.GetTitle()) ?? title;
-                path = Safe(() => componentModel.GetPathName()) ?? path;
+                title = Safe(() => comp.Name2) ?? Safe(componentModel.GetTitle) ?? title;
+                path = Safe(componentModel.GetPathName) ?? path;
             }
             else
             {
                 selectedComponent = true;
                 title = Safe(() => comp.Name2) ?? title;
-                path = Safe(() => comp.GetPathName()) ?? "";
+                path = Safe(comp.GetPathName) ?? "";
             }
         }
 
@@ -1372,17 +1319,13 @@ internal sealed partial class AddinHttpServer
 
         var configName = hasExplicitConfiguration ? GetArgString(args, "configuration") : "";
         if (!useCustomProperties && !hasExplicitConfiguration)
-        {
             configName = selectedComponent
                 ? Safe(() => comp.ReferencedConfiguration) ?? ""
                 : GetActiveConfigurationName(targetModel);
-        }
 
         Dictionary<string, string> fileProperties = null;
         if (selectedComponent && targetModel == activeModel && !string.IsNullOrWhiteSpace(path))
-        {
             fileProperties = ReadFileProperties(path, useCustomProperties ? "" : configName);
-        }
 
         return new PropertyTarget
         {
@@ -1424,27 +1367,20 @@ internal sealed partial class AddinHttpServer
     private Dictionary<string, string> ReadFileProperties(string path, string configurationName)
     {
         if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
-        {
-            throw new InvalidOperationException("无法读取选中子件文件属性，文件路径无效: " + path);
-        }
+            throw CommandFailure("component_file_property_path_invalid", "path", path);
 
-        SwDMApplication application = null;
         ISwDMDocument document = null;
 
         try
         {
-            application = CreateDocumentManagerApplication();
+            var application = CreateDocumentManagerApplication();
             var documentType = GetDocumentManagerType(path);
             if (documentType == SwDmDocumentType.swDmDocumentUnknown)
-            {
-                throw new InvalidOperationException("不支持的 SolidWorks 文件类型: " + path);
-            }
+                throw CommandFailure("unsupported_solidworks_file_type", "path", path);
 
-            document = application.GetDocument(path, documentType, true, out var error) as ISwDMDocument;
+            document = application.GetDocument(path, documentType, true, out var error);
             if (document == null || error != SwDmDocumentOpenError.swDmDocumentOpenErrorNone)
-            {
-                throw new InvalidOperationException("Document Manager 打开文件失败: " + error);
-            }
+                throw CommandFailure("document_manager_open_failed", "error", error.ToString(), "path", path);
 
             return string.IsNullOrWhiteSpace(configurationName)
                 ? ReadDocumentManagerCustomProperties(document)
@@ -1452,7 +1388,14 @@ internal sealed partial class AddinHttpServer
         }
         finally
         {
-            try { document?.CloseDoc(); } catch { }
+            try
+            {
+                document?.CloseDoc();
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("ReadFileProperties.CloseDoc", ex);
+            }
         }
     }
 
@@ -1460,34 +1403,33 @@ internal sealed partial class AddinHttpServer
     {
         var factory = new SwDMClassFactoryClass();
         foreach (var license in LoadDocumentManagerLicenseCandidates())
-        {
             try
             {
-                var application = factory.GetApplication(license) as SwDMApplication;
+                var application = factory.GetApplication(license);
                 if (application != null) return application;
             }
             catch
             {
                 // Try the next normalized license token.
             }
-        }
 
-        throw new InvalidOperationException("无法初始化 SolidWorks Document Manager，请检查内置许可证。");
+        throw CommandFailure("document_manager_unavailable");
     }
 
     private static IEnumerable<string> LoadDocumentManagerLicenseCandidates()
     {
-        const string embeddedLicense = "SOLIDWORKS_2022:swdocmgr_general-11785-02051-00064-50177-06612-36864-49921-00003-21424-27712-02333-41243-17858-56070-14468-62467-35817-38164-41304-28396-16118-35795-11666-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-4,swdocmgr_previews-11785-02051-00064-50177-06612-36864-49921-00003-55360-53060-25343-42769-59069-52473-22473-52225-12074-04081-32909-30728-28589-33225-11507-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-3,swdocmgr_geometry-11785-02051-00064-50177-06612-36864-49921-00003-47348-23774-43673-03705-12160-02780-32459-34818-63205-17331-46285-63135-49863-07899-11787-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-2,swdocmgr_dimxpert-11785-02051-00064-50177-06612-36864-49921-00003-29996-08472-47529-56591-62456-46237-10843-31747-32567-27053-59927-17093-07167-05996-11461-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-7,swdocmgr_tessellation-11785-02051-00064-50177-06612-36864-49921-00003-10436-56910-32567-34976-20928-11850-62944-24577-40211-48738-24555-37037-32570-31276-11315-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-9,swdocmgr_xml-11785-02051-00064-50177-06612-36864-49921-00003-42016-05489-35279-24819-52264-14236-16400-48131-43581-35953-11290-28017-22653-22728-11882-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-8";
+        const string embeddedLicense =
+            "SOLIDWORKS_2022:swdocmgr_general-11785-02051-00064-50177-06612-36864-49921-00003-21424-27712-02333-41243-17858-56070-14468-62467-35817-38164-41304-28396-16118-35795-11666-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-4,swdocmgr_previews-11785-02051-00064-50177-06612-36864-49921-00003-55360-53060-25343-42769-59069-52473-22473-52225-12074-04081-32909-30728-28589-33225-11507-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-3,swdocmgr_geometry-11785-02051-00064-50177-06612-36864-49921-00003-47348-23774-43673-03705-12160-02780-32459-34818-63205-17331-46285-63135-49863-07899-11787-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-2,swdocmgr_dimxpert-11785-02051-00064-50177-06612-36864-49921-00003-29996-08472-47529-56591-62456-46237-10843-31747-32567-27053-59927-17093-07167-05996-11461-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-7,swdocmgr_tessellation-11785-02051-00064-50177-06612-36864-49921-00003-10436-56910-32567-34976-20928-11850-62944-24577-40211-48738-24555-37037-32570-31276-11315-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-9,swdocmgr_xml-11785-02051-00064-50177-06612-36864-49921-00003-42016-05489-35279-24819-52264-14236-16400-48131-43581-35953-11290-28017-22653-22728-11882-40614-37528-44680-42142-42646-25790-25696-00100-12572-11577-30049-11623-12338-12338-8";
 
         if (string.IsNullOrWhiteSpace(embeddedLicense)) yield break;
 
         yield return embeddedLicense;
-        foreach (var entry in embeddedLicense.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+        foreach (var entry in embeddedLicense.Split([','], StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = entry.Trim();
             if (trimmed.Length == 0) continue;
 
-            var parts = trimmed.Split(new[] { '-' }, 2, StringSplitOptions.None);
+            var parts = trimmed.Split(['-'], 2, StringSplitOptions.None);
             yield return parts.Length == 2 ? parts[1] : parts[0];
         }
     }
@@ -1507,21 +1449,17 @@ internal sealed partial class AddinHttpServer
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in GetDocumentManagerPropertyNames(document.GetCustomPropertyNames))
-        {
             try
             {
-                SwDmCustomInfoType type;
-                string linkedTo;
                 var value = document is ISwDMDocument5 document5
-                    ? document5.GetCustomPropertyValues(name, out type, out linkedTo)
-                    : document.GetCustomProperty(name, out type);
+                    ? document5.GetCustomPropertyValues(name, out _, out _)
+                    : document.GetCustomProperty(name, out _);
                 values[name] = value ?? string.Empty;
             }
             catch (Exception ex)
             {
                 LogIgnoredException("ReadDocumentManagerCustomProperties", ex);
             }
-        }
 
         return values;
     }
@@ -1535,49 +1473,44 @@ internal sealed partial class AddinHttpServer
 
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var name in GetDocumentManagerPropertyNames(configuration.GetCustomPropertyNames))
-        {
             try
             {
-                SwDmCustomInfoType type;
-                string linkedTo;
                 var value = configuration is ISwDMConfiguration5 configuration5
-                    ? configuration5.GetCustomPropertyValues(name, out type, out linkedTo)
-                    : configuration.GetCustomProperty(name, out type);
+                    ? configuration5.GetCustomPropertyValues(name, out _, out _)
+                    : configuration.GetCustomProperty(name, out _);
                 values[name] = value ?? string.Empty;
             }
             catch (Exception ex)
             {
                 LogIgnoredException("ReadDocumentManagerConfigurationProperties", ex);
             }
-        }
 
         return values;
     }
 
-    private static ISwDMConfiguration ResolveDocumentManagerConfiguration(ISwDMDocument document, string configurationName)
+    private static ISwDMConfiguration ResolveDocumentManagerConfiguration(ISwDMDocument document,
+        string configurationName)
     {
         if (document?.ConfigurationManager == null) return null;
 
         foreach (var candidate in GetDocumentManagerConfigurationCandidates(document, configurationName))
         {
-            var configuration = document.ConfigurationManager.GetConfigurationByName(candidate) as ISwDMConfiguration;
-            if (configuration != null) return configuration;
+            if (document.ConfigurationManager.GetConfigurationByName(candidate) is ISwDMConfiguration configuration)
+                return configuration;
         }
 
         return null;
     }
 
-    private static IEnumerable<string> GetDocumentManagerConfigurationCandidates(ISwDMDocument document, string configurationName)
+    private static IEnumerable<string> GetDocumentManagerConfigurationCandidates(ISwDMDocument document,
+        string configurationName)
     {
         if (!string.IsNullOrWhiteSpace(configurationName)) yield return configurationName;
 
         foreach (var name in GetDocumentManagerPropertyNames(document.ConfigurationManager.GetConfigurationNames))
-        {
-            if (!string.IsNullOrWhiteSpace(name) && !string.Equals(name, configurationName, StringComparison.OrdinalIgnoreCase))
-            {
+            if (!string.IsNullOrWhiteSpace(name) &&
+                !string.Equals(name, configurationName, StringComparison.OrdinalIgnoreCase))
                 yield return name;
-            }
-        }
     }
 
     private static IEnumerable<string> GetDocumentManagerPropertyNames(Func<object> getNames)
@@ -1595,9 +1528,8 @@ internal sealed partial class AddinHttpServer
         if (names is string[] stringNames)
         {
             foreach (var name in stringNames)
-            {
-                if (!string.IsNullOrWhiteSpace(name)) yield return name;
-            }
+                if (!string.IsNullOrWhiteSpace(name))
+                    yield return name;
         }
         else if (names is object[] objectNames)
         {
@@ -1626,18 +1558,19 @@ internal sealed partial class AddinHttpServer
     private object DeleteCustomProperties()
     {
         var model = GetActiveModel();
-        var stats = DeletePropertiesRecursive(model, deleteConfigurationProperties: false, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        var stats = DeletePropertiesRecursive(model, false, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
     }
 
     private object DeleteConfigurationProperties()
     {
         var model = GetActiveModel();
-        var stats = DeletePropertiesRecursive(model, deleteConfigurationProperties: true, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        var stats = DeletePropertiesRecursive(model, true, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
     }
 
-    private static DeletePropertyStats DeletePropertiesRecursive(ModelDoc2 model, bool deleteConfigurationProperties, HashSet<string> processed)
+    private static DeletePropertyStats DeletePropertiesRecursive(ModelDoc2 model, bool deleteConfigurationProperties,
+        HashSet<string> processed)
     {
         var stats = new DeletePropertyStats();
         if (model == null) return stats;
@@ -1684,13 +1617,11 @@ internal sealed partial class AddinHttpServer
         {
             var activeConfiguration = GetActiveConfigurationName(model);
             if (!string.IsNullOrWhiteSpace(activeConfiguration))
-                configurationNames = new[] { activeConfiguration };
+                configurationNames = [activeConfiguration];
         }
 
         foreach (var configurationName in configurationNames)
-        {
             deleted += DeleteManagerProperties(GetCustomPropertyManager(model, configurationName));
-        }
 
         return deleted;
     }
@@ -1701,7 +1632,6 @@ internal sealed partial class AddinHttpServer
 
         var deleted = 0;
         foreach (var name in GetPropertyNames(manager).ToArray())
-        {
             try
             {
                 manager.Delete2(name);
@@ -1711,7 +1641,6 @@ internal sealed partial class AddinHttpServer
             {
                 LogIgnoredException("DeleteManagerProperties", ex);
             }
-        }
 
         return deleted;
     }
@@ -1730,28 +1659,11 @@ internal sealed partial class AddinHttpServer
 
     private static string GetModelProcessKey(ModelDoc2 model)
     {
-        var path = Safe(() => model.GetPathName()) ?? "";
+        var path = Safe(model.GetPathName) ?? "";
         if (!string.IsNullOrWhiteSpace(path)) return path;
 
-        var title = Safe(() => model.GetTitle()) ?? "";
+        var title = Safe(model.GetTitle) ?? "";
         return "unsaved:" + title + ":" + model.GetHashCode();
-    }
-
-    private sealed class PropertyTarget
-    {
-        public ModelDoc2 Model { get; set; }
-        public string Title { get; set; }
-        public string Path { get; set; }
-        public string ConfigurationName { get; set; }
-        public string Source { get; set; }
-        public bool SelectedComponent { get; set; }
-        public Dictionary<string, string> FileProperties { get; set; }
-    }
-
-    private sealed class DeletePropertyStats
-    {
-        public int Documents { get; set; }
-        public int Deleted { get; set; }
     }
 
     // --- Get Bounding Box ---
@@ -1762,16 +1674,20 @@ internal sealed partial class AddinHttpServer
         var configName = GetArgString(args, "configuration");
 
         if (!string.IsNullOrWhiteSpace(configName))
-        {
-            try { model.ShowConfiguration2(configName); }
-            catch (Exception ex) { LogIgnoredException("GetBoundingBox.ShowConfiguration", ex); }
-        }
+            try
+            {
+                model.ShowConfiguration2(configName);
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("GetBoundingBox.ShowConfiguration", ex);
+            }
 
         var part = GetPartDoc(model);
-        if (part == null) throw new InvalidOperationException("请在零件环境下获取包围盒");
+        if (part == null) throw CommandFailure("part_required_for_bounding_box");
 
         var box = part.GetPartBox(false) as double[];
-        if (box == null || box.Length < 6) throw new InvalidOperationException("无法获取包围盒");
+        if (box == null || box.Length < 6) throw CommandFailure("bounding_box_unavailable");
 
         return new
         {
@@ -1790,8 +1706,8 @@ internal sealed partial class AddinHttpServer
         var model = GetActiveModel();
         var configName = GetActiveConfigurationName(model);
 
-        var path = Safe(() => model.GetPathName()) ?? "";
-        var rawTitle = Safe(() => model.GetTitle()) ?? "";
+        var path = Safe(model.GetPathName) ?? "";
+        var rawTitle = Safe(model.GetTitle) ?? "";
         var title = !string.IsNullOrWhiteSpace(path)
             ? Path.GetFileNameWithoutExtension(path)
             : Path.GetFileNameWithoutExtension(rawTitle);
@@ -1804,7 +1720,7 @@ internal sealed partial class AddinHttpServer
         {
             var config = model.GetActiveConfiguration() as Configuration;
             var cusPropMgr = config?.CustomPropertyManager;
-            if (cusPropMgr == null) throw new InvalidOperationException("无法获取当前配置属性管理器");
+            if (cusPropMgr == null) throw CommandFailure("configuration_property_manager_unavailable");
 
             cusPropMgr.Add3("物料编码", 30, title, 2);
             cusPropMgr.Add3("零件图号", 30, title, 2);
@@ -1820,13 +1736,13 @@ internal sealed partial class AddinHttpServer
 
     private object GetRenameTargetInfo()
     {
-        var target = ResolveRenameTarget(preferSelectedComponent: true);
+        var target = ResolveRenameTarget(true);
         return CreateRenameTargetInfo(target);
     }
 
     private object CheckNameConflict(Dictionary<string, object> args)
     {
-        var target = ResolveRenameTarget(preferSelectedComponent: true);
+        var target = ResolveRenameTarget(true);
         var destPath = BuildRenameDestinationPath(target, GetArgString(args, "newName"));
         var drawingPath = Path.ChangeExtension(destPath, ".SLDDRW");
         var existsFile = File.Exists(destPath);
@@ -1846,24 +1762,25 @@ internal sealed partial class AddinHttpServer
 
     private object SaveAsNew(Dictionary<string, object> args)
     {
-        var target = ResolveRenameTarget(preferSelectedComponent: true);
+        var target = ResolveRenameTarget(true);
         var newBaseName = NormalizeNewBaseName(GetArgString(args, "newName"));
         var destPath = BuildRenameDestinationPath(target, newBaseName);
         var copyDrawing = GetArgBool(args, "copyDrawing", true);
-        EnsureRenameDestinationAvailable(destPath, target.Path, copyDrawing);
+        EnsureRenameDestinationAvailable(destPath);
 
         SaveModelCopy(target.Model, destPath);
         var drawing = CopyRelatedDrawing(target.Path, destPath, copyDrawing);
 
-        var newModel = OpenModelForRename(destPath);
+        var newModel = OpenModelForRename(destPath, true);
         ApplyRenameProperties(newModel, target.Component, args, newBaseName);
         SaveModel(newModel);
+        ActivateModel(newModel);
 
         return new
         {
             success = true,
             path = destPath,
-            title = Safe(() => newModel.GetTitle()) ?? Path.GetFileName(destPath),
+            title = Safe(newModel.GetTitle) ?? Path.GetFileName(destPath),
             selectedComponent = target.SelectedComponent,
             drawing
         };
@@ -1871,25 +1788,22 @@ internal sealed partial class AddinHttpServer
 
     private object RenameComponent(Dictionary<string, object> args)
     {
-        var target = ResolveRenameTarget(preferSelectedComponent: true);
+        var target = ResolveRenameTarget(true);
         var newBaseName = NormalizeNewBaseName(GetArgString(args, "newName"));
         var destPath = BuildRenameDestinationPath(target, newBaseName);
-        EnsureRenameDestinationAvailable(destPath, target.Path, copyDrawing: false);
+        EnsureRenameDestinationAvailable(destPath);
 
         var oldPath = target.Path;
+        var copyDrawing = GetArgBool(args, "copyDrawing", true);
         var renameError = RenameDocumentInSolidWorks(target, newBaseName);
         if (renameError != (int)swRenameDocumentError_e.swRenameDocumentError_None)
-            throw new InvalidOperationException("SolidWorks 重命名失败，错误码: " + renameError);
+            throw CommandFailure("solidworks_rename_failed", "error", renameError);
 
+        SaveRenamedDocumentBeforeProperties(target);
         ApplyRenameProperties(target.Model, target.Component, args, newBaseName);
-        SaveModel(target.Model);
+        SaveRenamePropertyChanges(target);
 
-        if (target.SelectedComponent)
-        {
-            target.ActiveModel.EditRebuild3();
-            MarkDocDirty(target.ActiveModel);
-            SaveModel(target.ActiveModel);
-        }
+        var drawing = CopyRelatedDrawing(oldPath, destPath, copyDrawing);
 
         return new
         {
@@ -1899,24 +1813,25 @@ internal sealed partial class AddinHttpServer
             oldPath,
             path = destPath,
             directRename = true,
-            replaced = false
+            replaced = false,
+            drawing
         };
     }
 
     private object SaveAsReplace(Dictionary<string, object> args)
     {
-        var target = ResolveRenameTarget(preferSelectedComponent: true);
+        var target = ResolveRenameTarget(true);
         if (!target.SelectedComponent || target.Component == null)
-            throw new InvalidOperationException("请在装配体中选中一个组件");
+            throw CommandFailure("assembly_component_selection_required");
 
         var assemblyDoc = GetAssemblyDoc(target.ActiveModel);
         if (assemblyDoc == null)
-            throw new InvalidOperationException("无法获取装配体对象");
+            throw CommandFailure("assembly_doc_unavailable");
 
         var newBaseName = NormalizeNewBaseName(GetArgString(args, "newName"));
         var destPath = BuildRenameDestinationPath(target, newBaseName);
         var copyDrawing = GetArgBool(args, "copyDrawing", true);
-        EnsureRenameDestinationAvailable(destPath, target.Path, copyDrawing);
+        EnsureRenameDestinationAvailable(destPath);
 
         SaveModelCopy(target.Model, destPath);
         var drawing = CopyRelatedDrawing(target.Path, destPath, copyDrawing);
@@ -1929,12 +1844,12 @@ internal sealed partial class AddinHttpServer
 
         target.ActiveModel.ClearSelection2(true);
         if (!Safe(() => target.Component.Select4(false, null, false)))
-            throw new InvalidOperationException("无法重新选中待替换组件");
+            throw CommandFailure("replace_component_reselect_failed");
 
         var configurationName = Safe(() => target.Component.ReferencedConfiguration) ?? "";
         var replaced = assemblyDoc.ReplaceComponents2(destPath, configurationName, false, 0, true);
         if (!replaced)
-            throw new InvalidOperationException("SolidWorks 未能替换组件引用");
+            throw CommandFailure("replace_component_failed");
 
         target.ActiveModel.EditRebuild3();
         MarkDocDirty(target.ActiveModel);
@@ -1957,23 +1872,52 @@ internal sealed partial class AddinHttpServer
         {
             target.ActiveModel.ClearSelection2(true);
             if (!Safe(() => target.Component.Select4(false, null, false)))
-                throw new InvalidOperationException("无法选中待重命名组件");
+                throw CommandFailure("rename_component_select_failed");
 
             var assemblyExtension = target.ActiveModel.Extension;
             if (assemblyExtension == null)
-                throw new InvalidOperationException("无法获取装配体扩展对象");
+                throw CommandFailure("assembly_extension_unavailable");
 
             return assemblyExtension.RenameDocument(newBaseName);
         }
 
         var extension = target.Model.Extension;
         if (extension == null)
-            throw new InvalidOperationException("无法获取文档扩展对象");
+            throw CommandFailure("document_extension_unavailable");
 
         return extension.RenameDocument(newBaseName);
     }
 
-    private static void ApplyRenameProperties(ModelDoc2 targetModel, Component2 component, Dictionary<string, object> args, string newName)
+    private static void SaveRenamedDocumentBeforeProperties(RenameTarget target)
+    {
+        if (target.SelectedComponent)
+        {
+            target.ActiveModel.EditRebuild3();
+            MarkDocDirty(target.Model);
+            MarkDocDirty(target.ActiveModel);
+            SaveModel(target.ActiveModel, "save_assembly_failed", true);
+            return;
+        }
+
+        SaveModel(target.Model);
+    }
+
+    private static void SaveRenamePropertyChanges(RenameTarget target)
+    {
+        if (target.SelectedComponent)
+        {
+            target.ActiveModel.EditRebuild3();
+            MarkDocDirty(target.Model);
+            MarkDocDirty(target.ActiveModel);
+            SaveModel(target.ActiveModel, "save_assembly_failed", true);
+            return;
+        }
+
+        SaveModel(target.Model);
+    }
+
+    private static void ApplyRenameProperties(ModelDoc2 targetModel, Component2 component,
+        Dictionary<string, object> args, string newName)
     {
         var propertyTarget = GetArgString(args, "propertyTarget", GetArgString(args, "source", "configuration"));
         if (GetArgBool(args, "customProperties")) propertyTarget = "custom";
@@ -2058,7 +2002,9 @@ internal sealed partial class AddinHttpServer
 
         var path = Safe(() => targetModel.GetPathName()) ?? "";
         if (string.IsNullOrWhiteSpace(path))
-            throw new InvalidOperationException(selectedComponent ? "选中组件尚未保存，无法重命名" : "当前文档尚未保存，无法重命名");
+            throw CommandFailure(selectedComponent
+                ? "selected_component_must_be_saved_for_rename"
+                : "document_must_be_saved_for_rename");
 
         var title = Safe(() => targetModel.GetTitle()) ?? "";
         var baseName = Path.GetFileNameWithoutExtension(path);
@@ -2073,7 +2019,7 @@ internal sealed partial class AddinHttpServer
             ComponentName = componentName,
             Title = title,
             Path = path,
-            BaseName = baseName ?? "",
+            BaseName = baseName,
             Extension = Path.GetExtension(path).ToLowerInvariant(),
             DocumentType = Safe(() => targetModel.GetType())
         };
@@ -2098,14 +2044,14 @@ internal sealed partial class AddinHttpServer
     private static string NormalizeNewBaseName(string newName)
     {
         if (string.IsNullOrWhiteSpace(newName))
-            throw new InvalidOperationException("请输入新文件名");
+            throw CommandFailure("new_file_name_required");
 
         var trimmed = Path.GetFileNameWithoutExtension(newName.Trim());
         if (string.IsNullOrWhiteSpace(trimmed))
-            throw new InvalidOperationException("请输入新文件名");
+            throw CommandFailure("new_file_name_required");
 
         if (trimmed.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
-            throw new InvalidOperationException("文件名包含非法字符");
+            throw CommandFailure("invalid_file_name");
 
         return trimmed;
     }
@@ -2115,13 +2061,13 @@ internal sealed partial class AddinHttpServer
         var baseName = NormalizeNewBaseName(newName);
         var directory = Path.GetDirectoryName(target.Path);
         if (string.IsNullOrWhiteSpace(directory))
-            throw new InvalidOperationException("无法确定目标文件夹");
+            throw CommandFailure("target_directory_unavailable");
 
         var extension = string.IsNullOrWhiteSpace(target.Extension)
             ? GetDocumentExtension(target.DocumentType)
             : target.Extension;
         if (string.IsNullOrWhiteSpace(extension))
-            throw new InvalidOperationException("不支持的文档类型");
+            throw CommandFailure("unsupported_document_type");
 
         return Path.Combine(directory, baseName + extension);
     }
@@ -2137,29 +2083,34 @@ internal sealed partial class AddinHttpServer
         }
     }
 
-    private static void EnsureRenameDestinationAvailable(string destPath, string sourcePath, bool copyDrawing)
+    private static void EnsureRenameDestinationAvailable(string destPath)
     {
         if (File.Exists(destPath))
-            throw new InvalidOperationException("目标文件已存在: " + destPath);
+            throw CommandFailure("target_file_exists", "path", destPath);
     }
+
     private static void SaveModelCopy(ModelDoc2 model, string destPath)
     {
         var extension = model.Extension;
         if (extension == null)
-            throw new InvalidOperationException("无法获取文档扩展对象");
+            throw CommandFailure("document_extension_unavailable");
 
         var errors = 0;
         var warnings = 0;
         var options = (int)swSaveAsOptions_e.swSaveAsOptions_Silent | (int)swSaveAsOptions_e.swSaveAsOptions_Copy;
         var ok = extension.SaveAs3(destPath, 0, options, null, null, ref errors, ref warnings);
         if (!ok || errors != 0)
-            throw new InvalidOperationException("保存新文件失败，错误码: " + errors);
+            throw CommandFailure("save_new_file_failed", "errors", errors, "warnings", warnings, "path", destPath);
     }
 
-    private ModelDoc2 OpenModelForRename(string path)
+    private ModelDoc2 OpenModelForRename(string path, bool activate = false)
     {
         var existing = TryGetOpenModelByPath(path);
-        if (existing != null) return existing;
+        if (existing != null)
+        {
+            if (activate) ActivateModel(existing);
+            return existing;
+        }
 
         var docType = GetDocumentTypeFromPath(path);
         var errors = 0;
@@ -2168,28 +2119,64 @@ internal sealed partial class AddinHttpServer
         try
         {
             wasVisible = Safe(() => _swApp.GetDocumentVisible(docType));
-            _swApp.DocumentVisible(false, docType);
+            _swApp.DocumentVisible(activate, docType);
 
-            var model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errors, ref warnings) as ModelDoc2;
+            var model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, "", ref errors,
+                ref warnings);
             if (model == null || errors != 0)
-                throw new InvalidOperationException("打开新文件失败，错误码: " + errors);
+                throw CommandFailure("open_new_file_failed", "errors", errors, "warnings", warnings, "path", path);
 
+            if (activate) ActivateModel(model);
             return model;
         }
         finally
         {
-            try { _swApp.DocumentVisible(wasVisible, docType); }
-            catch (Exception ex) { LogIgnoredException("OpenModelForRename.DocumentVisible", ex); }
+            if (!activate)
+            {
+                try
+                {
+                    _swApp.DocumentVisible(wasVisible, docType);
+                }
+                catch (Exception ex)
+                {
+                    LogIgnoredException("OpenModelForRename.DocumentVisible", ex);
+                }
+            }
         }
     }
 
-    private static void SaveModel(ModelDoc2 model)
+    private static string GetActivationTitle(ModelDoc2 model)
+    {
+        var title = Safe(model.GetTitle) ?? "";
+        if (!string.IsNullOrWhiteSpace(title)) return title;
+
+        var path = Safe(model.GetPathName) ?? "";
+        return string.IsNullOrWhiteSpace(path) ? "" : Path.GetFileName(path);
+    }
+
+    private void ActivateModel(ModelDoc2 model)
+    {
+        var title = GetActivationTitle(model);
+        if (string.IsNullOrWhiteSpace(title)) return;
+
+        var errors = 0;
+        Safe(() => _swApp.ActivateDoc3(title, false, 0, ref errors));
+    }
+
+    private static void SaveModel(
+        ModelDoc2 model,
+        string failureCode = "save_properties_failed",
+        bool saveReferenced = false)
     {
         var errors = 0;
         var warnings = 0;
-        var ok = model.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref errors, ref warnings);
+        var options = (int)swSaveAsOptions_e.swSaveAsOptions_Silent;
+        if (saveReferenced)
+            options |= (int)swSaveAsOptions_e.swSaveAsOptions_SaveReferenced;
+
+        var ok = model.Save3(options, ref errors, ref warnings);
         if (!ok || errors != 0)
-            throw new InvalidOperationException("保存属性失败，错误码: " + errors);
+            throw CommandFailure(failureCode, "errors", errors, "warnings", warnings);
     }
 
     private DrawingCopyResult CopyRelatedDrawing(string sourceModelPath, string destModelPath, bool enabled)
@@ -2205,25 +2192,33 @@ internal sealed partial class AddinHttpServer
 
         var destDrawing = Path.ChangeExtension(destModelPath, ".SLDDRW");
         if (File.Exists(destDrawing))
-            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "目标工程图已存在，已继续改名但未复制工程图: " + destDrawing);
+            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "target_drawing_exists");
 
         try
         {
             var sourceReference = EnsureSourceDrawingReferencesCurrentModel(sourceDrawing, sourceModelPath);
             if (sourceReference == null)
-                return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "原工程图未关联当前模型，已继续改名但未复制工程图: " + sourceDrawing);
+                return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "source_drawing_reference_mismatch");
 
             File.Copy(sourceDrawing, destDrawing);
             AddinLog.Write("CopyRelatedDrawing copied: " + sourceDrawing + " -> " + destDrawing);
 
             var replaced = _swApp.ReplaceReferencedDocument(destDrawing, sourceReference, destModelPath);
-            AddinLog.Write("CopyRelatedDrawing ReplaceReferencedDocument result=" + replaced + ", drawing=" + destDrawing + ", old=" + sourceReference + ", new=" + destModelPath);
+            AddinLog.Write("CopyRelatedDrawing ReplaceReferencedDocument result=" + replaced + ", drawing=" +
+                           destDrawing + ", old=" + sourceReference + ", new=" + destModelPath);
             if (replaced)
                 return DrawingCopyResult.Copied(sourceDrawing, destDrawing, sourceReference, sourceReference);
 
-            try { File.Delete(destDrawing); }
-            catch (Exception ex) { LogIgnoredException("CopyRelatedDrawing.DeleteFailedDrawing", ex); }
-            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "工程图引用替换失败，已继续改名但未保留新工程图: " + destDrawing);
+            try
+            {
+                File.Delete(destDrawing);
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("CopyRelatedDrawing.DeleteFailedDrawing", ex);
+            }
+
+            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "drawing_reference_replace_failed");
         }
         catch (Exception ex)
         {
@@ -2236,7 +2231,8 @@ internal sealed partial class AddinHttpServer
             {
                 LogIgnoredException("CopyRelatedDrawing.DeleteFailedDrawing", deleteEx);
             }
-            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "工程图处理失败，已继续改名: " + ex.Message);
+
+            return DrawingCopyResult.Failed(sourceDrawing, destDrawing, "drawing_copy_failed");
         }
     }
 
@@ -2244,17 +2240,20 @@ internal sealed partial class AddinHttpServer
     {
         var sourceFullPath = Path.GetFullPath(sourceModelPath);
         var dependencies = GetDrawingModelDependencies(sourceDrawing).ToArray();
-        var currentReference = dependencies.FirstOrDefault(item => IsSameReferencePath(item, sourceFullPath) || IsSameFileIfExists(item, sourceFullPath));
+        var currentReference = dependencies.FirstOrDefault(item =>
+            IsSameReferencePath(item, sourceFullPath) || IsSameFileIfExists(item, sourceFullPath));
         if (!string.IsNullOrWhiteSpace(currentReference))
         {
-            AddinLog.Write("CopyRelatedDrawing source reference already ok: drawing=" + sourceDrawing + ", model=" + currentReference);
+            AddinLog.Write("CopyRelatedDrawing source reference already ok: drawing=" + sourceDrawing + ", model=" +
+                           currentReference);
             return currentReference;
         }
 
         foreach (var oldReference in GetSourceDrawingRepairCandidates(dependencies, sourceModelPath))
         {
             var repaired = _swApp.ReplaceReferencedDocument(sourceDrawing, oldReference, sourceModelPath);
-            AddinLog.Write("CopyRelatedDrawing repair source result=" + repaired + ", drawing=" + sourceDrawing + ", old=" + oldReference + ", new=" + sourceModelPath);
+            AddinLog.Write("CopyRelatedDrawing repair source result=" + repaired + ", drawing=" + sourceDrawing +
+                           ", old=" + oldReference + ", new=" + sourceModelPath);
             if (repaired) return sourceModelPath;
         }
 
@@ -2272,7 +2271,8 @@ internal sealed partial class AddinHttpServer
         }
     }
 
-    private IEnumerable<string> GetSourceDrawingRepairCandidates(IEnumerable<string> dependencies, string sourceModelPath)
+    private IEnumerable<string> GetSourceDrawingRepairCandidates(IEnumerable<string> dependencies,
+        string sourceModelPath)
     {
         var candidates = new List<string>();
         var dependencyList = dependencies.ToArray();
@@ -2291,9 +2291,7 @@ internal sealed partial class AddinHttpServer
                 string.Equals(depBaseName, sourceBaseName, StringComparison.OrdinalIgnoreCase) ||
                 IsSameFileIfExists(dependency, sourceModelPath) ||
                 sameExtensionDependencies.Length == 1)
-            {
                 AddReferenceCandidate(candidates, dependency);
-            }
         }
 
         foreach (var candidate in candidates)
@@ -2339,46 +2337,6 @@ internal sealed partial class AddinHttpServer
         }
     }
 
-    private sealed class DrawingCopyResult
-    {
-        public bool attempted { get; set; }
-        public bool success { get; set; }
-        public bool skipped { get; set; }
-        public string sourcePath { get; set; }
-        public string path { get; set; }
-        public string replacedReference { get; set; }
-        public string sourceReference { get; set; }
-        public string error { get; set; }
-
-        public static DrawingCopyResult Skipped(string reason)
-        {
-            return new DrawingCopyResult { attempted = false, success = false, skipped = true, error = reason };
-        }
-
-        public static DrawingCopyResult Copied(string sourcePath, string path, string replacedReference = null, string sourceReference = null)
-        {
-            return new DrawingCopyResult { attempted = true, success = true, skipped = false, sourcePath = sourcePath, path = path, replacedReference = replacedReference, sourceReference = sourceReference };
-        }
-
-        public static DrawingCopyResult Failed(string sourcePath, string path, string error)
-        {
-            return new DrawingCopyResult { attempted = true, success = false, skipped = false, sourcePath = sourcePath, path = path, error = error };
-        }
-    }
-    private sealed class RenameTarget
-    {
-        public ModelDoc2 ActiveModel { get; set; }
-        public ModelDoc2 Model { get; set; }
-        public Component2 Component { get; set; }
-        public bool SelectedComponent { get; set; }
-        public string ComponentName { get; set; }
-        public string Title { get; set; }
-        public string Path { get; set; }
-        public string BaseName { get; set; }
-        public string Extension { get; set; }
-        public int DocumentType { get; set; }
-    }
-
     // --- Coding Cleanup ---
 
     private object CodingCleanup(Dictionary<string, object> args)
@@ -2392,15 +2350,15 @@ internal sealed partial class AddinHttpServer
         var excludePurchased = GetArgBool(args, "excludePurchased", true);
 
         if (model.GetType() != (int)swDocumentTypes_e.swDocASSEMBLY)
-            throw new InvalidOperationException("请在装配体环境下使用");
+            throw CommandFailure("assembly_required");
 
         var configuration = model.GetActiveConfiguration() as Configuration;
         if (configuration == null)
-            throw new InvalidOperationException("无法获取当前装配体配置");
+            throw CommandFailure("assembly_configuration_unavailable");
 
         var rootComponent = configuration.GetRootComponent() as Component2;
         if (rootComponent == null)
-            throw new InvalidOperationException("无法获取装配体根组件");
+            throw CommandFailure("assembly_root_component_unavailable");
 
         var comps = GetComponentChildren(rootComponent);
 
@@ -2416,7 +2374,6 @@ internal sealed partial class AddinHttpServer
         bool excludeVirtual, bool excludeStandard, bool excludePurchased, List<object> results)
     {
         foreach (var child in EnumerateComponents(comps))
-        {
             try
             {
                 var childModel = child.GetModelDoc() as ModelDoc2;
@@ -2432,7 +2389,8 @@ internal sealed partial class AddinHttpServer
 
                 var isVirtual = Safe(() => child.IsVirtual);
                 var excludedByVirtual = excludeVirtual && isVirtual;
-                var excludedByFlag = IsExcludedCodingCleanupComponent(childModel, configName, excludeStandard, excludePurchased);
+                var excludedByFlag =
+                    IsExcludedCodingCleanupComponent(childModel, configName, excludeStandard, excludePurchased);
                 var matchesNameFilter = string.IsNullOrWhiteSpace(nameFilter) ||
                                         string.IsNullOrWhiteSpace(childName) ||
                                         childName.IndexOf(nameFilter, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -2443,7 +2401,7 @@ internal sealed partial class AddinHttpServer
 
                 if (shouldProcessCurrent)
                 {
-                    var title = Safe(() => childModel.GetTitle()) ?? "";
+                    var title = Safe(childModel.GetTitle) ?? "";
                     var dotIdx = title.IndexOf(".", StringComparison.Ordinal);
                     if (dotIdx > 0) title = title.Substring(0, dotIdx);
 
@@ -2461,7 +2419,8 @@ internal sealed partial class AddinHttpServer
                                 cusPropMgr.Add3("零件图号", 30, title, 2);
                                 cusPropMgr.Add3("文件名称", 30, title, 2);
                                 MarkDocDirty(childModel);
-                                results.Add(new { name = childName, title, materialCode, partNumber, action = "synced" });
+                                results.Add(
+                                    new { name = childName, title, materialCode, partNumber, action = "synced" });
                             }
                         }
                     }
@@ -2478,7 +2437,6 @@ internal sealed partial class AddinHttpServer
             {
                 LogIgnoredException("ProcessCodingCleanup", ex);
             }
-        }
     }
 
     private static object[] GetComponentChildrenForConfiguration(ModelDoc2 model, string configName)
@@ -2499,9 +2457,7 @@ internal sealed partial class AddinHttpServer
             {
                 if (!string.IsNullOrWhiteSpace(activeConfigName) &&
                     !string.Equals(activeConfigName, configName, StringComparison.OrdinalIgnoreCase))
-                {
                     Safe(() => model.ShowConfiguration2(activeConfigName));
-                }
             }
         }
 
@@ -2515,7 +2471,8 @@ internal sealed partial class AddinHttpServer
         return GetComponentChildren(rootComponent);
     }
 
-    private static bool IsExcludedCodingCleanupComponent(ModelDoc2 model, string configName, bool excludeStandard, bool excludePurchased)
+    private static bool IsExcludedCodingCleanupComponent(ModelDoc2 model, string configName, bool excludeStandard,
+        bool excludePurchased)
     {
         if (!excludeStandard && !excludePurchased) return false;
 
@@ -2531,7 +2488,8 @@ internal sealed partial class AddinHttpServer
         return Safe(() => model.GetCustomInfoValue("", propertyName));
     }
 
-    private static bool HasPositiveCodingCleanupFlag(ModelDoc2 model, string configName, IEnumerable<string> propertyNames)
+    private static bool HasPositiveCodingCleanupFlag(ModelDoc2 model, string configName,
+        IEnumerable<string> propertyNames)
     {
         foreach (var propertyName in propertyNames)
         {
@@ -2569,5 +2527,113 @@ internal sealed partial class AddinHttpServer
             default:
                 return false;
         }
+    }
+
+    private sealed class SortOptions
+    {
+        public bool AssemblyFirst { get; private set; } = true;
+        public bool SuppressedLast { get; private set; } = true;
+        public bool SortFolders { get; private set; } = true;
+        public bool RecursiveSubAssemblies { get; private set; } = true;
+        public bool Descending { get; private set; }
+        public string NameSource { get; private set; } = "ComponentName";
+
+        public static SortOptions FromArgs(Dictionary<string, object> args)
+        {
+            var options = new SortOptions();
+            if (args == null) return options;
+
+            options.AssemblyFirst = GetBool(args, "assemblyFirst", true);
+            options.SuppressedLast = GetBool(args, "suppressedLast", true);
+            options.SortFolders = GetBool(args, "sortFolders", true);
+            options.RecursiveSubAssemblies = GetBool(args, "recursiveSubAssemblies", true);
+            options.Descending = GetBool(args, "descending", false);
+            options.NameSource = GetString(args, "nameSource", "ComponentName");
+            return options;
+        }
+
+        private static bool GetBool(Dictionary<string, object> args, string key, bool fallback)
+        {
+            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
+            if (value is bool boolValue) return boolValue;
+            return bool.TryParse(value.ToString(), out var parsed) ? parsed : fallback;
+        }
+
+        private static string GetString(Dictionary<string, object> args, string key, string fallback)
+        {
+            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
+            var text = value.ToString();
+            return string.IsNullOrWhiteSpace(text) ? fallback : text;
+        }
+    }
+
+    private sealed class PropertyTarget
+    {
+        public ModelDoc2 Model { get; set; }
+        public string Title { get; set; }
+        public string Path { get; set; }
+        public string ConfigurationName { get; set; }
+        public string Source { get; set; }
+        public bool SelectedComponent { get; set; }
+        public Dictionary<string, string> FileProperties { get; set; }
+    }
+
+    private sealed class DeletePropertyStats
+    {
+        public int Documents { get; set; }
+        public int Deleted { get; set; }
+    }
+
+    // ReSharper disable InconsistentNaming
+    // ReSharper disable UnusedAutoPropertyAccessor.Local
+    private sealed class DrawingCopyResult
+    {
+        public bool attempted { get; set; }
+        public bool success { get; set; }
+        public bool skipped { get; set; }
+        public string sourcePath { get; set; }
+        public string path { get; set; }
+        public string replacedReference { get; set; }
+        public string sourceReference { get; set; }
+        public string error { get; set; }
+
+        public static DrawingCopyResult Skipped(string reason)
+        {
+            return new DrawingCopyResult { attempted = false, success = false, skipped = true, error = reason };
+        }
+
+        public static DrawingCopyResult Copied(string sourcePath, string path, string replacedReference = null,
+            string sourceReference = null)
+        {
+            return new DrawingCopyResult
+            {
+                attempted = true, success = true, skipped = false, sourcePath = sourcePath, path = path,
+                replacedReference = replacedReference, sourceReference = sourceReference
+            };
+        }
+
+        public static DrawingCopyResult Failed(string sourcePath, string path, string error)
+        {
+            return new DrawingCopyResult
+            {
+                attempted = true, success = false, skipped = false, sourcePath = sourcePath, path = path, error = error
+            };
+        }
+    }
+    // ReSharper restore UnusedAutoPropertyAccessor.Local
+    // ReSharper restore InconsistentNaming
+
+    private sealed class RenameTarget
+    {
+        public ModelDoc2 ActiveModel { get; set; }
+        public ModelDoc2 Model { get; set; }
+        public Component2 Component { get; set; }
+        public bool SelectedComponent { get; set; }
+        public string ComponentName { get; set; }
+        public string Title { get; set; }
+        public string Path { get; set; }
+        public string BaseName { get; set; }
+        public string Extension { get; set; }
+        public int DocumentType { get; set; }
     }
 }

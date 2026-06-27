@@ -17,6 +17,8 @@ internal static partial class SolidWorksAddinClient
         public bool Ok { get; set; }
         public T? Data { get; set; }
         public string? Error { get; set; }
+        public string? ErrorCode { get; set; }
+        public Dictionary<string, object>? ErrorArgs { get; set; }
     }
 
     public sealed class AddinActiveDocumentInfo
@@ -56,6 +58,8 @@ internal static partial class SolidWorksAddinClient
         public string? DisplayName { get; set; }
         public string? Path { get; set; }
         public string? Error { get; set; }
+        public string? ErrorCode { get; set; }
+        public Dictionary<string, object>? ErrorArgs { get; set; }
     }
 
     public sealed class AddinBoxBatchResult
@@ -73,6 +77,8 @@ internal static partial class SolidWorksAddinClient
         public List<double> Box { get; set; } = [];
         public bool Success { get; set; }
         public string? Error { get; set; }
+        public string? ErrorCode { get; set; }
+        public Dictionary<string, object>? ErrorArgs { get; set; }
     }
 
     private sealed class ReadBomResponse

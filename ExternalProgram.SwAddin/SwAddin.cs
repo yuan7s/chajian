@@ -60,8 +60,10 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
         catch (Exception ex)
         {
             AddinLog.Write("ConnectToSW failed: " + ex);
-            try { _readBomServer?.Dispose(); } catch { }
-            try { _server?.Dispose(); } catch { }
+            try { _readBomServer?.Dispose(); }
+            catch (Exception disposeEx) { AddinLog.Write("ReadBom server dispose after ConnectToSW failure ignored: " + disposeEx.Message); }
+            try { _server?.Dispose(); }
+            catch (Exception disposeEx) { AddinLog.Write("External server dispose after ConnectToSW failure ignored: " + disposeEx.Message); }
             _readBomServer = null;
             _server = null;
             return false;
@@ -96,7 +98,8 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
             {
                 lastError = ex;
                 AddinLog.Write("External bridge port unavailable: " + port + ", " + ex.Message);
-                try { server.Dispose(); } catch { }
+                try { server.Dispose(); }
+                catch (Exception disposeEx) { AddinLog.Write("External bridge server dispose after port failure ignored: " + disposeEx.Message); }
             }
         }
 
@@ -119,7 +122,8 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
             {
                 lastError = ex;
                 AddinLog.Write("ReadBom bridge port unavailable: " + port + ", " + ex.Message);
-                try { server.Dispose(); } catch { }
+                try { server.Dispose(); }
+                catch (Exception disposeEx) { AddinLog.Write("ReadBom bridge server dispose after port failure ignored: " + disposeEx.Message); }
             }
         }
 
@@ -144,24 +148,30 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
         var description = attribute?.Description ?? AddinDescription;
         var loadAtStartup = attribute?.LoadAtStartup == true ? 1 : 0;
 
-        using (var key = Registry.LocalMachine.CreateSubKey($@"SOFTWARE\SolidWorks\AddIns\{{{type.GUID}}}"))
+        using (var key = CreateRequiredSubKey(Registry.LocalMachine, $@"SOFTWARE\SolidWorks\AddIns\{{{type.GUID}}}"))
         {
             key.SetValue(null, 0, RegistryValueKind.DWord);
             key.SetValue("Title", title, RegistryValueKind.String);
             key.SetValue("Description", description, RegistryValueKind.String);
         }
 
-        using (var key = Registry.CurrentUser.CreateSubKey($@"SOFTWARE\SolidWorks\AddIns\{{{type.GUID}}}"))
+        using (var key = CreateRequiredSubKey(Registry.CurrentUser, $@"SOFTWARE\SolidWorks\AddIns\{{{type.GUID}}}"))
         {
             key.SetValue(null, 0, RegistryValueKind.DWord);
             key.SetValue("Title", title, RegistryValueKind.String);
             key.SetValue("Description", description, RegistryValueKind.String);
         }
 
-        using (var key = Registry.CurrentUser.CreateSubKey($@"SOFTWARE\SolidWorks\AddInsStartup\{{{type.GUID}}}"))
+        using (var key = CreateRequiredSubKey(Registry.CurrentUser, $@"SOFTWARE\SolidWorks\AddInsStartup\{{{type.GUID}}}"))
         {
             key.SetValue(null, loadAtStartup, RegistryValueKind.DWord);
         }
+    }
+
+    private static RegistryKey CreateRequiredSubKey(RegistryKey root, string subkey)
+    {
+        return root.CreateSubKey(subkey)
+               ?? throw new InvalidOperationException("Failed to create registry key: " + root.Name + "\\" + subkey);
     }
 
     [ComUnregisterFunction]
@@ -182,10 +192,15 @@ internal static class AddinLog
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LogPath));
+            var directory = Path.GetDirectoryName(LogPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+                Directory.CreateDirectory(directory);
             File.AppendAllText(LogPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff} {message}{Environment.NewLine}");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("SwAddin log write failed: " + ex.Message);
+        }
     }
 
     private static string GetAddinDirectory()
@@ -196,7 +211,10 @@ internal static class AddinLog
             var directory = Path.GetDirectoryName(location);
             if (!string.IsNullOrWhiteSpace(directory)) return directory;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("SwAddin directory lookup failed: " + ex.Message);
+        }
         return AppDomain.CurrentDomain.BaseDirectory;
     }
 }

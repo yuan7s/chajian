@@ -27,7 +27,7 @@ internal sealed partial class AddinHttpServer
         AddinLog.Write(
             $"ReadBom: mainPath={mainPath}, mainConfig={mainConfig}, propertyCount={request.PropertyNames?.Length ?? 0}, mappingCount={request.PropertyMappings?.Length ?? 0}, groupByConfig={request.GroupByConfig}, skipVirtual={request.SkipVirtual}");
 
-        var assembly = model as AssemblyDoc;
+        var assembly = GetAssemblyDoc(model);
         if (assembly != null && request.PropertyMappings is not { Length: > 0 })
         {
             var propertyNames = GetDistinctPropertyNames(request.PropertyNames);
@@ -210,7 +210,7 @@ internal sealed partial class AddinHttpServer
                 throw new InvalidOperationException("InsertBomTable3 返回空");
             }
 
-            var table = (TableAnnotation)bomTable;
+            var table = GetTableAnnotation(bomTable);
             var rowCountWatch = Stopwatch.StartNew();
             var rowCount = table.RowCount;
             AddinLog.Write(
@@ -365,6 +365,14 @@ internal sealed partial class AddinHttpServer
         return propertyName;
     }
 
+    private static TableAnnotation GetTableAnnotation(BomTableAnnotation bomTable)
+    {
+        if (bomTable == null) return null;
+
+        object swTable = bomTable;
+        return (TableAnnotation)swTable;
+    }
+
     private static int AddBomCustomPropertyColumn(TableAnnotation table, BomTableAnnotation bomTable, string title,
         string customPropertyName)
     {
@@ -489,7 +497,7 @@ internal sealed partial class AddinHttpServer
                 throw new InvalidOperationException("创建专用 BOM 模板失败: InsertBomTable3 返回空");
             }
 
-            var table = (TableAnnotation)templateBom;
+            var table = GetTableAnnotation(templateBom);
             var materialColumnWatch = Stopwatch.StartNew();
             var materialColumnIndex = AddBomCustomPropertyColumn(table, templateBom, "SW材料", "SW-Material");
             AddinLog.Write(

@@ -298,9 +298,7 @@ public class SwAddinClient : IDisposable
             }
             else
             {
-                var errMsg = "未知错误";
-                if (result != null && result.ContainsKey("error") && result["error"] != null)
-                    errMsg = result["error"].ToString();
+                var errMsg = FormatCommandError(result);
                 throw new InvalidOperationException(errMsg);
             }
         }
@@ -312,6 +310,110 @@ public class SwAddinClient : IDisposable
         {
             throw new InvalidOperationException("通信失败: " + ex.Message, ex);
         }
+    }
+
+    private static string FormatCommandError(Dictionary<string, object> result)
+    {
+        if (result == null) return "未知错误";
+
+        var code = GetDictionaryString(result, "errorCode");
+        var args = GetDictionary(result, "errorArgs");
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            var legacyError = GetDictionaryString(result, "error");
+            return string.IsNullOrWhiteSpace(legacyError) ? "未知错误" : legacyError;
+        }
+
+        var path = GetDictionaryString(args, "path");
+        var name = GetDictionaryString(args, "name");
+        var format = GetDictionaryString(args, "format");
+        var operation = GetDictionaryString(args, "operation");
+        var errors = GetDictionaryString(args, "errors");
+        var warnings = GetDictionaryString(args, "warnings");
+        var error = GetDictionaryString(args, "error");
+        var command = GetDictionaryString(args, "command");
+
+        switch (code)
+        {
+            case "active_document_required": return "没有活动文档";
+            case "unknown_command": return "未知命令: " + command;
+            case "argument_required": return string.IsNullOrWhiteSpace(name) ? "缺少必要参数" : name + " 不能为空";
+            case "file_not_found": return string.IsNullOrWhiteSpace(path) ? "文件不存在" : "文件不存在: " + path;
+            case "unsupported_file_type": return "不支持的文件类型";
+            case "unsupported_solidworks_file_type": return "不支持的 SolidWorks 文件类型: " + path;
+            case "drawing_required": return "请在工程图环境下使用";
+            case "drawing_must_be_saved": return "当前工程图还没有保存，无法另存 " + format + "。";
+            case "drawing_view_required": return "请选择一个视图";
+            case "assembly_required": return "请在装配体环境下使用";
+            case "assembly_doc_unavailable": return "无法获取装配体对象";
+            case "assembly_component_selection_required": return "请在装配体中选中一个组件";
+            case "component_selection_required": return "请先选中一个或多个组件";
+            case "component_not_found": return "未找到组件: " + name;
+            case "component_select_failed": return "组件选择失败: " + name;
+            case "document_extension_unavailable": return "无法获取当前文档扩展对象";
+            case "assembly_extension_unavailable": return "无法获取装配体扩展对象";
+            case "solidworks_operation_failed": return string.IsNullOrWhiteSpace(operation) ? "SolidWorks 操作失败" : "SolidWorks 操作失败: " + operation;
+            case "reference_plane_mate_failed": return "未能添加基准面配合，请确认组件和装配体基准面名称匹配";
+            case "macro_file_required": return "请选择 .swp 宏文件";
+            case "unsupported_macro_file": return "只支持 .swp 宏文件";
+            case "macro_run_failed": return "宏执行失败，错误码: " + error;
+            case "feature_manager_unavailable": return "无法获取 FeatureManager";
+            case "property_manager_unavailable": return "无法获取属性管理器";
+            case "configuration_property_manager_unavailable": return "无法获取当前配置属性管理器";
+            case "lightweight_component_write_unsupported": return "选中子件为轻化状态时仅支持读取文件属性，写入前请在 SolidWorks 中还原该子件。";
+            case "component_file_property_path_invalid": return "无法读取选中子件文件属性，文件路径无效: " + path;
+            case "document_manager_open_failed": return "Document Manager 打开文件失败: " + error;
+            case "document_manager_unavailable": return "无法初始化 SolidWorks Document Manager，请检查内置许可证。";
+            case "part_required_for_bounding_box": return "请在零件环境下获取包围盒";
+            case "bounding_box_unavailable": return "无法获取包围盒";
+            case "solidworks_rename_failed": return "SolidWorks 重命名失败，错误码: " + error;
+            case "replace_component_reselect_failed": return "无法重新选中待替换组件";
+            case "replace_component_failed": return "SolidWorks 未能替换组件引用";
+            case "rename_component_select_failed": return "无法选中待重命名组件";
+            case "selected_component_must_be_saved_for_rename": return "选中组件尚未保存，无法重命名";
+            case "document_must_be_saved_for_rename": return "当前文档尚未保存，无法重命名";
+            case "new_file_name_required": return "请输入新文件名";
+            case "invalid_file_name": return "文件名包含非法字符";
+            case "target_directory_unavailable": return "无法确定目标文件夹";
+            case "unsupported_document_type": return "不支持的文档类型";
+            case "target_file_exists": return "目标文件已存在: " + path;
+            case "save_new_file_failed": return FormatSolidWorksCodeMessage("保存新文件失败", errors, warnings);
+            case "open_new_file_failed": return FormatSolidWorksCodeMessage("打开新文件失败", errors, warnings);
+            case "save_renamed_component_failed": return FormatSolidWorksCodeMessage("保存重命名后的组件失败", errors, warnings);
+            case "save_assembly_failed": return FormatSolidWorksCodeMessage("保存当前装配体失败", errors, warnings);
+            case "save_properties_failed": return FormatSolidWorksCodeMessage("保存属性失败", errors, warnings);
+            case "assembly_configuration_unavailable": return "无法获取当前装配体配置";
+            case "assembly_root_component_unavailable": return "无法获取装配体根组件";
+            case "internal_error": return "插件内部错误，请查看插件日志。";
+            default: return "插件返回失败: " + code;
+        }
+    }
+
+    private static string FormatSolidWorksCodeMessage(string prefix, string errors, string warnings)
+    {
+        var message = string.IsNullOrWhiteSpace(warnings)
+            ? prefix + "，错误码: " + errors
+            : prefix + "，错误码: " + errors + "，警告码: " + warnings;
+        var hint = GetSolidWorksSaveErrorHint(errors);
+        return string.IsNullOrWhiteSpace(hint) ? message : message + "（" + hint + "）";
+    }
+
+    private static string GetSolidWorksSaveErrorHint(string errors)
+    {
+        if (!int.TryParse(errors, out var errorCode)) return "";
+        return (errorCode & 8192) != 0 ? "需要先保存引用文档" : "";
+    }
+
+    private static Dictionary<string, object> GetDictionary(Dictionary<string, object> dict, string key)
+    {
+        if (dict == null || !dict.TryGetValue(key, out var value)) return null;
+        return value as Dictionary<string, object>;
+    }
+
+    private static string GetDictionaryString(Dictionary<string, object> dict, string key)
+    {
+        if (dict == null || !dict.TryGetValue(key, out var value) || value == null) return "";
+        return value.ToString();
     }
 
     private async Task RefreshEndpointAsync(bool force)

@@ -10,7 +10,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
 using SldWorks;
-using SwConst;
 
 namespace ExternalProgram.SwAddin;
 
@@ -22,7 +21,6 @@ internal sealed partial class AddinHttpServer : IDisposable
     private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
     private HttpListener _listener;
     private CancellationTokenSource _cts;
-    private Task _listenTask;
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -41,7 +39,7 @@ internal sealed partial class AddinHttpServer : IDisposable
         _listener.Prefixes.Add(_prefix);
         AddinLog.Write("Starting HTTP listener: " + _prefix);
         _listener.Start();
-        _listenTask = Task.Run(() => ListenLoop(_cts.Token));
+        _ = Task.Run(() => ListenLoop(_cts.Token));
     }
 
     public void Dispose()
@@ -50,13 +48,17 @@ internal sealed partial class AddinHttpServer : IDisposable
         foreach (var ws in _webSockets)
         {
             try { ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "Shutdown", CancellationToken.None).Wait(1000); }
-            catch { }
-            try { ws.Dispose(); } catch { }
+            catch (Exception ex) { AddinLog.Write("WebSocket close during dispose ignored: " + ex.Message); }
+            try { ws.Dispose(); }
+            catch (Exception ex) { AddinLog.Write("WebSocket dispose ignored: " + ex.Message); }
         }
 
-        try { _cts?.Cancel(); } catch { }
-        try { _listener?.Stop(); } catch { }
-        try { _listener?.Close(); } catch { }
+        try { _cts?.Cancel(); }
+        catch (Exception ex) { AddinLog.Write("Cancellation during dispose ignored: " + ex.Message); }
+        try { _listener?.Stop(); }
+        catch (Exception ex) { AddinLog.Write("HTTP listener stop during dispose ignored: " + ex.Message); }
+        try { _listener?.Close(); }
+        catch (Exception ex) { AddinLog.Write("HTTP listener close during dispose ignored: " + ex.Message); }
         _listener = null;
         _cts?.Dispose();
         _cts = null;
@@ -144,10 +146,15 @@ internal sealed partial class AddinHttpServer : IDisposable
             WriteJson(context, new { ok = true, data = result });
             AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
         }
+        catch (CommandFailureException ex)
+        {
+            WriteJson(context, new { ok = false, errorCode = ex.Code, errorArgs = ex.Details });
+            AddinLog.Write($"Command failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex.Code}");
+        }
         catch (Exception ex)
         {
             context.Response.StatusCode = 500;
-            WriteJson(context, new { ok = false, error = ex.Message });
+            WriteJson(context, new { ok = false, errorCode = "internal_error" });
             AddinLog.Write($"HTTP failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex}");
         }
     }
@@ -157,7 +164,22 @@ internal sealed partial class AddinHttpServer : IDisposable
         using var reader = new StreamReader(request.InputStream, request.ContentEncoding ?? Encoding.UTF8);
         var body = reader.ReadToEnd();
         if (string.IsNullOrWhiteSpace(body)) return new CommandRequest();
-        return _json.Deserialize<CommandRequest>(body) ?? new CommandRequest();
+
+        var raw = _json.DeserializeObject(body) as Dictionary<string, object>;
+        if (raw == null) return new CommandRequest();
+
+        return new CommandRequest
+        {
+            Command = GetCommandRequestString(raw, "Command"),
+            Args = raw.TryGetValue("Args", out var args) && args is Dictionary<string, object> argsDict
+                ? argsDict
+                : new Dictionary<string, object>()
+        };
+    }
+
+    private static string GetCommandRequestString(Dictionary<string, object> raw, string key)
+    {
+        return raw.TryGetValue(key, out var value) && value != null ? value.ToString() : "";
     }
 
     private HealthDocumentInfo GetHealthDocumentInfo()
@@ -251,7 +273,8 @@ internal sealed partial class AddinHttpServer : IDisposable
             }
 
             hbCts.Cancel();
-            try { await heartbeatTask; } catch { }
+            try { await heartbeatTask; }
+            catch (Exception ex) { AddinLog.Write("WebSocket heartbeat shutdown ignored: " + ex.Message); }
         }
         catch (Exception ex)
         {
@@ -266,7 +289,8 @@ internal sealed partial class AddinHttpServer : IDisposable
                 if (sock.State == WebSocketState.Open)
                     openSockets.Add(sock);
                 else
-                    try { sock.Dispose(); } catch { }
+                    try { sock.Dispose(); }
+                    catch (Exception ex) { AddinLog.Write("WebSocket dispose during cleanup ignored: " + ex.Message); }
             }
             foreach (var sock in openSockets)
                 _webSockets.Add(sock);
@@ -278,14 +302,22 @@ internal sealed partial class AddinHttpServer : IDisposable
         while (!token.IsCancellationRequested && ws.State == WebSocketState.Open)
         {
             try { await Task.Delay(30000, token); }
-            catch { return; }
+            catch (Exception ex)
+            {
+                AddinLog.Write("WebSocket heartbeat delay stopped: " + ex.Message);
+                return;
+            }
 
             try
             {
                 var ping = Encoding.UTF8.GetBytes("{\"type\":\"ping\"}");
                 await ws.SendAsync(new ArraySegment<byte>(ping), WebSocketMessageType.Text, true, token);
             }
-            catch { return; }
+            catch (Exception ex)
+            {
+                AddinLog.Write("WebSocket heartbeat send stopped: " + ex.Message);
+                return;
+            }
         }
     }
 
@@ -300,7 +332,7 @@ internal sealed partial class AddinHttpServer : IDisposable
             if (ws.State == WebSocketState.Open)
             {
                 try { ws.SendAsync(segment, WebSocketMessageType.Text, true, CancellationToken.None); }
-                catch { }
+                catch (Exception ex) { AddinLog.Write("WebSocket broadcast ignored: " + ex.Message); }
             }
         }
     }

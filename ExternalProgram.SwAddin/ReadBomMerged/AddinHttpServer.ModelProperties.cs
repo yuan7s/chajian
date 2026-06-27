@@ -209,7 +209,7 @@ internal sealed partial class AddinHttpServer
             return string.Empty;
         }
 
-        var partDoc = model as PartDoc;
+        var partDoc = GetPartDoc(model);
         if (partDoc == null)
         {
             return string.Empty;
