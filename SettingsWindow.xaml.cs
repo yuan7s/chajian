@@ -144,6 +144,7 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
     {
         var items = GetToolbarLayoutItems();
         settings.Toolbar_ButtonLayout = ToolbarButtonLayoutStore.Serialize(items);
+        settings.Toolbar_ButtonLayoutVersion = ToolbarButtonLayoutStore.CurrentLayoutVersion;
         ToolbarButtonLayoutStore.ApplyLegacyVisibility(settings, items);
     }
 

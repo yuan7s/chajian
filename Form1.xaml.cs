@@ -35,6 +35,7 @@ partial class Form1
     private WinForms.Label _sortProgressLabel;
     private SettingsWindow _settingsWindow;
     private CodingCleanupWindow _codingCleanupWindow;
+    private DrawingAutomationWindow _drawingAutomationWindow;
     private bool _allowClose;
     private IntPtr _mainWindowHandle;
     private SwAddinClient _client;
@@ -442,6 +443,7 @@ partial class Form1
         return new Dictionary<string, WpfNs.UIElement>(StringComparer.OrdinalIgnoreCase)
         {
             { ToolbarButtonLayoutStore.OpenFolder, Button2 },
+            { ToolbarButtonLayoutStore.DrawingAutomation, Button24 },
             { ToolbarButtonLayoutStore.PartCoding, Button9 },
             { ToolbarButtonLayoutStore.SaveDwg, Button1 },
             { ToolbarButtonLayoutStore.SavePdf, Button8 },
@@ -827,6 +829,63 @@ partial class Form1
         {
             ResetCodingCleanupWindow();
             WpfNs.MessageBox.Show(this, "打开编码整理窗口失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private void Button24_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            ShowDrawingAutomationWindow();
+        }
+        catch (Exception ex)
+        {
+            ResetDrawingAutomationWindow();
+            WpfNs.MessageBox.Show(this, "打开工程图窗口失败: " + ex.Message, "错误", WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Error);
+        }
+    }
+
+    private void ShowDrawingAutomationWindow()
+    {
+        if (_drawingAutomationWindow == null)
+        {
+            _drawingAutomationWindow = new DrawingAutomationWindow
+            {
+                Client = _client,
+                Owner = this
+            };
+            _drawingAutomationWindow.Closed += DrawingAutomationWindow_Closed;
+        }
+        else
+        {
+            _drawingAutomationWindow.Client = _client;
+        }
+
+        if (!_drawingAutomationWindow.IsVisible)
+            _drawingAutomationWindow.Show();
+
+        _drawingAutomationWindow.WindowState = WpfNs.WindowState.Normal;
+        _drawingAutomationWindow.Topmost = true;
+        _drawingAutomationWindow.Activate();
+        _drawingAutomationWindow.Focus();
+        _drawingAutomationWindow.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_drawingAutomationWindow != null)
+                _drawingAutomationWindow.Topmost = false;
+        }));
+    }
+
+    private void DrawingAutomationWindow_Closed(object sender, EventArgs e)
+    {
+        ResetDrawingAutomationWindow();
+    }
+
+    private void ResetDrawingAutomationWindow()
+    {
+        if (_drawingAutomationWindow != null)
+        {
+            _drawingAutomationWindow.Closed -= DrawingAutomationWindow_Closed;
+            _drawingAutomationWindow = null;
         }
     }
 

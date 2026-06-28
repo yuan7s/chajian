@@ -21,6 +21,7 @@ internal sealed partial class AddinHttpServer : IDisposable
     private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
     private HttpListener _listener;
     private CancellationTokenSource _cts;
+    private int _commandInProgress;
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -139,23 +140,38 @@ internal sealed partial class AddinHttpServer : IDisposable
 
             var request = ReadCommand(context.Request);
             var commandName = (request.Command ?? string.Empty).Trim();
+            if (Interlocked.CompareExchange(ref _commandInProgress, 1, 0) != 0)
+            {
+                AddinLog.Write($"Command rejected while busy: {commandName}");
+                context.Response.StatusCode = 409;
+                WriteJson(context, new { ok = false, errorCode = "command_busy" });
+                return;
+            }
+
             AddinLog.Write($"Command start: {commandName}");
-            var executeWatch = Stopwatch.StartNew();
-            var result = await RunOnMainThread(() => ExecuteCommand(request));
-            AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
-            WriteJson(context, new { ok = true, data = result });
-            AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
+            try
+            {
+                var executeWatch = Stopwatch.StartNew();
+                var result = await RunOnMainThread(() => ExecuteCommand(request));
+                AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
+                WriteJson(context, new { ok = true, data = result });
+                AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _commandInProgress, 0);
+            }
         }
         catch (CommandFailureException ex)
         {
-            WriteJson(context, new { ok = false, errorCode = ex.Code, errorArgs = ex.Details });
             AddinLog.Write($"Command failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex.Code}");
+            WriteJson(context, new { ok = false, errorCode = ex.Code, errorArgs = ex.Details });
         }
         catch (Exception ex)
         {
+            AddinLog.Write($"HTTP failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex}");
             context.Response.StatusCode = 500;
             WriteJson(context, new { ok = false, errorCode = "internal_error" });
-            AddinLog.Write($"HTTP failed {context.Request.HttpMethod} {requestPath} in {watch.ElapsedMilliseconds}ms: {ex}");
         }
     }
 

@@ -6,6 +6,8 @@ namespace ReadBom.SwAddin;
 
 internal static class AddinLog
 {
+    private const string AddinDirectoryDataName = "ReadBom.SwAddin.AddinDirectory";
+    private const string ExternalAddinDirectoryDataName = "ExternalProgram.SwAddin.AddinDirectory";
     public static readonly string DirectoryPath = GetAddinDirectory();
     private static readonly string LogPath = Path.Combine(DirectoryPath, "ReadBom.SwAddin.log");
 
@@ -23,6 +25,16 @@ internal static class AddinLog
 
     private static string GetAddinDirectory()
     {
+        try
+        {
+            var configuredDirectory = AppDomain.CurrentDomain.GetData(AddinDirectoryDataName) as string
+                                      ?? AppDomain.CurrentDomain.GetData(ExternalAddinDirectoryDataName) as string;
+            if (!string.IsNullOrWhiteSpace(configuredDirectory)) return configuredDirectory;
+        }
+        catch
+        {
+        }
+
         try
         {
             var location = Assembly.GetExecutingAssembly().Location;

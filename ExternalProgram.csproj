@@ -32,6 +32,7 @@
 
   <ItemGroup>
     <Compile Remove="ExternalProgram.SwAddin\**\*.cs" />
+    <Compile Remove="ExternalProgram.SwAddin.Runtime\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

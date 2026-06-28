@@ -249,6 +249,14 @@ namespace ExternalProgram.Properties
         }
 
         [UserScopedSetting]
+        [DefaultSettingValue("0")]
+        public int Toolbar_ButtonLayoutVersion
+        {
+            get => (int)this["Toolbar_ButtonLayoutVersion"];
+            set => this["Toolbar_ButtonLayoutVersion"] = value;
+        }
+
+        [UserScopedSetting]
         [DefaultSettingValue("")]
         public string Drawing_StandardPath
         {
@@ -262,6 +270,118 @@ namespace ExternalProgram.Properties
         {
             get => (string)this["Drawing_SheetFormatPath"];
             set => this["Drawing_SheetFormatPath"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string DrawingAutomation_TemplatePath
+        {
+            get => (string)this["DrawingAutomation_TemplatePath"];
+            set => this["DrawingAutomation_TemplatePath"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string DrawingAutomation_StandardPath
+        {
+            get => (string)this["DrawingAutomation_StandardPath"];
+            set => this["DrawingAutomation_StandardPath"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string DrawingAutomation_SheetFormatPath
+        {
+            get => (string)this["DrawingAutomation_SheetFormatPath"];
+            set => this["DrawingAutomation_SheetFormatPath"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool DrawingAutomation_UseDefaultTemplate
+        {
+            get => (bool)this["DrawingAutomation_UseDefaultTemplate"];
+            set => this["DrawingAutomation_UseDefaultTemplate"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_SaveDrawing
+        {
+            get => (bool)this["DrawingAutomation_SaveDrawing"];
+            set => this["DrawingAutomation_SaveDrawing"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_OverwriteDrawing
+        {
+            get => (bool)this["DrawingAutomation_OverwriteDrawing"];
+            set => this["DrawingAutomation_OverwriteDrawing"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool DrawingAutomation_ApplySettings
+        {
+            get => (bool)this["DrawingAutomation_ApplySettings"];
+            set => this["DrawingAutomation_ApplySettings"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool DrawingAutomation_InsertViews
+        {
+            get => (bool)this["DrawingAutomation_InsertViews"];
+            set => this["DrawingAutomation_InsertViews"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_InsertIsoView
+        {
+            get => (bool)this["DrawingAutomation_InsertIsoView"];
+            set => this["DrawingAutomation_InsertIsoView"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool DrawingAutomation_ImportModelItems
+        {
+            get => (bool)this["DrawingAutomation_ImportModelItems"];
+            set => this["DrawingAutomation_ImportModelItems"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_DuplicateDimensions
+        {
+            get => (bool)this["DrawingAutomation_DuplicateDimensions"];
+            set => this["DrawingAutomation_DuplicateDimensions"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_HiddenFeatureDimensions
+        {
+            get => (bool)this["DrawingAutomation_HiddenFeatureDimensions"];
+            set => this["DrawingAutomation_HiddenFeatureDimensions"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_UseSketchPlacement
+        {
+            get => (bool)this["DrawingAutomation_UseSketchPlacement"];
+            set => this["DrawingAutomation_UseSketchPlacement"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool DrawingAutomation_AutoArrangeDimensions
+        {
+            get => (bool)this["DrawingAutomation_AutoArrangeDimensions"];
+            set => this["DrawingAutomation_AutoArrangeDimensions"] = value;
         }
 
         [UserScopedSetting]

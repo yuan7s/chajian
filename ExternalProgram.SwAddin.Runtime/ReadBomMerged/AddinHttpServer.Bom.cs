@@ -107,7 +107,7 @@ internal sealed partial class AddinHttpServer
                     AddinLog.Write("OpenDocument DocumentVisible ignored: " + ex.Message);
                 }
 
-                model = _swApp.OpenDoc6(path, docType, 0, string.Empty, ref errors, ref warnings) as ModelDoc2;
+                model = OpenDoc6WithDialogHandling(path, docType, 0, string.Empty, ref errors, ref warnings);
                 AddinLog.Write(
                     $"OpenDocument OpenDoc6 result: model={(model != null)}, errors={errors}, warnings={warnings}");
             }

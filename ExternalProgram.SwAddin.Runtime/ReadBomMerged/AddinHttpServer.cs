@@ -351,7 +351,13 @@ internal sealed partial class AddinHttpServer : IDisposable
                     var errors = 0;
                     var warnings = 0;
                     try { _swApp.DocumentVisible(true, docType); } catch { }
-                    model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, string.Empty, ref errors, ref warnings) as ModelDoc2;
+                    model = OpenDoc6WithDialogHandling(
+                        path,
+                        docType,
+                        (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                        string.Empty,
+                        ref errors,
+                        ref warnings);
                     AddinLog.Write($"SavePropertiesBatch OpenDoc6: {displayName}, model={(model != null)}, errors={errors}, warnings={warnings}");
                     if (model == null)
                     {
@@ -447,7 +453,13 @@ internal sealed partial class AddinHttpServer : IDisposable
                     var errors = 0;
                     var warnings = 0;
                     try { _swApp.DocumentVisible(true, docType); } catch { }
-                    model = _swApp.OpenDoc6(path, docType, (int)swOpenDocOptions_e.swOpenDocOptions_Silent, string.Empty, ref errors, ref warnings) as ModelDoc2;
+                    model = OpenDoc6WithDialogHandling(
+                        path,
+                        docType,
+                        (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                        string.Empty,
+                        ref errors,
+                        ref warnings);
                     AddinLog.Write($"CalculateBlankSizeBatch OpenDoc6: {displayName}, model={(model != null)}, errors={errors}, warnings={warnings}");
                     if (model == null)
                     {

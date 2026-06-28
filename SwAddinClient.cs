@@ -345,6 +345,10 @@ public class SwAddinClient : IDisposable
             case "drawing_must_be_saved": return "当前工程图还没有保存，无法另存 " + format + "。";
             case "drawing_view_required": return "请选择一个视图";
             case "drawing_doc_unavailable": return "无法获取当前工程图对象";
+            case "drawing_template_required": return "请选择工程图模板，或勾选使用 SW 默认模板。";
+            case "drawing_template_unavailable": return "无法获取 SolidWorks 默认工程图模板，请在工程图窗口中选择 .drwdot 模板。";
+            case "drawing_source_must_be_saved": return "当前模型尚未保存，无法生成关联工程图。";
+            case "drawing_create_failed": return string.IsNullOrWhiteSpace(path) ? "创建工程图失败" : "创建工程图失败: " + path;
             case "assembly_required": return "请在装配体环境下使用";
             case "assembly_doc_unavailable": return "无法获取装配体对象";
             case "assembly_component_selection_required": return "请在装配体中选中一个组件";

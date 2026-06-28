@@ -1,5 +1,28 @@
 # 更新日志
 
+## v1.4 - 2026-06-28
+
+### 新功能
+- 新增工程图自动化功能：从零件/装配体一键生成标准三视图工程图
+- 支持使用 SW 默认模板或自定义 `.drwdot` 模板创建工程图
+- 支持基准图模式：复制已有 `.SLDDRW` 工程图并替换模型引用
+- 自动插入标准视图（前/俯/右）、等轴测视图、自动缩放布局
+- 自动导入模型项目（尺寸标注、孔标注等）并排列
+- 独立"检查遗漏"功能，通过桥接器打开源模型精确对比检测缺失孔标注
+- 新增工程图工具栏按钮及设置界面
+
+### 架构重构
+- SW 插件运行时迁移到独立 AppDomain（`ExternalProgram.SwAddin.Runtime`）
+- 支持 Runtime DLL 热重载：文件监控自动检测变更并重启运行时，无需重启 SW
+- 新增 `SwComBridge`（MarshalByRefObject）：跨 AppDomain 的 COM 调用桥接器
+
+### 修复
+- 工程图创建改用 `INewDocument2`（主 AppDomain 桥接器调用），修复 `INewDrawing2` 跨域 COM 代理死锁
+- 默认模板路径改用 `GetUserPreferenceStringValue`，移除 `GetDocumentTemplate` 避免弹窗
+- 修复 `swDwgPapersUserDefined` 枚举值错误（12）→ `swDwgPaperA3size`（8）
+- 默认模板时跳过图纸格式替换，保留模板自带格式
+- 生成流程自动导入孔标注，独立检查支持对比源模型
+
 ## v1.3 - 2026-06-27
 
 ### 更新
