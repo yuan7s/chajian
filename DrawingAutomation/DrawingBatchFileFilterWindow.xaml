@@ -142,9 +142,12 @@
                     Margin="0,10,0,0">
             <ui:Button Content="取消" MinWidth="96" Height="34"
                        Margin="0,0,8,0"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Click="Cancel_Click" />
             <ui:Button Content="确定" MinWidth="96" Height="34"
                        Appearance="Primary"
+                       FontWeight="SemiBold"
+                       Foreground="White"
                        Click="Ok_Click" />
         </StackPanel>
 
