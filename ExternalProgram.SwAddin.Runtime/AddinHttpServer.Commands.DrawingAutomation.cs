@@ -18,7 +18,7 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
-    private object RunDrawingAutomation(Dictionary<string, object> args)
+    private DrawingAutomationRunResult RunDrawingAutomation(Dictionary<string, object> args)
     {
         var activeModel = GetActiveModel();
         var activeType = Safe(activeModel.GetType);
@@ -67,21 +67,21 @@ internal sealed partial class AddinHttpServer
                 {
                     created = true;
                     AddDrawingIssue(issues, "info", "工程图", "已复制并交给 SolidWorks 打开", savedPath);
-                    return new
+                    return new DrawingAutomationRunResult
                     {
                         summary = BuildDrawingAutomationSummary(
                             "工程图已创建",
                             0,
                             0,
                             issues),
-                        created,
-                        viewsInserted,
-                        annotationsImported,
-                        scaleAdjusted,
-                        scaleText,
-                        arrangedAnnotations,
-                        savedPath,
-                        issues
+                        created = created,
+                        viewsInserted = viewsInserted,
+                        annotationsImported = annotationsImported,
+                        scaleAdjusted = scaleAdjusted,
+                        scaleText = scaleText,
+                        arrangedAnnotations = arrangedAnnotations,
+                        savedPath = savedPath,
+                        issues = issues
                     };
                 }
 
@@ -211,7 +211,7 @@ internal sealed partial class AddinHttpServer
             }
         }
 
-        return new
+        return new DrawingAutomationRunResult
         {
             summary = BuildDrawingAutomationSummary(
                 "工程图处理完成",
@@ -220,14 +220,14 @@ internal sealed partial class AddinHttpServer
                 issues,
                 scaleText,
                 arrangedAnnotations),
-            created,
-            viewsInserted,
-            annotationsImported,
-            scaleAdjusted,
-            scaleText,
-            arrangedAnnotations,
-            savedPath,
-            issues
+            created = created,
+            viewsInserted = viewsInserted,
+            annotationsImported = annotationsImported,
+            scaleAdjusted = scaleAdjusted,
+            scaleText = scaleText,
+            arrangedAnnotations = arrangedAnnotations,
+            savedPath = savedPath,
+            issues = issues
         };
     }
 
@@ -794,5 +794,20 @@ internal sealed partial class AddinHttpServer
                 AddDrawingIssue(issues, "warning", "图纸格式", "未确认图纸格式已替换", sheetFormatPath);
         }
     }
+
+    // ReSharper disable InconsistentNaming
+    private sealed class DrawingAutomationRunResult
+    {
+        public string summary { get; set; }
+        public bool created { get; set; }
+        public int viewsInserted { get; set; }
+        public int annotationsImported { get; set; }
+        public bool scaleAdjusted { get; set; }
+        public string scaleText { get; set; }
+        public int arrangedAnnotations { get; set; }
+        public string savedPath { get; set; }
+        public List<DrawingAutomationIssue> issues { get; set; }
+    }
+    // ReSharper restore InconsistentNaming
 
 }
