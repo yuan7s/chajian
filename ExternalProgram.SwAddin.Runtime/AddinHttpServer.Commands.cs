@@ -407,6 +407,22 @@ internal sealed partial class AddinHttpServer
         return bool.TryParse(val.ToString(), out var parsed) ? parsed : fallback;
     }
 
+    private static List<string> GetArgStringList(Dictionary<string, object> args, string key)
+    {
+        var result = new List<string>();
+        if (args == null || !args.TryGetValue(key, out var raw) || raw == null) return result;
+
+        if (raw is IEnumerable<object> items)
+        {
+            foreach (var item in items)
+            {
+                var text = item?.ToString();
+                if (!string.IsNullOrWhiteSpace(text)) result.Add(text.Trim());
+            }
+        }
+        return result;
+    }
+
     private object GetActiveDocumentInfo()
     {
         var model = GetActiveModel();
