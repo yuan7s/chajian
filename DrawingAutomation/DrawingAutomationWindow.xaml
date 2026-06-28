@@ -121,6 +121,18 @@
                 <StackPanel>
                     <TextBlock Text="图纸" Style="{StaticResource SectionTitleStyle}" />
 
+                    <TextBlock Text="图幅" Style="{StaticResource FieldLabelStyle}" />
+                    <ComboBox x:Name="PaperSizeBox"
+                              Margin="0,0,0,10"
+                              MinHeight="34"
+                              VerticalContentAlignment="Center">
+                        <ComboBoxItem Content="A4" />
+                        <ComboBoxItem Content="A3" />
+                        <ComboBoxItem Content="A2" />
+                        <ComboBoxItem Content="A1" />
+                        <ComboBoxItem Content="A0" />
+                    </ComboBox>
+
                     <TextBlock Text="工程图模板" Style="{StaticResource FieldLabelStyle}" />
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
@@ -239,36 +251,44 @@
 
         <Grid Grid.Row="2" Margin="0,12,0,0">
             <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="8" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <ui:Button Grid.Column="1"
-                       x:Name="CheckButton"
-                       Content="检查遗漏"
-                       Style="{StaticResource ActionButtonStyle}"
-                       Click="CheckButton_Click" />
-            <ui:Button Grid.Column="3"
-                       x:Name="HoleCalloutButton"
-                       Content="孔标注"
-                       Style="{StaticResource ActionButtonStyle}"
-                       Click="HoleCalloutButton_Click" />
-            <ui:Button Grid.Column="5"
-                       x:Name="ImportButton"
-                       Content="导入模型项目"
-                       Style="{StaticResource ActionButtonStyle}"
-                       Click="ImportButton_Click" />
-            <ui:Button Grid.Column="7"
-                       x:Name="GenerateButton"
-                       Content="生成标准工程图"
-                       Style="{StaticResource PrimaryActionButtonStyle}"
-                       Click="GenerateButton_Click" />
+            <StackPanel Grid.Column="0" Orientation="Horizontal">
+                <ui:Button x:Name="TemplateSettingsButton"
+                           Content="模板设置"
+                           Style="{StaticResource ActionButtonStyle}"
+                           Click="TemplateSettingsButton_Click" />
+                <ui:Button x:Name="BatchButton"
+                           Content="批量生成"
+                           Margin="8,0,0,0"
+                           Style="{StaticResource PrimaryActionButtonStyle}"
+                           Click="BatchButton_Click" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal">
+                <ui:Button x:Name="CheckButton"
+                           Content="检查遗漏"
+                           Style="{StaticResource ActionButtonStyle}"
+                           Click="CheckButton_Click" />
+                <ui:Button x:Name="HoleCalloutButton"
+                           Content="孔标注"
+                           Margin="8,0,0,0"
+                           Style="{StaticResource ActionButtonStyle}"
+                           Click="HoleCalloutButton_Click" />
+                <ui:Button x:Name="ImportButton"
+                           Content="导入模型项目"
+                           Margin="8,0,0,0"
+                           Style="{StaticResource ActionButtonStyle}"
+                           Click="ImportButton_Click" />
+                <ui:Button x:Name="GenerateButton"
+                           Content="生成标准工程图"
+                           Margin="8,0,0,0"
+                           Style="{StaticResource PrimaryActionButtonStyle}"
+                           Click="GenerateButton_Click" />
+            </StackPanel>
         </Grid>
     </Grid>
 </Window>
