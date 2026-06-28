@@ -381,6 +381,7 @@ public class SwAddinClient : IDisposable
             case "invalid_file_name": return "文件名包含非法字符";
             case "target_directory_unavailable": return "无法确定目标文件夹";
             case "unsupported_document_type": return "不支持的文档类型";
+            case "batch_no_models": return "没有可处理的模型文件";
             case "target_file_exists": return "目标文件已存在: " + path;
             case "save_new_file_failed": return FormatSolidWorksCodeMessage("保存新文件失败", errors, warnings);
             case "open_new_file_failed": return FormatSolidWorksCodeMessage("打开新文件失败", errors, warnings);
