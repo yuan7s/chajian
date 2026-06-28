@@ -385,6 +385,22 @@ namespace ExternalProgram.Properties
         }
 
         [UserScopedSetting]
+        [DefaultSettingValue("A4")]
+        public string DrawingAutomation_PaperSize
+        {
+            get => (string)this["DrawingAutomation_PaperSize"];
+            set => this["DrawingAutomation_PaperSize"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string DrawingAutomation_PaperFormatMap
+        {
+            get => (string)this["DrawingAutomation_PaperFormatMap"];
+            set => this["DrawingAutomation_PaperFormatMap"] = value;
+        }
+
+        [UserScopedSetting]
         [DefaultSettingValue("True")]
         public bool Rename_WriteFileName
         {
