@@ -241,17 +241,23 @@ partial class DrawingAutomationWindow : WpfNs.Window
             return;
         }
 
+        // Show filter dialog for user to narrow down the file list
+        var filterWindow = new DrawingBatchFileFilterWindow(models) { Owner = this };
+        if (filterWindow.ShowDialog() != true || filterWindow.SelectedPaths.Count == 0)
+            return;
+
+        var selected = filterWindow.SelectedPaths;
         var confirm = WpfNs.MessageBox.Show(
             this,
-            $"将对 {models.Count} 个模型按图幅 {GetSelectedPaperSize()} 批量生成工程图，并保存后关闭。是否继续？",
+            $"将对 {selected.Count} 个模型按图幅 {GetSelectedPaperSize()} 批量生成工程图，并保存后关闭。是否继续？",
             "批量生成",
             WpfNs.MessageBoxButton.OKCancel,
             WpfNs.MessageBoxImage.Question);
         if (confirm != WpfNs.MessageBoxResult.OK) return;
 
-        var args = BuildBatchCommandArgs(models);
+        var args = BuildBatchCommandArgs(selected);
         // 每个文件给足时间：基础 2 分钟 + 每文件 3 分钟，封顶 2 小时
-        var timeout = TimeSpan.FromMinutes(Math.Min(120, 2 + models.Count * 3));
+        var timeout = TimeSpan.FromMinutes(Math.Min(120, 2 + selected.Count * 3));
 
         SaveSettings();
         SetBusy(true);
