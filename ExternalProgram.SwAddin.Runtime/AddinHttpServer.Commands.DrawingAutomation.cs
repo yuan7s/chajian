@@ -231,6 +231,157 @@ internal sealed partial class AddinHttpServer
         };
     }
 
+    private object RunDrawingBatch(Dictionary<string, object> args)
+    {
+        var modelPaths = GetArgStringList(args, "modelPaths");
+        var issues = new List<DrawingAutomationIssue>();
+        var success = 0;
+        var failed = 0;
+
+        if (modelPaths.Count == 0)
+            throw CommandFailure("batch_no_models");
+
+        // 批量强制保存，否则关闭文档会丢弃生成的工程图
+        args["saveDrawing"] = true;
+
+        AddinLog.Write("Drawing batch start: count=" + modelPaths.Count);
+
+        foreach (var modelPath in modelPaths)
+        {
+            var fileName = Path.GetFileName(modelPath);
+            if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
+            {
+                failed++;
+                AddDrawingIssue(issues, "error", fileName, "文件不存在", modelPath);
+                continue;
+            }
+
+            var docType = GetDocumentTypeFromPath(modelPath);
+            if (docType != (int)swDocumentTypes_e.swDocPART &&
+                docType != (int)swDocumentTypes_e.swDocASSEMBLY)
+            {
+                failed++;
+                AddDrawingIssue(issues, "error", fileName, "不支持的文件类型", modelPath);
+                continue;
+            }
+
+            var openedBefore = GetOpenDocumentTitles();
+            try
+            {
+                var errors = 0;
+                var warnings = 0;
+                var model = OpenDoc6WithDialogHandling(
+                    modelPath,
+                    docType,
+                    (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
+                    "",
+                    ref errors,
+                    ref warnings);
+                if (model == null)
+                {
+                    failed++;
+                    AddDrawingIssue(issues, "error", fileName, "打开失败", "errors=" + errors);
+                    continue;
+                }
+
+                // 激活刚打开的模型，确保 RunDrawingAutomation 的 GetActiveModel 命中它。
+                // 第三参数 rebuildOnActivation 用字面量 0，与代码库其它 ActivateDoc3 调用一致
+                // (见 Rename.cs:485、ModelProperties.cs:359)。
+                var activateErrors = 0;
+                _swApp.ActivateDoc3(
+                    Safe(model.GetTitle) ?? "",
+                    false,
+                    0,
+                    ref activateErrors);
+
+                var runResult = RunDrawingAutomation(args);
+                success++;
+                AddDrawingIssue(
+                    issues,
+                    "pass",
+                    fileName,
+                    runResult.summary ?? "完成",
+                    runResult.savedPath ?? "");
+            }
+            catch (CommandFailureException ex)
+            {
+                failed++;
+                AddDrawingIssue(issues, "error", fileName, "生成失败", ex.Code);
+                AddinLog.Write("Drawing batch item failed (command): " + modelPath + " -> " + ex.Code);
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                AddDrawingIssue(issues, "error", fileName, "生成失败", ex.Message);
+                AddinLog.Write("Drawing batch item failed: " + modelPath + " -> " + ex.Message);
+            }
+            finally
+            {
+                CloseDocumentsOpenedAfter(openedBefore);
+            }
+        }
+
+        AddinLog.Write($"Drawing batch done: success={success}, failed={failed}");
+
+        return new
+        {
+            summary = $"批量完成：成功 {success}，失败 {failed}，共 {modelPaths.Count}",
+            success,
+            failed,
+            total = modelPaths.Count,
+            issues
+        };
+    }
+
+    // 用代码库既有的 GetFirstDocument()/GetNext() 链式枚举打开的文档，
+    // 与 ModelProperties.cs:332 的写法一致——本代码库不直接用 GetDocuments()。
+    private HashSet<string> GetOpenDocumentTitles()
+    {
+        var titles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            var model = _swApp.GetFirstDocument() as ModelDoc2;
+            while (model != null)
+            {
+                var title = Safe(model.GetTitle) ?? "";
+                if (!string.IsNullOrWhiteSpace(title)) titles.Add(title);
+                model = model.GetNext() as ModelDoc2;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("GetOpenDocumentTitles", ex);
+        }
+        return titles;
+    }
+
+    private void CloseDocumentsOpenedAfter(HashSet<string> openedBefore)
+    {
+        // 先收集需要关闭的标题，避免在枚举 COM 链表的同时 CloseDoc 导致链表失效
+        var toClose = new List<string>();
+        try
+        {
+            var model = _swApp.GetFirstDocument() as ModelDoc2;
+            while (model != null)
+            {
+                var title = Safe(model.GetTitle) ?? "";
+                if (!string.IsNullOrWhiteSpace(title) && !openedBefore.Contains(title))
+                    toClose.Add(title);
+                model = model.GetNext() as ModelDoc2;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("CloseDocumentsOpenedAfter.enumerate", ex);
+        }
+
+        foreach (var title in toClose)
+        {
+            try { _swApp.CloseDoc(title); }
+            catch (Exception ex) { LogIgnoredException("CloseDocumentsOpenedAfter.CloseDoc", ex); }
+        }
+    }
+
     private object ImportDrawingModelItemsCommand(Dictionary<string, object> args)
     {
         var drawingModel = GetActiveDrawingModel();

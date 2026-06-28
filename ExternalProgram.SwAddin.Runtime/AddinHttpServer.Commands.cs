@@ -172,6 +172,10 @@ internal sealed partial class AddinHttpServer
                 result = RunDrawingAutomation(args);
                 break;
 
+            case "DRAWING-BATCH-RUN":
+                result = RunDrawingBatch(args);
+                break;
+
             case "DRAWING-IMPORT-MODEL-ITEMS":
                 result = ImportDrawingModelItemsCommand(args);
                 break;
