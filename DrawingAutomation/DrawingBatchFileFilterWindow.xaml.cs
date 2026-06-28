@@ -119,7 +119,8 @@ public partial class DrawingBatchFileFilterWindow : WpfNs.Window
 
     private void Ok_Click(object sender, WpfNs.RoutedEventArgs e)
     {
-        SelectedPaths = _allItems
+        // 仅返回当前筛选可见且已勾选的项（所见即所得）
+        SelectedPaths = _displayItems
             .Where(i => i.IsSelected)
             .Select(i => i.FullPath)
             .ToList();

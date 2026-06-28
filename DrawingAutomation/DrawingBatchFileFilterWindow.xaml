@@ -81,10 +81,11 @@
         <!-- Header -->
         <StackPanel Grid.Row="0" Margin="0,0,0,12">
             <TextBlock FontSize="16" FontWeight="SemiBold">
-                <Run x:Name="SelectedCountText" Text="0" />
-                <Run Text=" / " />
+                <Run Text="筛选到 " />
                 <Run x:Name="TotalCountText" Text="0" />
-                <Run Text=" 个文件已选" />
+                <Run Text=" 个，已勾选 " />
+                <Run x:Name="SelectedCountText" Text="0" />
+                <Run Text=" 个" />
             </TextBlock>
         </StackPanel>
 
