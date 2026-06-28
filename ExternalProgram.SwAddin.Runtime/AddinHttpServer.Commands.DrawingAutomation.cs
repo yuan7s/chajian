@@ -726,52 +726,13 @@ internal sealed partial class AddinHttpServer
                 "path", Safe(drawingModel.GetPathName) ?? "");
     }
 
-    // 把图幅字符串映射成 SolidWorks 纸张枚举与尺寸(米，横向)。
-    // 未知值回退 A3，与历史行为一致。
-    private static (int paperSize, double widthMeters, double heightMeters) MapPaperSize(string size)
-    {
-        switch ((size ?? "").Trim().ToUpperInvariant())
-        {
-            case "A4": return ((int)swDwgPaperSizes_e.swDwgPaperA4size, 0.297, 0.210);
-            case "A2": return ((int)swDwgPaperSizes_e.swDwgPaperA2size, 0.594, 0.420);
-            case "A1": return ((int)swDwgPaperSizes_e.swDwgPaperA1size, 0.841, 0.594);
-            case "A0": return ((int)swDwgPaperSizes_e.swDwgPaperA0size, 1.189, 0.841);
-            case "A3":
-            default:   return ((int)swDwgPaperSizes_e.swDwgPaperA3size, 0.420, 0.297);
-        }
-    }
-
     private static void ConfigureDrawingAutomationSheet(DrawingDoc drawing, Dictionary<string, object> args)
     {
         var sheet = drawing.GetCurrentSheet() as Sheet;
         if (sheet == null) return;
 
-        // When using the SW default template, the sheet properties and format
-        // are already set correctly by the template — don't override them.
-        if (GetArgBool(args, "useDefaultTemplate", true))
-        {
-            AddinLog.Write("ConfigureDrawingAutomationSheet skipped (default template)");
-            return;
-        }
-
-        try
-        {
-            var (paperSize, paperWidth, paperHeight) = MapPaperSize(GetArgString(args, "paperSize", "A3"));
-            sheet.SetProperties2(
-                paperSize,
-                (int)swDwgTemplates_e.swDwgTemplateCustom,
-                1.0,
-                1.0,
-                false,
-                paperWidth,
-                paperHeight,
-                true);
-        }
-        catch (Exception ex)
-        {
-            LogIgnoredException("ConfigureDrawingAutomationSheet.SetProperties2", ex);
-        }
-
+        // 图幅由模板自带的纸张设置决定，不再手动覆盖。
+        // 只处理用户指定的图纸格式文件 (.slddrt)。
         var sheetFormatPath = GetArgString(args, "sheetFormatPath");
         if (string.IsNullOrWhiteSpace(sheetFormatPath))
             return;

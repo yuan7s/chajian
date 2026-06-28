@@ -52,7 +52,6 @@ partial class DrawingAutomationWindow : WpfNs.Window
         HiddenFeatureDimsCheck.IsChecked = settings.DrawingAutomation_HiddenFeatureDimensions;
         UseSketchPlacementCheck.IsChecked = settings.DrawingAutomation_UseSketchPlacement;
         AutoArrangeCheck.IsChecked = settings.DrawingAutomation_AutoArrangeDimensions;
-        SelectPaperSize(settings.DrawingAutomation_PaperSize);
     }
 
     private void SaveSettings()
@@ -72,7 +71,6 @@ partial class DrawingAutomationWindow : WpfNs.Window
         settings.DrawingAutomation_HiddenFeatureDimensions = HiddenFeatureDimsCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_UseSketchPlacement = UseSketchPlacementCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_AutoArrangeDimensions = AutoArrangeCheck.IsChecked.GetValueOrDefault();
-        settings.DrawingAutomation_PaperSize = GetSelectedPaperSize();
         settings.Save();
     }
 
@@ -86,26 +84,6 @@ partial class DrawingAutomationWindow : WpfNs.Window
     {
         var useDefault = UseDefaultTemplateCheck.IsChecked.GetValueOrDefault();
         TemplatePathBox.IsEnabled = !useDefault;
-    }
-
-    private void SelectPaperSize(string size)
-    {
-        var target = string.IsNullOrWhiteSpace(size) ? "A4" : size.Trim();
-        foreach (var obj in PaperSizeBox.Items)
-        {
-            if (obj is WpfControls.ComboBoxItem item &&
-                string.Equals(item.Content?.ToString(), target, StringComparison.OrdinalIgnoreCase))
-            {
-                PaperSizeBox.SelectedItem = item;
-                return;
-            }
-        }
-        PaperSizeBox.SelectedIndex = 0; // 回退 A4
-    }
-
-    private string GetSelectedPaperSize()
-    {
-        return (PaperSizeBox.SelectedItem as WpfControls.ComboBoxItem)?.Content?.ToString() ?? "A4";
     }
 
     private void BrowseTemplate_Click(object sender, WpfNs.RoutedEventArgs e)
@@ -201,12 +179,6 @@ partial class DrawingAutomationWindow : WpfNs.Window
         await RunCommandAsync("drawing-automation-check", BuildCommandArgs(), "检查完成");
     }
 
-    private void TemplateSettingsButton_Click(object sender, WpfNs.RoutedEventArgs e)
-    {
-        var window = new DrawingTemplateSettingsWindow { Owner = this };
-        window.ShowDialog();
-    }
-
     private async void CancelBatchButton_Click(object sender, WpfNs.RoutedEventArgs e)
     {
         CancelBatchButton.IsEnabled = false;
@@ -249,7 +221,7 @@ partial class DrawingAutomationWindow : WpfNs.Window
         var selected = filterWindow.SelectedPaths;
         var confirm = WpfNs.MessageBox.Show(
             this,
-            $"将对 {selected.Count} 个模型按图幅 {GetSelectedPaperSize()} 批量生成工程图，并保存后关闭。是否继续？",
+            $"将对 {selected.Count} 个模型批量生成工程图（图幅由模板决定），并保存后关闭。是否继续？",
             "批量生成",
             WpfNs.MessageBoxButton.OKCancel,
             WpfNs.MessageBoxImage.Question);
@@ -289,21 +261,8 @@ partial class DrawingAutomationWindow : WpfNs.Window
     private Dictionary<string, object> BuildBatchCommandArgs(List<string> modelPaths)
     {
         var args = BuildCommandArgs();
-        var size = GetSelectedPaperSize();
-        var map = PaperFormatMap.FromJson(Settings.Default.DrawingAutomation_PaperFormatMap);
-        var entry = map.Get(size);
-
-        if (!string.IsNullOrWhiteSpace(entry.TemplatePath))
-        {
-            args["useDefaultTemplate"] = false;
-            args["templatePath"] = entry.TemplatePath;
-            args["baseDrawingPath"] = "";
-        }
-        if (!string.IsNullOrWhiteSpace(entry.SheetFormatPath))
-            args["sheetFormatPath"] = entry.SheetFormatPath;
-
-        args["paperSize"] = size;
-        args["saveDrawing"] = true;          // 批量必须保存
+        // 批量强制保存
+        args["saveDrawing"] = true;
         args["modelPaths"] = modelPaths.ToArray();
         return args;
     }
@@ -332,8 +291,7 @@ partial class DrawingAutomationWindow : WpfNs.Window
             { "usePlacementInSketch", UseSketchPlacementCheck.IsChecked.GetValueOrDefault() },
             { "autoArrangeDimensions", AutoArrangeCheck.IsChecked.GetValueOrDefault() },
             { "standardPath", StandardPathBox.Text.Trim() },
-            { "sheetFormatPath", SheetFormatPathBox.Text.Trim() },
-            { "paperSize", GetSelectedPaperSize() }
+            { "sheetFormatPath", SheetFormatPathBox.Text.Trim() }
         };
     }
 
@@ -382,7 +340,6 @@ partial class DrawingAutomationWindow : WpfNs.Window
         HoleCalloutButton.IsEnabled = !busy;
         CheckButton.IsEnabled = !busy;
         BatchButton.IsEnabled = !busy;
-        TemplateSettingsButton.IsEnabled = !busy;
         CancelBatchButton.Visibility = busy ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
         WpfInput.Mouse.OverrideCursor = busy ? WpfInput.Cursors.Wait : null;
     }

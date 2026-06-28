@@ -121,18 +121,6 @@
                 <StackPanel>
                     <TextBlock Text="图纸" Style="{StaticResource SectionTitleStyle}" />
 
-                    <TextBlock Text="图幅" Style="{StaticResource FieldLabelStyle}" />
-                    <ComboBox x:Name="PaperSizeBox"
-                              Margin="0,0,0,10"
-                              MinHeight="34"
-                              VerticalContentAlignment="Center">
-                        <ComboBoxItem Content="A4" />
-                        <ComboBoxItem Content="A3" />
-                        <ComboBoxItem Content="A2" />
-                        <ComboBoxItem Content="A1" />
-                        <ComboBoxItem Content="A0" />
-                    </ComboBox>
-
                     <TextBlock Text="工程图模板" Style="{StaticResource FieldLabelStyle}" />
                     <Grid Margin="0,0,0,10">
                         <Grid.ColumnDefinitions>
@@ -257,13 +245,8 @@
             </Grid.ColumnDefinitions>
 
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <ui:Button x:Name="TemplateSettingsButton"
-                           Content="模板设置"
-                           Style="{StaticResource ActionButtonStyle}"
-                           Click="TemplateSettingsButton_Click" />
                 <ui:Button x:Name="BatchButton"
                            Content="批量生成"
-                           Margin="8,0,0,0"
                            Style="{StaticResource PrimaryActionButtonStyle}"
                            Click="BatchButton_Click" />
                 <ui:Button x:Name="CancelBatchButton"
