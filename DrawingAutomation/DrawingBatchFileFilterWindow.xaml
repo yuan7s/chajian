@@ -6,7 +6,7 @@
         Width="760"
         Height="560"
         MinWidth="640"
-        MinHeight="420"
+        MinHeight="480"
         WindowStartupLocation="CenterOwner"
         ResizeMode="CanResize"
         Background="{DynamicResource ApplicationBackgroundBrush}"
@@ -74,8 +74,8 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="120" />
+            <RowDefinition Height="58" />
         </Grid.RowDefinitions>
 
         <!-- Header -->
@@ -173,7 +173,8 @@
         <StackPanel Grid.Row="3"
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
-                    Margin="0,12,0,0">
+                    Margin="0,12,0,0"
+                    MinHeight="46">
             <ui:Button Content="取消"
                        MinWidth="96"
                        Height="34"
