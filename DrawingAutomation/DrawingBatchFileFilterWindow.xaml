@@ -145,9 +145,6 @@
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                        Click="Cancel_Click" />
             <ui:Button Content="确定" MinWidth="96" Height="34"
-                       Appearance="Primary"
-                       FontWeight="SemiBold"
-                       Foreground="White"
                        Click="Ok_Click" />
         </StackPanel>
 
