@@ -22,6 +22,7 @@ internal sealed partial class AddinHttpServer : IDisposable
     private HttpListener _listener;
     private CancellationTokenSource _cts;
     private int _commandInProgress;
+    private volatile bool _batchCancelled;
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -126,6 +127,16 @@ internal sealed partial class AddinHttpServer : IDisposable
                     wsClients = _webSockets.Count
                 });
                 AddinLog.Write($"HTTP health ok in {watch.ElapsedMilliseconds}ms");
+                return;
+            }
+
+            // Cancel endpoint — bypasses command lock so the client can interrupt
+            // a long-running batch without getting 409.
+            if (context.Request.HttpMethod == "POST" && requestPath == "/cancel")
+            {
+                _batchCancelled = true;
+                AddinLog.Write("HTTP cancel requested");
+                WriteJson(context, new { ok = true, data = new { cancelled = true } });
                 return;
             }
 

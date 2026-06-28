@@ -207,6 +207,20 @@ partial class DrawingAutomationWindow : WpfNs.Window
         window.ShowDialog();
     }
 
+    private async void CancelBatchButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        CancelBatchButton.IsEnabled = false;
+        try
+        {
+            if (Client != null)
+                await Client.CancelBatchAsync();
+        }
+        catch
+        {
+            // Best-effort
+        }
+    }
+
     private async void BatchButton_Click(object sender, WpfNs.RoutedEventArgs e)
     {
         if (Client == null)
@@ -363,6 +377,7 @@ partial class DrawingAutomationWindow : WpfNs.Window
         CheckButton.IsEnabled = !busy;
         BatchButton.IsEnabled = !busy;
         TemplateSettingsButton.IsEnabled = !busy;
+        CancelBatchButton.Visibility = busy ? WpfNs.Visibility.Visible : WpfNs.Visibility.Collapsed;
         WpfInput.Mouse.OverrideCursor = busy ? WpfInput.Cursors.Wait : null;
     }
 

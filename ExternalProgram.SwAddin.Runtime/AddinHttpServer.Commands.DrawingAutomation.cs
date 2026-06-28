@@ -244,10 +244,18 @@ internal sealed partial class AddinHttpServer
         // 批量强制保存，否则关闭文档会丢弃生成的工程图
         args["saveDrawing"] = true;
 
+        _batchCancelled = false;
+
         AddinLog.Write("Drawing batch start: count=" + modelPaths.Count);
 
         foreach (var modelPath in modelPaths)
         {
+            if (_batchCancelled)
+            {
+                AddinLog.Write("Drawing batch cancelled by client");
+                AddDrawingIssue(issues, "info", "批量", "用户取消，剩余 " + (modelPaths.Count - success - failed) + " 个未处理", "");
+                break;
+            }
             var fileName = Path.GetFileName(modelPath);
             if (string.IsNullOrWhiteSpace(modelPath) || !File.Exists(modelPath))
             {
@@ -321,14 +329,18 @@ internal sealed partial class AddinHttpServer
             }
         }
 
-        AddinLog.Write($"Drawing batch done: success={success}, failed={failed}");
+        var cancelled = _batchCancelled;
+        AddinLog.Write($"Drawing batch done: success={success}, failed={failed}, cancelled={cancelled}");
 
         return new
         {
-            summary = $"批量完成：成功 {success}，失败 {failed}，共 {modelPaths.Count}",
+            summary = cancelled
+                ? $"批量已取消：成功 {success}，失败 {failed}，共 {modelPaths.Count}"
+                : $"批量完成：成功 {success}，失败 {failed}，共 {modelPaths.Count}",
             success,
             failed,
             total = modelPaths.Count,
+            cancelled,
             issues
         };
     }

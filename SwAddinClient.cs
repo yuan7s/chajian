@@ -247,6 +247,21 @@ public class SwAddinClient : IDisposable
         }
     }
 
+    public async Task CancelBatchAsync()
+    {
+        await RefreshEndpointAsync(false);
+        try
+        {
+            var content = new StringContent("{}", Encoding.UTF8, "application/json");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await _http.PostAsync(_baseUrl + "cancel", content, cts.Token);
+        }
+        catch
+        {
+            // Best-effort; if the cancel request fails the batch keeps running
+        }
+    }
+
     public async Task<IReadOnlyList<SwAddinEndpoint>> GetAvailableEndpointsAsync()
     {
         return await DiscoverEndpointsAsync();
