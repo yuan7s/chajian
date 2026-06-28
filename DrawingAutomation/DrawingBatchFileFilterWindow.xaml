@@ -70,14 +70,10 @@
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Margin="16">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="200" />
-        </Grid.RowDefinitions>
+    <DockPanel Margin="16" LastChildFill="True">
 
         <!-- Header + Filters -->
-        <Border Grid.Row="0" Style="{StaticResource SectionCardStyle}">
+        <Border DockPanel.Dock="Top" Style="{StaticResource SectionCardStyle}">
             <StackPanel>
                 <!-- Count header -->
                 <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
@@ -139,52 +135,45 @@
             </StackPanel>
         </Border>
 
-        <!-- File list + buttons in one card -->
-        <Border Grid.Row="1" Style="{StaticResource SectionCardStyle}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="*" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
+        <!-- Bottom buttons — docked first so they always get space -->
+        <StackPanel DockPanel.Dock="Bottom"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Margin="0,10,0,0">
+            <ui:Button Content="取消" MinWidth="96" Height="34"
+                       Margin="0,0,8,0"
+                       Click="Cancel_Click" />
+            <ui:Button Content="确定" MinWidth="96" Height="34"
+                       Appearance="Primary"
+                       Click="Ok_Click" />
+        </StackPanel>
 
-                <ListView x:Name="FileList"
-                          Grid.Row="0"
-                          BorderBrush="{StaticResource PanelBorderBrush}"
-                          BorderThickness="1"
-                          Background="#F7FAFC"
-                          SelectionMode="Single">
-                    <ListView.View>
-                        <GridView>
-                            <GridViewColumn Header="" Width="36">
-                                <GridViewColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
-                                                  HorizontalAlignment="Center" />
-                                    </DataTemplate>
-                                </GridViewColumn.CellTemplate>
-                            </GridViewColumn>
-                            <GridViewColumn Header="文件名" Width="220"
-                                            DisplayMemberBinding="{Binding FileName}" />
-                            <GridViewColumn Header="类型" Width="70"
-                                            DisplayMemberBinding="{Binding DocType}" />
-                            <GridViewColumn Header="路径" Width="300"
-                                            DisplayMemberBinding="{Binding FullPath}" />
-                        </GridView>
-                    </ListView.View>
-                </ListView>
-
-                <StackPanel Grid.Row="1"
-                            Orientation="Horizontal"
-                            HorizontalAlignment="Right"
-                            Margin="0,10,0,0">
-                    <ui:Button Content="取消" MinWidth="96" Height="34"
-                               Margin="0,0,8,0"
-                               Click="Cancel_Click" />
-                    <ui:Button Content="确定" MinWidth="96" Height="34"
-                               Appearance="Primary"
-                               Click="Ok_Click" />
-                </StackPanel>
-            </Grid>
+        <!-- File list — last child, fills remaining space -->
+        <Border Style="{StaticResource SectionCardStyle}">
+            <ListView x:Name="FileList"
+                      BorderBrush="{StaticResource PanelBorderBrush}"
+                      BorderThickness="1"
+                      Background="#F7FAFC"
+                      SelectionMode="Single">
+                <ListView.View>
+                    <GridView>
+                        <GridViewColumn Header="" Width="36">
+                            <GridViewColumn.CellTemplate>
+                                <DataTemplate>
+                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                              HorizontalAlignment="Center" />
+                                </DataTemplate>
+                            </GridViewColumn.CellTemplate>
+                        </GridViewColumn>
+                        <GridViewColumn Header="文件名" Width="220"
+                                        DisplayMemberBinding="{Binding FileName}" />
+                        <GridViewColumn Header="类型" Width="70"
+                                        DisplayMemberBinding="{Binding DocType}" />
+                        <GridViewColumn Header="路径" Width="300"
+                                        DisplayMemberBinding="{Binding FullPath}" />
+                    </GridView>
+                </ListView.View>
+            </ListView>
         </Border>
-    </Grid>
+    </DockPanel>
 </Window>
