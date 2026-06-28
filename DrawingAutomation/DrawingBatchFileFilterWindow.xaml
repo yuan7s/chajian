@@ -149,12 +149,20 @@
         </StackPanel>
 
         <!-- File list — last child, fills remaining space -->
-        <Border Style="{StaticResource SectionCardStyle}">
+        <Border Padding="14,12" Margin="0,0,0,0"
+                Background="{StaticResource PanelBrush}"
+                BorderBrush="{StaticResource PanelBorderBrush}"
+                BorderThickness="1">
             <ListView x:Name="FileList"
                       BorderBrush="{StaticResource PanelBorderBrush}"
                       BorderThickness="1"
                       Background="#F7FAFC"
                       SelectionMode="Single">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="ToolTip" Value="{Binding FullPath}" />
+                    </Style>
+                </ListView.ItemContainerStyle>
                 <ListView.View>
                     <GridView>
                         <GridViewColumn Header="" Width="36">
