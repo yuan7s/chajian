@@ -25,7 +25,7 @@
 
             <Style x:Key="SectionCardStyle" TargetType="Border">
                 <Setter Property="Padding" Value="14,12" />
-                <Setter Property="Margin" Value="0,0,0,12" />
+                <Setter Property="Margin" Value="0,0,0,10" />
                 <Setter Property="Background" Value="{StaticResource PanelBrush}" />
                 <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
                 <Setter Property="BorderThickness" Value="1" />
@@ -33,7 +33,7 @@
             </Style>
 
             <Style x:Key="FieldLabelStyle" TargetType="TextBlock">
-                <Setter Property="Margin" Value="0,0,0,5" />
+                <Setter Property="Margin" Value="0,0,0,4" />
                 <Setter Property="FontSize" Value="12" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
@@ -56,44 +56,42 @@
             </Style>
 
             <Style TargetType="{x:Type TextBox}">
-                <Setter Property="MinHeight" Value="34" />
-                <Setter Property="Padding" Value="9,4" />
+                <Setter Property="MinHeight" Value="32" />
+                <Setter Property="Padding" Value="8,4" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
 
             <Style TargetType="{x:Type CheckBox}"
                    BasedOn="{StaticResource {x:Type CheckBox}}">
-                <Setter Property="Margin" Value="0,0,18,0" />
+                <Setter Property="Margin" Value="0,0,16,0" />
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                 <Setter Property="VerticalAlignment" Value="Center" />
             </Style>
         </ResourceDictionary>
     </Window.Resources>
 
-    <Grid Margin="18">
+    <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="120" />
-            <RowDefinition Height="58" />
+            <RowDefinition Height="*" MinHeight="200" />
         </Grid.RowDefinitions>
 
-        <!-- Header -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,12">
-            <TextBlock FontSize="16" FontWeight="SemiBold">
-                <Run Text="筛选到 " />
-                <Run x:Name="TotalCountText" Text="0" />
-                <Run Text=" 个，已勾选 " />
-                <Run x:Name="SelectedCountText" Text="0" />
-                <Run Text=" 个" />
-            </TextBlock>
-        </StackPanel>
-
-        <!-- Filters card -->
-        <Border Grid.Row="1" Style="{StaticResource SectionCardStyle}">
+        <!-- Header + Filters -->
+        <Border Grid.Row="0" Style="{StaticResource SectionCardStyle}">
             <StackPanel>
-                <!-- Row 1: Type filter + batch actions -->
-                <Grid Margin="0,0,0,8">
+                <!-- Count header -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock FontSize="15" FontWeight="SemiBold">
+                        <Run Text="筛选到 " />
+                        <Run x:Name="TotalCountText" Text="0" />
+                        <Run Text=" 个，已勾选 " />
+                        <Run x:Name="SelectedCountText" Text="0" />
+                        <Run Text=" 个" />
+                    </TextBlock>
+                </StackPanel>
+
+                <!-- Type filter + select actions -->
+                <Grid Margin="0,0,0,6">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -112,79 +110,81 @@
                                   Unchecked="Filter_Changed" />
                     </StackPanel>
                     <StackPanel Grid.Column="2" Orientation="Horizontal">
-                        <ui:Button Content="全选"
-                                   Width="64"
-                                   Height="30"
+                        <ui:Button Content="全选" Width="56" Height="28"
                                    Click="SelectAll_Click" />
-                        <ui:Button Content="反选"
-                                   Width="64"
-                                   Height="30"
-                                   Margin="8,0,0,0"
+                        <ui:Button Content="反选" Width="56" Height="28"
+                                   Margin="6,0,0,0"
                                    Click="InvertSelection_Click" />
                     </StackPanel>
                 </Grid>
 
-                <!-- Row 2: Filename filter -->
-                <TextBlock Text="文件名筛选" Style="{StaticResource FieldLabelStyle}" />
-                <TextBox x:Name="NameFilterBox"
-                         Margin="0,0,0,8"
-                         TextChanged="NameFilter_TextChanged" />
-
-                <!-- Row 3: Path / property keyword filter -->
-                <TextBlock Text="路径/属性关键词筛选" Style="{StaticResource FieldLabelStyle}" />
-                <TextBox x:Name="PropertyFilterBox"
-                         TextChanged="PropertyFilter_TextChanged" />
+                <!-- Filename + Keyword filters in one row -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="文件名筛选" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="NameFilterBox"
+                                 TextChanged="NameFilter_TextChanged" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="路径/关键词筛选" Style="{StaticResource FieldLabelStyle}" />
+                        <TextBox x:Name="PropertyFilterBox"
+                                 TextChanged="PropertyFilter_TextChanged" />
+                    </StackPanel>
+                </Grid>
             </StackPanel>
         </Border>
 
-        <!-- File list -->
-        <Border Grid.Row="2" Style="{StaticResource SectionCardStyle}">
-            <ListView x:Name="FileList"
-                      BorderBrush="{StaticResource PanelBorderBrush}"
-                      BorderThickness="1"
-                      Background="#F7FAFC"
-                      SelectionMode="Single">
-                <ListView.View>
-                    <GridView>
-                        <GridViewColumn Header=""
-                                        Width="36">
-                            <GridViewColumn.CellTemplate>
-                                <DataTemplate>
-                                    <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
-                                              HorizontalAlignment="Center" />
-                                </DataTemplate>
-                            </GridViewColumn.CellTemplate>
-                        </GridViewColumn>
-                        <GridViewColumn Header="文件名"
-                                        Width="220"
-                                        DisplayMemberBinding="{Binding FileName}" />
-                        <GridViewColumn Header="类型"
-                                        Width="70"
-                                        DisplayMemberBinding="{Binding DocType}" />
-                        <GridViewColumn Header="路径"
-                                        Width="320"
-                                        DisplayMemberBinding="{Binding FullPath}" />
-                    </GridView>
-                </ListView.View>
-            </ListView>
-        </Border>
+        <!-- File list + buttons in one card -->
+        <Border Grid.Row="1" Style="{StaticResource SectionCardStyle}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-        <!-- Bottom buttons -->
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Margin="0,12,0,0"
-                    MinHeight="46">
-            <ui:Button Content="取消"
-                       MinWidth="96"
-                       Height="34"
-                       Margin="0,0,8,0"
-                       Click="Cancel_Click" />
-            <ui:Button Content="确定"
-                       Appearance="Primary"
-                       MinWidth="96"
-                       Height="34"
-                       Click="Ok_Click" />
-        </StackPanel>
+                <ListView x:Name="FileList"
+                          Grid.Row="0"
+                          BorderBrush="{StaticResource PanelBorderBrush}"
+                          BorderThickness="1"
+                          Background="#F7FAFC"
+                          SelectionMode="Single">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="" Width="36">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <CheckBox IsChecked="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}"
+                                                  HorizontalAlignment="Center" />
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                            <GridViewColumn Header="文件名" Width="220"
+                                            DisplayMemberBinding="{Binding FileName}" />
+                            <GridViewColumn Header="类型" Width="70"
+                                            DisplayMemberBinding="{Binding DocType}" />
+                            <GridViewColumn Header="路径" Width="300"
+                                            DisplayMemberBinding="{Binding FullPath}" />
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+
+                <StackPanel Grid.Row="1"
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            Margin="0,10,0,0">
+                    <ui:Button Content="取消" MinWidth="96" Height="34"
+                               Margin="0,0,8,0"
+                               Click="Cancel_Click" />
+                    <ui:Button Content="确定" MinWidth="96" Height="34"
+                               Appearance="Primary"
+                               Click="Ok_Click" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </Window>
