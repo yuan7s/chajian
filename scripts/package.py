@@ -14,8 +14,6 @@ import urllib.request
 REPO_ROOT = Path(__file__).resolve().parent.parent
 PUBLISH_PROPS = [
     "-p:PublishSingleFile=true",
-    "-p:PublishTrimmed=true",
-    "-p:TrimMode=partial",
     "-p:DebugType=none",
 ]
 
