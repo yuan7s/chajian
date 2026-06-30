@@ -61,7 +61,7 @@
       <SwAddinPublishFile Include="$(SwAddinOutputDirectory)SolidWorksTools.dll" />
     </ItemGroup>
     <Copy SourceFiles="@(SwAddinPublishFile)"
-          DestinationFolder="$(PublishDir)"
+          DestinationFolder="$(PublishDir)SwAddin\"
           SkipUnchangedFiles="true"
           Condition="Exists('%(SwAddinPublishFile.FullPath)')" />
   </Target>

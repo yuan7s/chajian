@@ -56,7 +56,7 @@ if (-not $SkipBuild) {
 Write-Host "[4/5] Copying SwAddin Runtime..." -ForegroundColor Yellow
 $runtimeSource = "$RepoRoot\ExternalProgram.SwAddin\bin\$Configuration\net48\Runtime"
 if (Test-Path -LiteralPath $runtimeSource) {
-    Copy-Item -LiteralPath $runtimeSource -Destination "$PublishDir\ExternalProgram\Runtime" -Recurse -Force
+    Copy-Item -LiteralPath $runtimeSource -Destination "$PublishDir\ExternalProgram\SwAddin\Runtime" -Recurse -Force
     Write-Host "       Runtime copied" -ForegroundColor Green
 }
 else {
