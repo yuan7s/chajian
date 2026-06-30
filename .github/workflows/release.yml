@@ -36,12 +36,20 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          # Build SwAddin first so its DLLs are available for ExternalProgram publish
+          # Build SwAddin and its Runtime dependency first
+          # SwAddin.Runtime auto-copies to SwAddin/bin/Release/net48/Runtime/current/ after build
           dotnet build ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj -c Release --no-restore -v minimal
+          dotnet build ExternalProgram.SwAddin.Runtime/ExternalProgram.SwAddin.Runtime.csproj -c Release --no-restore -v minimal
 
           # dotnet publish automatically collects all NuGet dependencies
           dotnet publish ExternalProgram.csproj -c Release -o publish/ExternalProgram --no-restore -v minimal
           dotnet publish ReadBom/ReadBom.csproj -c Release -o publish/ReadBom --no-restore -v minimal
+
+          # Copy SwAddin Runtime directory to publish output
+          $runtimeDir = 'ExternalProgram.SwAddin/bin/Release/net48/Runtime'
+          if (Test-Path -LiteralPath $runtimeDir) {
+            Copy-Item -LiteralPath $runtimeDir -Destination 'publish/ExternalProgram/Runtime' -Recurse -Force
+          }
 
       - name: Create zip
         shell: pwsh
