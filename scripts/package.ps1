@@ -44,11 +44,10 @@ if (-not $SkipBuild) {
     if ($LASTEXITCODE -ne 0) { throw "SwAddin.Runtime build failed" }
 
     Write-Host "[3/5] Publishing ExternalProgram & ReadBom..." -ForegroundColor Yellow
-    $publishProps = "-p:PublishSingleFile=true -p:PublishTrimmed=true -p:TrimMode=partial -p:DebugType=none"
-    dotnet publish "$RepoRoot\ExternalProgram.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ExternalProgram" --no-restore -v minimal $publishProps
+    dotnet publish "$RepoRoot\ExternalProgram.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ExternalProgram" --no-restore -v minimal
     if ($LASTEXITCODE -ne 0) { throw "ExternalProgram publish failed" }
 
-    dotnet publish "$RepoRoot\ReadBom\ReadBom.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ReadBom" --no-restore -v minimal $publishProps
+    dotnet publish "$RepoRoot\ReadBom\ReadBom.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ReadBom" --no-restore -v minimal
     if ($LASTEXITCODE -ne 0) { throw "ReadBom publish failed" }
 }
 
