@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**语言偏好：使用中文进行对话和注释。**
+
 ## Project Overview
 
 A SolidWorks desktop companion app (WPF toolbar) + BOM reader. The desktop app communicates with a SolidWorks add-in via local HTTP/WebSocket loopback — no direct COM references at compile time.
