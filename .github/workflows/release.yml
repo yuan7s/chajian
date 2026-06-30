@@ -41,9 +41,9 @@ jobs:
           dotnet build ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj -c Release --no-restore -v minimal
           dotnet build ExternalProgram.SwAddin.Runtime/ExternalProgram.SwAddin.Runtime.csproj -c Release --no-restore -v minimal
 
-          # dotnet publish automatically collects all NuGet dependencies
-          dotnet publish ExternalProgram.csproj -c Release -o publish/ExternalProgram --no-restore -v minimal
-          dotnet publish ReadBom/ReadBom.csproj -c Release -o publish/ReadBom --no-restore -v minimal
+          # Publish as framework-dependent single-file exe (all NuGet deps bundled)
+          dotnet publish ExternalProgram.csproj -c Release -o publish/ExternalProgram --no-restore -v minimal -p:PublishSingleFile=true
+          dotnet publish ReadBom/ReadBom.csproj -c Release -o publish/ReadBom --no-restore -v minimal -p:PublishSingleFile=true
 
           # Copy SwAddin Runtime directory to publish output
           $runtimeDir = 'ExternalProgram.SwAddin/bin/Release/net48/Runtime'
