@@ -29,7 +29,7 @@ jobs:
           global-json-file: global.json
 
       - name: Restore
-        run: dotnet restore ExternalProgram.sln
+        run: dotnet restore ExternalProgram.sln -r win-x64
 
       - name: Build and Publish
         shell: pwsh
@@ -42,8 +42,8 @@ jobs:
           dotnet build ExternalProgram.SwAddin.Runtime/ExternalProgram.SwAddin.Runtime.csproj -c Release --no-restore -v minimal
 
           # Publish as framework-dependent single-file exe (all NuGet deps bundled)
-          dotnet publish ExternalProgram.csproj -c Release -o publish/ExternalProgram --no-restore -v minimal -p:PublishSingleFile=true
-          dotnet publish ReadBom/ReadBom.csproj -c Release -o publish/ReadBom --no-restore -v minimal -p:PublishSingleFile=true
+          dotnet publish ExternalProgram.csproj -c Release -r win-x64 -o publish/ExternalProgram --no-restore -v minimal -p:PublishSingleFile=true
+          dotnet publish ReadBom/ReadBom.csproj -c Release -r win-x64 -o publish/ReadBom --no-restore -v minimal -p:PublishSingleFile=true
 
           # Copy SwAddin Runtime directory to publish output
           $runtimeDir = 'ExternalProgram.SwAddin/bin/Release/net48/Runtime'
