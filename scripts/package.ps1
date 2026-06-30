@@ -6,7 +6,7 @@ param(
 
     [switch]$SkipBuild,
 
-    [switch]$SkipRuntime,          # Skip downloading .NET Desktop Runtime installer
+    [switch]$IncludeRuntime        # Also include .NET Desktop Runtime installer in package
 
     [switch]$SkipZip,              # Skip creating zip
 
@@ -67,7 +67,7 @@ $runtimeInstallerName = "dotnet-runtime-$RuntimeVersion-win-x64.exe"
 $runtimeCacheDir = "$RepoRoot\.cache"
 $runtimeCachePath = "$runtimeCacheDir\$runtimeInstallerName"
 
-if (-not $SkipRuntime) {
+if ($IncludeRuntime) {
     Write-Host "[5/5] .NET $RuntimeVersion Desktop Runtime installer..." -ForegroundColor Yellow
 
     # Download to fixed cache location (persists across builds)
@@ -108,7 +108,7 @@ if (-not $SkipRuntime) {
     Copy-Item -LiteralPath $runtimeCachePath -Destination "$OutputDir\$runtimeInstallerName" -Force
 }
 else {
-    Write-Host "[5/5] Runtime skipped (-SkipRuntime)" -ForegroundColor DarkGray
+    Write-Host "[5/5] Runtime skipped (use -IncludeRuntime to add)" -ForegroundColor DarkGray
 }
 
 # ── Create Zip ──────────────────────────────────────────
