@@ -63,11 +63,17 @@ else {
 }
 
 # ── Download .NET Desktop Runtime ───────────────────────
-if (-not $SkipRuntime) {
-    Write-Host "[5/5] Downloading .NET $RuntimeVersion Desktop Runtime installer..." -ForegroundColor Yellow
-    $runtimeInstaller = "$OutputDir\dotnet-runtime-$RuntimeVersion-win-x64.exe"
+$runtimeInstallerName = "dotnet-runtime-$RuntimeVersion-win-x64.exe"
+$runtimeCacheDir = "$RepoRoot\.cache"
+$runtimeCachePath = "$runtimeCacheDir\$runtimeInstallerName"
 
-    if (-not (Test-Path -LiteralPath $runtimeInstaller)) {
+if (-not $SkipRuntime) {
+    Write-Host "[5/5] .NET $RuntimeVersion Desktop Runtime installer..." -ForegroundColor Yellow
+
+    # Download to fixed cache location (persists across builds)
+    if (-not (Test-Path -LiteralPath $runtimeCachePath)) {
+        New-Item -ItemType Directory -Force -Path $runtimeCacheDir | Out-Null
+
         try {
             $releasesJson = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/$RuntimeVersion/releases.json" -TimeoutSec 15
             $runtimeFile = $releasesJson.releases[0].runtime.files |
@@ -81,18 +87,20 @@ if (-not $SkipRuntime) {
             }
         }
         catch {
-            # Fallback: construct URL from known pattern
-            Write-Host "       Release JSON lookup failed, using fallback URL..." -ForegroundColor DarkYellow
+            Write-Host "       Release JSON lookup failed, using fallback..." -ForegroundColor DarkYellow
             $runtimeUrl = "https://download.visualstudio.microsoft.com/download/pr/dotnet-$RuntimeVersion-runtime-desktop-win-x64-installer.exe"
         }
 
-        Write-Host "       Downloading..." -NoNewline
-        Invoke-WebRequest -Uri $runtimeUrl -OutFile $runtimeInstaller -UseBasicParsing
+        Write-Host "       Downloading to .cache\..." -NoNewline
+        Invoke-WebRequest -Uri $runtimeUrl -OutFile $runtimeCachePath -UseBasicParsing
         Write-Host " done" -ForegroundColor Green
     }
     else {
-        Write-Host "       Already downloaded, skipping" -ForegroundColor Green
+        Write-Host "       Using cached: .cache\$runtimeInstallerName" -ForegroundColor Green
     }
+
+    # Copy to publish output
+    Copy-Item -LiteralPath $runtimeCachePath -Destination "$OutputDir\$runtimeInstallerName" -Force
 }
 else {
     Write-Host "[5/5] Runtime download skipped" -ForegroundColor DarkGray
