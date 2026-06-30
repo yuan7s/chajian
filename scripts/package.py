@@ -48,6 +48,7 @@ def publish_project(csproj: str, config: str, rid: str, output_dir: Path) -> Non
     run([
         "dotnet", "publish", csproj,
         "-c", config, "-r", rid,
+        "--self-contained", "false",
         "-o", str(output_dir),
         "--no-restore", "-v", "minimal",
         *PUBLISH_PROPS,
