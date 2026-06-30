@@ -75,20 +75,25 @@ if (-not $SkipRuntime) {
         New-Item -ItemType Directory -Force -Path $runtimeCacheDir | Out-Null
 
         try {
-            $releasesJson = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/$RuntimeVersion/releases.json" -TimeoutSec 15
-            $runtimeFile = $releasesJson.releases[0].runtime.files |
-                Where-Object { $_.name -match "windows-x64.*installer" } |
+            $channel = $RuntimeVersion.Substring(0, $RuntimeVersion.LastIndexOf('.'))
+            $releasesJson = Invoke-RestMethod -Uri "https://dotnetcli.blob.core.windows.net/dotnet/release-metadata/$channel/releases.json" -TimeoutSec 15
+            $release = $releasesJson.releases | Where-Object { $_.runtime.version -eq $RuntimeVersion } | Select-Object -First 1
+            if (-not $release) { throw "Version $RuntimeVersion not found in release metadata" }
+
+            $runtimeFile = $release.runtime.files |
+                Where-Object { $_.name -match "windowsdesktop-runtime.*win-x64\.exe$" } |
                 Select-Object -First 1
             if ($runtimeFile) {
                 $runtimeUrl = $runtimeFile.url
             }
             else {
-                throw "Could not find installer in release metadata"
+                throw "Could not find windowsdesktop-runtime installer"
             }
         }
         catch {
-            Write-Host "       Release JSON lookup failed, using fallback..." -ForegroundColor DarkYellow
-            $runtimeUrl = "https://download.visualstudio.microsoft.com/download/pr/dotnet-$RuntimeVersion-runtime-desktop-win-x64-installer.exe"
+            Write-Host "       Release JSON lookup failed: $_" -ForegroundColor DarkYellow
+            Write-Host "       Falling back to direct CDN URL..." -ForegroundColor DarkYellow
+            $runtimeUrl = "https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/$RuntimeVersion/windowsdesktop-runtime-$RuntimeVersion-win-x64.exe"
         }
 
         Write-Host "       Downloading to .cache\..." -NoNewline
