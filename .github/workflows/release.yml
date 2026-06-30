@@ -31,89 +31,17 @@ jobs:
       - name: Restore
         run: dotnet restore ExternalProgram.sln
 
-      - name: Build Release
-        shell: pwsh
-        run: |
-          dotnet build ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj -c Release --no-restore -v minimal
-          dotnet build ExternalProgram.sln -c Release --no-restore -v minimal
-
-      - name: Package artifacts
+      - name: Build and Publish
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $externalProgramOut = 'bin/Release/net9.0-windows'
-          $readBomOut = 'ReadBom/bin/Release/net9.0-windows'
-          $addinOut = 'ExternalProgram.SwAddin/bin/Release/net48'
+          # Build SwAddin first so its DLLs are available for ExternalProgram publish
+          dotnet build ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj -c Release --no-restore -v minimal
 
-          $externalProgramPublish = 'publish/ExternalProgram'
-          $readBomPublish = 'publish/ReadBom'
-
-          New-Item -ItemType Directory -Force -Path $externalProgramPublish, $readBomPublish | Out-Null
-
-          $externalProgramFiles = @(
-            'ExternalProgram.exe',
-            'ExternalProgram.dll',
-            'ExternalProgram.dll.config',
-            'ExternalProgram.deps.json',
-            'ExternalProgram.runtimeconfig.json',
-            'Wpf.Ui.dll',
-            'Wpf.Ui.Abstractions.dll',
-            'ExternalProgram.SwAddin.dll',
-            'Interop.SldWorks.dll',
-            'Interop.SwConst.dll',
-            'SolidWorks.Interop.swdocumentmgr.dll',
-            'SolidWorks.Interop.swpublished.dll',
-            'SolidWorksTools.dll'
-          )
-
-          $readBomFiles = @(
-            'ReadBom.exe',
-            'ReadBom.dll',
-            'ReadBom.deps.json',
-            'ReadBom.runtimeconfig.json',
-            'Wpf.Ui.dll',
-            'Wpf.Ui.Abstractions.dll',
-            'SolidWorks.Interop.swdocumentmgr.dll'
-          )
-
-          $addinFiles = @(
-            'ExternalProgram.SwAddin.dll',
-            'Interop.SldWorks.dll',
-            'Interop.SwConst.dll',
-            'SolidWorks.Interop.swdocumentmgr.dll',
-            'SolidWorks.Interop.swpublished.dll',
-            'SolidWorksTools.dll'
-          )
-
-          foreach ($file in $externalProgramFiles) {
-            $source = Join-Path $externalProgramOut $file
-            if (-not (Test-Path -LiteralPath $source)) {
-              throw "Missing ExternalProgram release file: $source"
-            }
-            Copy-Item -LiteralPath $source -Destination $externalProgramPublish
-          }
-
-          foreach ($file in $readBomFiles) {
-            $source = Join-Path $readBomOut $file
-            if (-not (Test-Path -LiteralPath $source)) {
-              throw "Missing ReadBom release file: $source"
-            }
-            Copy-Item -LiteralPath $source -Destination $readBomPublish
-          }
-
-          foreach ($file in $addinFiles) {
-            $source = Join-Path $addinOut $file
-            if (-not (Test-Path -LiteralPath $source)) {
-              throw "Missing add-in release file: $source"
-            }
-          }
-
-          $externalProgramCultureFile = "$externalProgramOut/zh-CN/ExternalProgram.resources.dll"
-          if (Test-Path -LiteralPath $externalProgramCultureFile) {
-            New-Item -ItemType Directory -Force -Path "$externalProgramPublish/zh-CN" | Out-Null
-            Copy-Item -LiteralPath $externalProgramCultureFile -Destination "$externalProgramPublish/zh-CN"
-          }
+          # dotnet publish automatically collects all NuGet dependencies
+          dotnet publish ExternalProgram.csproj -c Release -o publish/ExternalProgram --no-restore -v minimal
+          dotnet publish ReadBom/ReadBom.csproj -c Release -o publish/ReadBom --no-restore -v minimal
 
       - name: Create zip
         shell: pwsh

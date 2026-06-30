@@ -50,6 +50,21 @@
              RemoveProperties="OutDir;OutputPath;PublishDir" />
   </Target>
 
+  <Target Name="CopySwAddinToPublishDir" AfterTargets="Publish">
+    <ItemGroup>
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)ExternalProgram.SwAddin.dll" />
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)Interop.SldWorks.dll" />
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)Interop.SwConst.dll" />
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)SolidWorks.Interop.swpublished.dll" />
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)SolidWorks.Interop.swdocumentmgr.dll" />
+      <SwAddinPublishFile Include="$(SwAddinOutputDirectory)SolidWorksTools.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(SwAddinPublishFile)"
+          DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true"
+          Condition="Exists('%(SwAddinPublishFile.FullPath)')" />
+  </Target>
+
   <Target Name="CopySwAddinToOutput" AfterTargets="Build">
     <ItemGroup>
       <SwAddinPackageFile Include="$(SwAddinOutputDirectory)ExternalProgram.SwAddin.dll" />
