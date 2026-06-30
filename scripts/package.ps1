@@ -6,7 +6,7 @@ param(
 
     [switch]$SkipBuild,
 
-    [switch]$IncludeRuntime        # Also include .NET Desktop Runtime installer in package
+    [switch]$IncludeRuntime,       # Also include .NET Desktop Runtime installer in package
 
     [switch]$SkipZip,              # Skip creating zip
 
@@ -44,10 +44,10 @@ if (-not $SkipBuild) {
     if ($LASTEXITCODE -ne 0) { throw "SwAddin.Runtime build failed" }
 
     Write-Host "[3/5] Publishing ExternalProgram & ReadBom..." -ForegroundColor Yellow
-    dotnet publish "$RepoRoot\ExternalProgram.csproj" -c $Configuration -r win-x64 -o "$OutputDir\ExternalProgram" --no-restore -v minimal -p:PublishSingleFile=true
+    dotnet publish "$RepoRoot\ExternalProgram.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ExternalProgram" --no-restore -v minimal -p:PublishSingleFile=true
     if ($LASTEXITCODE -ne 0) { throw "ExternalProgram publish failed" }
 
-    dotnet publish "$RepoRoot\ReadBom\ReadBom.csproj" -c $Configuration -r win-x64 -o "$OutputDir\ReadBom" --no-restore -v minimal -p:PublishSingleFile=true
+    dotnet publish "$RepoRoot\ReadBom\ReadBom.csproj" -c $Configuration -r win-x64 -o "$PublishDir\ReadBom" --no-restore -v minimal -p:PublishSingleFile=true
     if ($LASTEXITCODE -ne 0) { throw "ReadBom publish failed" }
 }
 
@@ -55,7 +55,7 @@ if (-not $SkipBuild) {
 Write-Host "[4/5] Copying SwAddin Runtime..." -ForegroundColor Yellow
 $runtimeSource = "$RepoRoot\ExternalProgram.SwAddin\bin\$Configuration\net48\Runtime"
 if (Test-Path -LiteralPath $runtimeSource) {
-    Copy-Item -LiteralPath $runtimeSource -Destination "$OutputDir\ExternalProgram\Runtime" -Recurse -Force
+    Copy-Item -LiteralPath $runtimeSource -Destination "$PublishDir\ExternalProgram\Runtime" -Recurse -Force
     Write-Host "       Runtime copied" -ForegroundColor Green
 }
 else {
@@ -105,7 +105,7 @@ if ($IncludeRuntime) {
     }
 
     # Copy to publish output
-    Copy-Item -LiteralPath $runtimeCachePath -Destination "$OutputDir\$runtimeInstallerName" -Force
+    Copy-Item -LiteralPath $runtimeCachePath -Destination "$PublishDir\$runtimeInstallerName" -Force
 }
 else {
     Write-Host "[5/5] Runtime skipped (use -IncludeRuntime to add)" -ForegroundColor DarkGray
