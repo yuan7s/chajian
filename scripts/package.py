@@ -145,8 +145,8 @@ def main() -> None:
                         choices=["Release", "Debug"])
     parser.add_argument("-o", "--output", default="publish")
     parser.add_argument("--skip-build", action="store_true")
-    parser.add_argument("--include-runtime", action="store_true",
-                        help="Include .NET Desktop Runtime installer in package")
+    parser.add_argument("--skip-runtime", action="store_true",
+                        help="Skip .NET Desktop Runtime installer")
     parser.add_argument("--skip-zip", action="store_true")
     parser.add_argument("--runtime-version", default="9.0.8")
     parser.add_argument("--zip-name", default="ExternalProgram")
@@ -170,10 +170,10 @@ def main() -> None:
 
     copy_swaddin_runtime(config, publish_dir)
 
-    if args.include_runtime:
-        download_runtime(args.runtime_version, publish_dir)
+    if args.skip_runtime:
+        print("[5/5] Runtime skipped (--skip-runtime)")
     else:
-        print("[5/5] Runtime skipped (use --include-runtime to add)")
+        download_runtime(args.runtime_version, publish_dir)
 
     if not args.skip_zip:
         create_zip(args.zip_name, publish_dir)
