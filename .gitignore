@@ -368,3 +368,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+.reasonix/
+.reasonix/*
+ExternalProgram.zip
+language.md
+.mcp.json
+reasonix.toml
+REASONIX.md
+ExternalProgram-v1.6.zip

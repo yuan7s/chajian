@@ -35,49 +35,20 @@ def build_swaddin(config: str) -> None:
     ])
 
 
-def build_project(csproj: str, config: str) -> None:
+def publish_project(csproj: str, config: str, rid: str, output_dir: Path) -> None:
     run([
-        "dotnet", "build", csproj,
-        "-c", config, "--no-restore", "-v", "minimal",
+        "dotnet", "publish", csproj,
+        "-c", config, "-r", rid,
+        "--self-contained", "false",
+        "-o", str(output_dir),
+        "--no-restore", "-v", "minimal",
     ])
 
 
-def collect_build_output(csproj: str, config: str, output_dir: Path) -> None:
-    """Copy build output (dll + all dependencies) from bin to output_dir."""
-    proj_dir = Path(csproj).parent
-    bin_dir = proj_dir / "bin" / config
-
-    # Find the target framework subdirectory (e.g. net9.0-windows)
-    tf_dirs = list(bin_dir.glob("net*"))
-    if not tf_dirs:
-        raise FileNotFoundError(f"No target framework dir found under {bin_dir}")
-    src = tf_dirs[0]
-
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for f in src.iterdir():
-        if f.is_file():
-            shutil.copy2(f, output_dir / f.name)
-
-    print(f"       {len(list(src.iterdir()))} files → {output_dir}")
-
-
-def build_all(config: str, rid: str, publish_dir: Path) -> None:
-    print("[3/4] Building ExternalProgram & ReadBom...")
-    build_project("ExternalProgram.csproj", config)
-    build_project("ReadBom/ReadBom.csproj", config)
-
-    collect_build_output("ExternalProgram.csproj", config, publish_dir / "ExternalProgram")
-    collect_build_output("ReadBom/ReadBom.csproj", config, publish_dir / "ReadBom")
-
-    # Copy SwAddin DLLs (handled by ExternalProgram.csproj's CopySwAddinToOutput target
-    # during build; need to also copy the SwAddin output dir to publish)
-    swaddin_src = REPO_ROOT / "ExternalProgram.SwAddin" / "bin" / config / "net48"
-    swaddin_dst = publish_dir / "ExternalProgram" / "SwAddin"
-    swaddin_dst.mkdir(parents=True, exist_ok=True)
-    for f in swaddin_src.iterdir():
-        if f.is_file():
-            shutil.copy2(f, swaddin_dst / f.name)
-    print(f"       SwAddin DLLs → {swaddin_dst}")
+def publish_all(config: str, rid: str, publish_dir: Path) -> None:
+    print("[3/4] Publishing ExternalProgram & ReadBom...")
+    publish_project("ExternalProgram.csproj", config, rid, publish_dir / "ExternalProgram")
+    publish_project("ReadBom/ReadBom.csproj", config, rid, publish_dir / "ReadBom")
 
 
 def download_runtime(version: str, publish_dir: Path) -> None:
@@ -172,7 +143,7 @@ def main() -> None:
 
         restore(rid)
         build_swaddin(config)
-        build_all(config, rid, publish_dir)
+        publish_all(config, rid, publish_dir)
 
     if args.skip_runtime:
         print("[4/4] Runtime skipped (--skip-runtime)")

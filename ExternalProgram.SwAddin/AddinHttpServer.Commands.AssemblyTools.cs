@@ -18,6 +18,11 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
+    /// <summary>
+    /// 基准面配合：为选中的组件添加与装配体默认基准面的重合配合。
+    /// 自动枚举装配体和组件特征树中前 3 个 RefPlane（前视/上视/右视），按索引一一对应。
+    /// 中英文名称自动适配——装配体可能用"前视基准面"，组件可能用"Front Plane"。
+    /// </summary>
     private object MateReferencePlanes()
     {
         var model = GetActiveModel();
@@ -283,6 +288,9 @@ internal sealed partial class AddinHttpServer
         }
     }
 
+    /// <summary>
+    /// 删除错误配合：遍历当前装配体的所有配合，移除处于错误状态的。
+    /// </summary>
     private object DeleteErrorMates()
     {
         var model = GetActiveModel();
@@ -367,6 +375,10 @@ internal sealed partial class AddinHttpServer
 
     // --- Hide Config Names (FeatureManager) ---
 
+    /// <summary>
+    /// 树设置（隐藏配置名）：隐藏特征树中组件的配置名称和显示状态名称，
+    /// 递归应用到所有子装配体。使特征树更简洁易读。
+    /// </summary>
     private object HideConfigNames()
     {
         var model = GetActiveModel();
@@ -469,6 +481,11 @@ internal sealed partial class AddinHttpServer
 
     // --- Sort Components ---
 
+    /// <summary>
+    /// 装配体排序：按用户配置的排序规则（文件名/组件名，升序/降序）重排顶层组件。
+    /// 支持文件夹内排序和递归子装配体排序。
+    /// 失败时返回具体错误（如轻化组件、只读文档），不再笼统报 internal_error。
+    /// </summary>
     private object SortComponents(Dictionary<string, object> args)
     {
         var model = GetActiveModel();

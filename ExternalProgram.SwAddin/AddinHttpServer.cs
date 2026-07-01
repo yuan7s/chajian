@@ -14,20 +14,32 @@ using SldWorks;
 
 namespace ExternalProgram.SwAddin;
 
+/// <summary>
+/// HTTP+WebSocket 服务端，运行在 SW 进程中。
+/// 监听 127.0.0.1 回环地址，接收主程序（ExternalProgram.exe / ReadBom.exe）的 JSON 命令，
+/// 通过 WinForms Control.BeginInvoke 将所有 COM 调用封送到 SW 主线程（STA）执行。
+/// </summary>
 internal sealed partial class AddinHttpServer : IDisposable
 {
+    // 命令执行超时（SW 主线程忙时自动失败，避免永久挂起）
     private const int DefaultCommandTimeoutSeconds = 30;
+    // 健康检查超时（需要更短，因为客户端频繁扫描端口）
     private const int HealthCheckTimeoutSeconds = 5;
 
     private readonly SldWorks.SldWorks _swApp;
+    // 用于将线程池回调封送到 SW 主线程的 WinForms 控件
     private readonly System.Windows.Forms.Control _mainThreadControl;
     private readonly string _prefix;
     private readonly JavaScriptSerializer _json = new JavaScriptSerializer();
     private HttpListener _listener;
     private CancellationTokenSource _cts;
+    // 命令互斥锁：同一时间只允许一个命令在 SW 主线程执行
     private int _commandInProgress;
+    // 批量操作的取消标志
     private volatile bool _batchCancelled;
+    // 命令代际计数器：超时后新命令递增，旧回调检测到代际不匹配则丢弃
     private long _commandGeneration;
+    // 所有已连接的 WebSocket 客户端，用于广播事件
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -87,6 +99,11 @@ internal sealed partial class AddinHttpServer : IDisposable
         }
     }
 
+    /// <summary>
+    /// 将工作封送到 SW 主线程执行。SW COM API 要求 STA 单线程访问。
+    /// 通过 WinForms Control.BeginInvoke 将回调投递到 SW 主线程消息队列。
+    /// 超时后抛出 CommandFailure，并递增代际计数器淘汰过期回调。
+    /// </summary>
     private async Task<object> RunOnMainThread(Func<object> work, int timeoutSeconds = DefaultCommandTimeoutSeconds)
     {
         if (_mainThreadControl is null || !_mainThreadControl.InvokeRequired)
@@ -123,8 +140,8 @@ internal sealed partial class AddinHttpServer : IDisposable
     }
 
     /// <summary>
-    /// Check whether a COM RCW proxy is still connected to its underlying object.
-    /// Returns false if the proxy is a zombie (e.g. document closed).
+    /// 检测 COM RCW 代理是否仍然有效（底层 COM 对象未被释放）。
+    /// 用于防止对已关闭文档的代理调用导致 RPC_E_DISCONNECTED 崩溃。
     /// </summary>
     internal static bool IsComAlive(object comObject)
     {
@@ -143,16 +160,28 @@ internal sealed partial class AddinHttpServer : IDisposable
         }
     }
 
+    /// <summary>
+    /// HTTP 请求分发入口。路由：
+    ///   GET  /health          → 健康检查（客户端端口扫描用）
+    ///   GET  /events (WS)     → WebSocket 事件推送（doc-changed / selection-changed）
+    ///   POST /cancel          → 取消当前批量操作
+    ///   POST /command         → 命令执行（JSON body: {Command, Args}）
+    /// </summary>
     private async Task HandleRequest(HttpListenerContext context)
     {
         var watch = Stopwatch.StartNew();
         var requestPath = context.Request.Url?.AbsolutePath ?? string.Empty;
         try
         {
-            AddinLog.Write($"HTTP {context.Request.HttpMethod} {requestPath} from {context.Request.RemoteEndPoint}");
+            var isHealthCheck = context.Request.HttpMethod == "GET" && requestPath == "/health";
+            var isWebSocket = context.Request.IsWebSocketRequest && requestPath == "/events";
+
+            // 只记录非健康检查和非 WebSocket 的请求，减少日志噪音
+            if (!isHealthCheck && !isWebSocket)
+                AddinLog.Write($"HTTP {context.Request.HttpMethod} {requestPath} from {context.Request.RemoteEndPoint}");
 
             // WebSocket upgrade for /events
-            if (context.Request.IsWebSocketRequest && requestPath == "/events")
+            if (isWebSocket)
             {
                 await HandleWebSocket(context);
                 return;
@@ -185,7 +214,6 @@ internal sealed partial class AddinHttpServer : IDisposable
                     shortTitle = document.ShortTitle,
                     wsClients = _webSockets.Count
                 });
-                AddinLog.Write($"HTTP health ok in {watch.ElapsedMilliseconds}ms");
                 return;
             }
 
@@ -389,9 +417,8 @@ internal sealed partial class AddinHttpServer : IDisposable
         while (!token.IsCancellationRequested && ws.State == WebSocketState.Open)
         {
             try { await Task.Delay(30000, token); }
-            catch (Exception ex)
+            catch (Exception)
             {
-                AddinLog.Write("WebSocket heartbeat delay stopped: " + ex.Message);
                 return;
             }
 
@@ -400,9 +427,8 @@ internal sealed partial class AddinHttpServer : IDisposable
                 var ping = Encoding.UTF8.GetBytes("{\"type\":\"ping\"}");
                 await ws.SendAsync(new ArraySegment<byte>(ping), WebSocketMessageType.Text, true, token);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                AddinLog.Write("WebSocket heartbeat send stopped: " + ex.Message);
                 return;
             }
         }

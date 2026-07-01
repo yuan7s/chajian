@@ -18,15 +18,22 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
+    // ──────────── 编码整理 ────────────
+    // 用于识别标准件/外购件的属性名
     private static readonly string[] StandardComponentFlagProperties = ["标准件"];
     private static readonly string[] PurchasedComponentFlagProperties = ["外购件"];
 
+    // ──────────── 工程图自动化 ────────────
+    // 孔标注的 SW 注释选项位掩码
     private const int DrawingHoleCalloutAnnotationOptions = 1048576;
+    // 模型项目导入时的注释选项组合
     private const int DrawingModelAnnotationOptions =
         8 | 16 | 32768 | 131072 | DrawingHoleCalloutAnnotationOptions | 16777216;
 
+    // 工程图纸尺寸（A3 横向：420mm × 297mm）
     private const double DrawingSheetWidth = 0.42;
     private const double DrawingSheetHeight = 0.297;
+    // 视图布局间距参数（单位：米）
     private const double DrawingViewLayoutGap = 0.032;
     private const double DrawingViewLayoutClearance = 0.012;
     private const double DrawingIsoViewLayoutClearance = 0.004;
@@ -119,8 +126,12 @@ internal sealed partial class AddinHttpServer
 
         var args = request.Args ?? new Dictionary<string, object>();
         object result;
+
+        // ─── 命令路由表 ───
+        // 按功能分组：基础 / 工程图 / 装配体 / 属性 / 编码
         switch ((request.Command ?? string.Empty).Trim().ToUpperInvariant())
         {
+            // ─── 基础 ───
             case "PING":
                 result = new { message = "pong", time = DateTime.Now };
                 break;
@@ -129,6 +140,7 @@ internal sealed partial class AddinHttpServer
                 result = GetActiveDocumentInfo();
                 break;
 
+            // ─── 工程图导出 ───
             case "SAVE-DWG":
                 result = SaveActiveDrawingAs(".dwg", "DWG");
                 break;
@@ -141,6 +153,7 @@ internal sealed partial class AddinHttpServer
                 result = GetActiveOrSelectedModelPath();
                 break;
 
+            // ─── 工程图视图/标注/标准 ───
             case "ROTATE-DRAWING-VIEW":
                 result = RotateSelectedDrawingView();
                 break;
@@ -161,6 +174,7 @@ internal sealed partial class AddinHttpServer
                 result = ReplaceSheetFormat(args);
                 break;
 
+            // ─── 工程图自动生成 ───
             case "DRAWING-AUTOMATION-RUN":
                 result = RunDrawingAutomation(args);
                 break;
@@ -181,6 +195,7 @@ internal sealed partial class AddinHttpServer
                 result = CheckDrawingAutomation(args);
                 break;
 
+            // ─── 装配体操作 ───
             case "MATE-REFERENCE-PLANES":
                 result = MateReferencePlanes();
                 break;
@@ -209,6 +224,7 @@ internal sealed partial class AddinHttpServer
                 result = HideConfigNames();
                 break;
 
+            // ─── 属性读写 ───
             case "SYNC-CODING-PROPS":
                 result = SyncCodingProps();
                 break;
@@ -233,6 +249,7 @@ internal sealed partial class AddinHttpServer
                 result = GetBoundingBox(args);
                 break;
 
+            // ─── 重命名 ───
             case "RENAME-TARGET":
                 result = GetRenameTargetInfo();
                 break;
@@ -257,6 +274,7 @@ internal sealed partial class AddinHttpServer
                 result = CodingCleanup(args);
                 break;
 
+            // ─── 通用操作 ───
             case "REBUILD":
                 result = Rebuild();
                 break;
@@ -281,6 +299,9 @@ internal sealed partial class AddinHttpServer
         return result;
     }
 
+    /// <summary>
+    /// 获取 SW 当前活动文档。无文档时抛出 active_document_required。
+    /// </summary>
     private ModelDoc2 GetActiveModel()
     {
         var model = _swApp.ActiveDoc as ModelDoc2;
@@ -288,11 +309,18 @@ internal sealed partial class AddinHttpServer
         return model;
     }
 
+    /// <summary>
+    /// 创建业务异常，客户端根据 errorCode 显示中文提示。
+    /// </summary>
     private static CommandFailureException CommandFailure(string code, params object[] details)
     {
         return CommandFailureException.Create(code, details);
     }
 
+    /// <summary>
+    /// 安全执行 COM 调用。捕获异常后记录日志并返回 default(T)。
+    /// 用于非关键 COM 调用（如读取属性），失败时静默降级。
+    /// </summary>
     private static T Safe<T>(Func<T> work)
     {
         try
