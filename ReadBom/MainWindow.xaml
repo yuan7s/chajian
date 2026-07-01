@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:local="clr-namespace:ReadBom"
+        xmlns:sys="clr-namespace:System;assembly=System.Runtime"
         mc:Ignorable="d"
         Title="SW Properties/BOM Tool"
         Icon="Assets/app.ico"
@@ -167,7 +168,7 @@
                            Margin="12,0,0,0"
                            VerticalAlignment="Center"
                            HorizontalAlignment="Right"
-                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           Foreground="{StaticResource TextFillColorSecondaryBrush}"
                            TextWrapping="Wrap"/>
                 <StackPanel Orientation="Horizontal">
                     <Border Style="{StaticResource ToolbarGroupBorderStyle}">
@@ -261,7 +262,7 @@
             </Grid.ColumnDefinitions>
             <TextBlock Name="ProgressText"
                        VerticalAlignment="Center"
-                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">就绪</TextBlock>
+                       TextElement.Foreground="{DynamicResource TextFillColorSecondaryBrush}">就绪</TextBlock>
             <ProgressBar Grid.Column="1" Name="ReadProgressBar" Height="16" Minimum="0" Maximum="100" Value="0"/>
         </Grid>
 
@@ -374,7 +375,7 @@
                         </Style>
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate d:DataContext="{d:DesignInstance local:BomRow}">
                             <Image Source="{Binding DocumentIconPath}"
                                    ToolTip="{Binding DocumentType}"
                                    HorizontalAlignment="Center"
@@ -393,7 +394,7 @@
                         </Style>
                     </DataGridTemplateColumn.CellStyle>
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate d:DataContext="{d:DesignInstance local:BomRow}">
                             <Image Source="{Binding DrawingIconPath}"
                                    ToolTip="{Binding DrawingStatus}"
                                    HorizontalAlignment="Center"

@@ -12,10 +12,6 @@ from pathlib import Path
 import urllib.request
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-PUBLISH_PROPS = [
-    "-p:PublishSingleFile=true",
-    "-p:DebugType=none",
-]
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -26,56 +22,66 @@ def run(cmd: list[str], **kwargs) -> None:
 
 
 def restore(runtime_id: str) -> None:
-    print("[1/5] Restoring packages...")
+    print("[1/4] Restoring packages...")
     run(["dotnet", "restore", "ExternalProgram.sln", "-r", runtime_id])
 
 
 def build_swaddin(config: str) -> None:
-    print("[2/5] Building SwAddin & Runtime...")
+    print("[2/4] Building SwAddin...")
     run([
         "dotnet", "build",
         "ExternalProgram.SwAddin/ExternalProgram.SwAddin.csproj",
         "-c", config, "--no-restore", "-v", "minimal",
     ])
+
+
+def build_project(csproj: str, config: str) -> None:
     run([
-        "dotnet", "build",
-        "ExternalProgram.SwAddin.Runtime/ExternalProgram.SwAddin.Runtime.csproj",
+        "dotnet", "build", csproj,
         "-c", config, "--no-restore", "-v", "minimal",
     ])
 
 
-def publish_project(csproj: str, config: str, rid: str, output_dir: Path) -> None:
-    run([
-        "dotnet", "publish", csproj,
-        "-c", config, "-r", rid,
-        "--self-contained", "false",
-        "-o", str(output_dir),
-        "--no-restore", "-v", "minimal",
-        *PUBLISH_PROPS,
-    ])
+def collect_build_output(csproj: str, config: str, output_dir: Path) -> None:
+    """Copy build output (dll + all dependencies) from bin to output_dir."""
+    proj_dir = Path(csproj).parent
+    bin_dir = proj_dir / "bin" / config
+
+    # Find the target framework subdirectory (e.g. net9.0-windows)
+    tf_dirs = list(bin_dir.glob("net*"))
+    if not tf_dirs:
+        raise FileNotFoundError(f"No target framework dir found under {bin_dir}")
+    src = tf_dirs[0]
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for f in src.iterdir():
+        if f.is_file():
+            shutil.copy2(f, output_dir / f.name)
+
+    print(f"       {len(list(src.iterdir()))} files → {output_dir}")
 
 
-def publish_all(config: str, rid: str, publish_dir: Path) -> None:
-    print("[3/5] Publishing ExternalProgram & ReadBom...")
-    publish_project("ExternalProgram.csproj", config, rid, publish_dir / "ExternalProgram")
-    publish_project("ReadBom/ReadBom.csproj", config, rid, publish_dir / "ReadBom")
+def build_all(config: str, rid: str, publish_dir: Path) -> None:
+    print("[3/4] Building ExternalProgram & ReadBom...")
+    build_project("ExternalProgram.csproj", config)
+    build_project("ReadBom/ReadBom.csproj", config)
 
+    collect_build_output("ExternalProgram.csproj", config, publish_dir / "ExternalProgram")
+    collect_build_output("ReadBom/ReadBom.csproj", config, publish_dir / "ReadBom")
 
-def copy_swaddin_runtime(config: str, publish_dir: Path) -> None:
-    print("[4/5] Copying SwAddin Runtime...")
-    src = REPO_ROOT / "ExternalProgram.SwAddin" / "bin" / config / "net48" / "Runtime"
-    dst = publish_dir / "ExternalProgram" / "SwAddin" / "Runtime"
-    if src.exists():
-        if dst.exists():
-            shutil.rmtree(dst)
-        shutil.copytree(src, dst)
-        print(f"       Runtime copied")
-    else:
-        print(f"       Runtime dir not found, skipping")
+    # Copy SwAddin DLLs (handled by ExternalProgram.csproj's CopySwAddinToOutput target
+    # during build; need to also copy the SwAddin output dir to publish)
+    swaddin_src = REPO_ROOT / "ExternalProgram.SwAddin" / "bin" / config / "net48"
+    swaddin_dst = publish_dir / "ExternalProgram" / "SwAddin"
+    swaddin_dst.mkdir(parents=True, exist_ok=True)
+    for f in swaddin_src.iterdir():
+        if f.is_file():
+            shutil.copy2(f, swaddin_dst / f.name)
+    print(f"       SwAddin DLLs → {swaddin_dst}")
 
 
 def download_runtime(version: str, publish_dir: Path) -> None:
-    print(f"[5/5] .NET {version} Desktop Runtime installer...")
+    print(f"[4/4] .NET {version} Desktop Runtime installer...")
     cache_dir = REPO_ROOT / ".cache"
     cache_dir.mkdir(exist_ok=True)
 
@@ -166,12 +172,10 @@ def main() -> None:
 
         restore(rid)
         build_swaddin(config)
-        publish_all(config, rid, publish_dir)
-
-    copy_swaddin_runtime(config, publish_dir)
+        build_all(config, rid, publish_dir)
 
     if args.skip_runtime:
-        print("[5/5] Runtime skipped (--skip-runtime)")
+        print("[4/4] Runtime skipped (--skip-runtime)")
     else:
         download_runtime(args.runtime_version, publish_dir)
 

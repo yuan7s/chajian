@@ -485,8 +485,8 @@ internal sealed partial class AddinHttpServer
     {
         templatePath = templatePath ?? ResolveDrawingAutomationTemplatePath(args);
 
-        // Use the cross-AppDomain COM bridge. INewDrawing2 is called in the
-        // MAIN AppDomain where _swApp is a direct RCW — no COM proxy deadlock.
+        // Since the add-in now runs in the main AppDomain (no child AppDomain),
+        // the ComBridge is no longer needed. Use ShellExecute fallback.
         var bridge = GetComBridge();
         if (bridge != null)
         {
@@ -528,17 +528,13 @@ internal sealed partial class AddinHttpServer
         return drawing;
     }
 
+    /// <summary>
+    /// Always returns null in the merged architecture (no child AppDomain).
+    /// Kept for backward compatibility; callers use fallback paths.
+    /// </summary>
     private static object GetComBridge()
     {
-        try
-        {
-            return AppDomain.CurrentDomain.GetData("ExternalProgram.SwAddin.ComBridge");
-        }
-        catch (Exception ex)
-        {
-            AddinLog.Write("GetComBridge ignored: " + ex.Message);
-            return null;
-        }
+        return null;
     }
 
     private ModelDoc2 PollForActiveDrawing(
@@ -816,7 +812,8 @@ internal sealed partial class AddinHttpServer
             if (existing != null)
                 return GetModelHoleFeatureSummary(existing);
 
-            // Open via bridge to avoid cross-AppDomain COM hang
+            // ComBridge is always null in merged architecture (no child AppDomain).
+            // Hole feature pre-fetching is unavailable; caller handles gracefully.
             var bridge = GetComBridge();
             if (bridge == null) return null;
 

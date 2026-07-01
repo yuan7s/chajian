@@ -180,5 +180,26 @@
                 </StackPanel>
             </ScrollViewer>
         </Border>
+
+        <!-- 自动消失通知弹窗（悬浮在窗体上方外侧） -->
+        <Popup x:Name="AutoCloseNoticePopup"
+               PlacementTarget="{Binding RelativeSource={RelativeSource AncestorType=Window}}"
+               Placement="Top"
+               HorizontalOffset="0"
+               VerticalOffset="-4"
+               StaysOpen="False"
+               AllowsTransparency="True"
+               PopupAnimation="Fade">
+            <Border x:Name="AutoCloseNotice"
+                    Padding="14,5,16,5"
+                    CornerRadius="6"
+                    Background="#E03B82F6">
+                <TextBlock x:Name="AutoCloseNoticeText"
+                           Foreground="White"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Text="" />
+            </Border>
+        </Popup>
     </Grid>
 </ui:FluentWindow>

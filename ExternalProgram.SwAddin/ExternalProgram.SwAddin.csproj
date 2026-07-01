@@ -39,7 +39,9 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Include="..\ExternalProgram.SwAddin.Runtime\AddinLog.cs" Link="AddinLog.cs" />
+        <Compile Include="..\ExternalProgram.SwAddin.Runtime\**\*.cs"
+                 Exclude="..\ExternalProgram.SwAddin.Runtime\obj\**\*.cs;
+                          ..\ExternalProgram.SwAddin.Runtime\bin\**\*.cs" />
     </ItemGroup>
 
     <Target Name="CloseSolidWorksWhenAddinDllLocked" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(CloseSolidWorksWhenAddinDllLocked)' == 'true'">

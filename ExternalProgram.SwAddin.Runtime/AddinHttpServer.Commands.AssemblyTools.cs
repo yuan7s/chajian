@@ -31,9 +31,13 @@ internal sealed partial class AddinHttpServer
         if (selectedComponents.Count == 0)
             throw CommandFailure("component_selection_required");
 
+        var asmPlaneNames = GetFirstNFeatureNamesByType(model, "RefPlane", 3);
+        AddinLog.Write($"MateReferencePlanes: assembly first-3 planes={string.Join(",", asmPlaneNames)}");
+
         var totalMates = 0;
         var failed = 0;
         var details = new List<object>();
+        var failureMessages = new List<string>();
 
         foreach (var component in selectedComponents)
         {
@@ -41,8 +45,18 @@ internal sealed partial class AddinHttpServer
             var componentMates = 0;
             var failures = new List<string>();
 
-            foreach (var planeNames in ReferencePlaneMateNameGroups)
-                if (TryAddReferencePlaneMate(model, assemblyDoc, component, planeNames, out var errorMessage))
+            var compModel = Safe(() => component.GetModelDoc() as ModelDoc2);
+            var compPlaneNames = compModel != null
+                ? GetFirstNFeatureNamesByType(compModel, "RefPlane", 3)
+                : new List<string>();
+            AddinLog.Write($"MateReferencePlanes: component {componentName} first-3 planes={string.Join(",", compPlaneNames)}");
+
+            // Mate by index: asm[0]×comp[0] (前视), asm[1]×comp[1] (上视), asm[2]×comp[2] (右视)
+            var pairCount = Math.Min(asmPlaneNames.Count, compPlaneNames.Count);
+            for (var i = 0; i < pairCount; i++)
+            {
+                if (TryMatePlanePair(model, assemblyDoc, component,
+                        asmPlaneNames[i], compPlaneNames[i], out var errorMessage))
                 {
                     totalMates++;
                     componentMates++;
@@ -51,16 +65,25 @@ internal sealed partial class AddinHttpServer
                 {
                     failed++;
                     failures.Add(errorMessage);
+                    failureMessages.Add(componentName + ": " + errorMessage);
                 }
+            }
 
             details.Add(new { component = componentName, mates = componentMates, failures });
         }
 
         if (totalMates == 0)
-            throw CommandFailure("reference_plane_mate_failed");
+        {
+            var failureSummary = string.Join("; ",
+                failureMessages.Take(5).Select(f => f.Length > 120 ? f.Substring(0, 117) + "..." : f));
+            if (failureMessages.Count > 5)
+                failureSummary += "; ... (+" + (failureMessages.Count - 5) + " more)";
+            AddinLog.Write($"ReferencePlaneMate all failed: {failureSummary}");
+            throw CommandFailure("reference_plane_mate_failed", "error", failureSummary);
+        }
 
-        model.EditRebuild3();
-        MarkDocDirty(model);
+        Safe(() => model.EditRebuild3());
+        try { MarkDocDirty(model); } catch (Exception ex) { LogIgnoredException("MateReferencePlanes.MarkDocDirty", ex); }
         return new { components = selectedComponents.Count, mates = totalMates, failed, details };
     }
 
@@ -87,11 +110,34 @@ internal sealed partial class AddinHttpServer
         return components;
     }
 
-    private static bool TryAddReferencePlaneMate(
+    /// <summary>
+    /// Return the first N feature names of the given type (e.g. "RefPlane") in tree order.
+    /// Default planes always appear first, so N=3 gives 前视/上视/右视 (or their localized names).
+    /// </summary>
+    private static List<string> GetFirstNFeatureNamesByType(ModelDoc2 model, string typeName, int n)
+    {
+        var names = new List<string>();
+        var feat = Safe(() => model.FirstFeature() as Feature);
+        while (feat != null && names.Count < n)
+        {
+            var current = feat;
+            if (string.Equals(Safe(current.GetTypeName2), typeName, StringComparison.OrdinalIgnoreCase))
+            {
+                var name = Safe(() => current.Name);
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+            feat = Safe(() => current.GetNextFeature() as Feature);
+        }
+        return names;
+    }
+
+    private static bool TryMatePlanePair(
         ModelDoc2 model,
         AssemblyDoc assemblyDoc,
         Component2 component,
-        string[] planeNames,
+        string asmPlaneName,
+        string compPlaneName,
         out string errorMessage)
     {
         errorMessage = "";
@@ -99,64 +145,71 @@ internal sealed partial class AddinHttpServer
         var componentSelectionName = GetComponentSelectionName(component);
         if (string.IsNullOrWhiteSpace(componentSelectionName))
         {
-            errorMessage = "component_selection_path_unavailable";
+            errorMessage = "component_path_unavailable";
             return false;
         }
 
-        foreach (var planeName in planeNames)
+        var componentPlanePath = compPlaneName + "@" + componentSelectionName;
+        try
         {
-            var componentPlaneName = planeName + "@" + componentSelectionName;
-            try
+            model.ClearSelection2(true);
+            var asmSelected = model.Extension.SelectByID2(asmPlaneName, "PLANE", 0, 0, 0, false, 1, null, 0);
+            var compSelected = model.Extension.SelectByID2(componentPlanePath, "PLANE", 0, 0, 0, true, 1, null, 0);
+            if (!asmSelected || !compSelected)
             {
-                model.ClearSelection2(true);
-                var assemblyPlaneSelected = model.Extension.SelectByID2(planeName, "PLANE", 0, 0, 0, false, 1, null, 0);
-                var componentPlaneSelected =
-                    model.Extension.SelectByID2(componentPlaneName, "PLANE", 0, 0, 0, true, 1, null, 0);
-                if (!assemblyPlaneSelected || !componentPlaneSelected)
-                {
-                    errorMessage = "reference_plane_select_failed:" + planeName;
-                    continue;
-                }
-
-                var mate = assemblyDoc.AddMate4(
-                    (int)swMateType_e.swMateCOINCIDENT,
-                    (int)swMateAlign_e.swMateAlignALIGNED,
-                    false,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    false,
-                    false,
-                    out var errorStatus);
-
-                if (mate != null && errorStatus == 0) return true;
-
-                errorMessage = "add_mate_failed:" + planeName + ":" + errorStatus;
+                errorMessage = "select:" + asmPlaneName + "/" + compPlaneName;
+                return false;
             }
-            catch (Exception ex)
+
+            var mate = assemblyDoc.AddMate4(
+                (int)swMateType_e.swMateCOINCIDENT,
+                (int)swMateAlign_e.swMateAlignALIGNED,
+                false, 0, 0, 0, 0, 0, 0, 0, 0,
+                false, false,
+                out var errorStatus);
+
+            if (mate != null && errorStatus == 0) return true;
+
+            // errorStatus=1 typically means the component is already constrained in this direction.
+            // If a mate object was still returned, treat as non-critical success.
+            if (mate != null && errorStatus != 0)
             {
-                errorMessage = "add_mate_exception:" + planeName;
-                LogIgnoredException("TryAddReferencePlaneMate", ex);
+                AddinLog.Write($"TryMatePlanePair: mate created with non-zero status={errorStatus} for {asmPlaneName}/{compPlaneName}");
+                return true;
             }
-            finally
-            {
-                try
-                {
-                    model.ClearSelection2(true);
-                }
-                catch (Exception ex)
-                {
-                    LogIgnoredException("TryAddReferencePlaneMate.ClearSelection", ex);
-                }
-            }
+
+            errorMessage = "mate:" + asmPlaneName + "/" + compPlaneName + ":" + errorStatus;
+            return false;
         }
+        catch (Exception ex)
+        {
+            errorMessage = "exception:" + asmPlaneName + "/" + compPlaneName;
+            LogIgnoredException("TryMatePlanePair", ex);
+            return false;
+        }
+        finally
+        {
+            try { model.ClearSelection2(true); }
+            catch (Exception ex) { LogIgnoredException("TryMatePlanePair.ClearSelection", ex); }
+        }
+    }
 
-        return false;
+    /// <summary>
+    /// Translate SolidWorks AddMate4 errorStatus to a human-readable Chinese message.
+    /// Based on swMateError_e: 0=ok, 1=冲突/不可解, 2=冗余, 3=过定义, 4=实体缺失, 5=实体无效.
+    /// </summary>
+    private static string FormatMateError(int errorStatus)
+    {
+        return errorStatus switch
+        {
+            0 => "ok",
+            1 => "配合冲突或无法求解",
+            2 => "冗余配合",
+            3 => "过定义",
+            4 => "配合实体不存在",
+            5 => "配合实体无效",
+            _ => "错误码" + errorStatus
+        };
     }
 
     private static string GetComponentSelectionName(Component2 component)
@@ -332,8 +385,8 @@ internal sealed partial class AddinHttpServer
 
     private static void RecursiveHideConfigNames(SldWorks.SldWorks swApp, ModelDoc2 asmDoc)
     {
-        var configuration = asmDoc?.GetActiveConfiguration() as Configuration;
-        var rootComponent = configuration?.GetRootComponent() as Component2;
+        var configuration = Safe(() => asmDoc?.GetActiveConfiguration()) as Configuration;
+        var rootComponent = Safe(() => configuration?.GetRootComponent()) as Component2;
 
         foreach (var child in EnumerateComponents(GetComponentChildren(rootComponent)))
             try
@@ -376,12 +429,12 @@ internal sealed partial class AddinHttpServer
 
     private static void ConfigureFeatureManagerDisplay(FeatureManager featureManager)
     {
-        featureManager.HideComponentSingleConfigurationOrDisplayStateNames = false;
-        featureManager.SetComponentIdentifiers(4, 0, 0);
-        featureManager.SetComponentIdentifiers(2, 0, 0);
-        featureManager.ShowComponentConfigurationNames = false;
-        featureManager.ShowComponentConfigurationDescriptions = false;
-        featureManager.ShowDisplayStateNames = false;
+        Safe(() => featureManager.HideComponentSingleConfigurationOrDisplayStateNames = false);
+        Safe(() => featureManager.SetComponentIdentifiers(4, 0, 0));
+        Safe(() => featureManager.SetComponentIdentifiers(2, 0, 0));
+        Safe(() => featureManager.ShowComponentConfigurationNames = false);
+        Safe(() => featureManager.ShowComponentConfigurationDescriptions = false);
+        Safe(() => featureManager.ShowDisplayStateNames = false);
     }
 
     // --- Get Component Tree ---
@@ -512,12 +565,20 @@ internal sealed partial class AddinHttpServer
 
         if (allSorted.Count > 0)
         {
-            var lastFolder = folders.Count > 0 ? folders[folders.Count - 1] : null;
-            if (lastFolder != null)
-                assemblyDoc.ReorderComponents(allSorted[0], lastFolder,
-                    (int)swReorderComponentsWhere_e.swReorderComponents_After);
-            for (var i = 1; i < allSorted.Count; i++)
-                assemblyDoc.ReorderComponents(allSorted[i], allSorted[i - 1], 1);
+            try
+            {
+                var lastFolder = folders.Count > 0 ? folders[folders.Count - 1] : null;
+                if (lastFolder != null)
+                    assemblyDoc.ReorderComponents(allSorted[0], lastFolder,
+                        (int)swReorderComponentsWhere_e.swReorderComponents_After);
+                for (var i = 1; i < allSorted.Count; i++)
+                    assemblyDoc.ReorderComponents(allSorted[i], allSorted[i - 1], 1);
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("SortComponents.Reorder", ex);
+                throw CommandFailure("sort_reorder_failed", ex.Message);
+            }
         }
 
         var foldersSorted = 0;
@@ -537,8 +598,8 @@ internal sealed partial class AddinHttpServer
                 RecursiveSortSubAssemblies(fc, processed, options);
         }
 
-        model.EditRebuild3();
-        model.ClearSelection2(true);
+        Safe<bool>(() => model.EditRebuild3());
+        try { model.ClearSelection2(true); } catch (Exception ex) { LogIgnoredException("SortComponents.ClearSelection", ex); }
 
         return new { done = true, topLevelSorted = allSorted.Count, foldersSorted };
     }
@@ -675,9 +736,17 @@ internal sealed partial class AddinHttpServer
 
         if (all.Count > 1)
         {
-            for (var i = 1; i < all.Count; i++)
-                assemblyDoc.ReorderComponents(all[i], all[i - 1], 1);
-            return true;
+            try
+            {
+                for (var i = 1; i < all.Count; i++)
+                    assemblyDoc.ReorderComponents(all[i], all[i - 1], 1);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("SortComponentsInFolder.Reorder", ex);
+                return false;
+            }
         }
 
         return false;

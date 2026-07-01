@@ -6,7 +6,6 @@ namespace ExternalProgram.SwAddin;
 
 internal static class AddinLog
 {
-    private const string AddinDirectoryDataName = "ExternalProgram.SwAddin.AddinDirectory";
     public static readonly string DirectoryPath = GetAddinDirectory();
     private static readonly string LogPath = Path.Combine(DirectoryPath, "SwAddin.log");
 
@@ -27,16 +26,6 @@ internal static class AddinLog
 
     private static string GetAddinDirectory()
     {
-        try
-        {
-            var configuredDirectory = AppDomain.CurrentDomain.GetData(AddinDirectoryDataName) as string;
-            if (!string.IsNullOrWhiteSpace(configuredDirectory)) return configuredDirectory;
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine("SwAddin configured directory lookup failed: " + ex.Message);
-        }
-
         try
         {
             var location = Assembly.GetExecutingAssembly().Location;

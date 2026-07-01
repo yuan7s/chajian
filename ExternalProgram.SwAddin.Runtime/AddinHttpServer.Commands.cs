@@ -21,13 +21,6 @@ internal sealed partial class AddinHttpServer
     private static readonly string[] StandardComponentFlagProperties = ["标准件"];
     private static readonly string[] PurchasedComponentFlagProperties = ["外购件"];
 
-    private static readonly string[][] ReferencePlaneMateNameGroups =
-    [
-        ["前视基准面", "Front Plane"],
-        ["上视基准面", "Top Plane"],
-        ["右视基准面", "Right Plane"]
-    ];
-
     private const int DrawingHoleCalloutAnnotationOptions = 1048576;
     private const int DrawingModelAnnotationOptions =
         8 | 16 | 32768 | 131072 | DrawingHoleCalloutAnnotationOptions | 16777216;

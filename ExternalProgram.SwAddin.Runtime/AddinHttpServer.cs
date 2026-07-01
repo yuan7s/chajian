@@ -6,6 +6,7 @@ using System.IO;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -15,6 +16,9 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer : IDisposable
 {
+    private const int DefaultCommandTimeoutSeconds = 30;
+    private const int HealthCheckTimeoutSeconds = 5;
+
     private readonly SldWorks.SldWorks _swApp;
     private readonly System.Windows.Forms.Control _mainThreadControl;
     private readonly string _prefix;
@@ -23,6 +27,7 @@ internal sealed partial class AddinHttpServer : IDisposable
     private CancellationTokenSource _cts;
     private int _commandInProgress;
     private volatile bool _batchCancelled;
+    private long _commandGeneration;
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -82,18 +87,60 @@ internal sealed partial class AddinHttpServer : IDisposable
         }
     }
 
-    private Task<object> RunOnMainThread(Func<object> work)
+    private async Task<object> RunOnMainThread(Func<object> work, int timeoutSeconds = DefaultCommandTimeoutSeconds)
     {
         if (_mainThreadControl is null || !_mainThreadControl.InvokeRequired)
-            return Task.FromResult(work());
+            return work();
 
+        var gen = Interlocked.Read(ref _commandGeneration);
         var tcs = new TaskCompletionSource<object>();
         _mainThreadControl.BeginInvoke((Action)(() =>
         {
+            // Discard stale callbacks from timed-out commands
+            if (Interlocked.Read(ref _commandGeneration) != gen)
+            {
+                AddinLog.Write("RunOnMainThread discarding stale callback (generation mismatch)");
+                return;
+            }
             try { tcs.TrySetResult(work()); }
             catch (Exception ex) { tcs.TrySetException(ex); }
         }));
-        return tcs.Task;
+
+        using var cts = new CancellationTokenSource();
+        var delayTask = Task.Delay(TimeSpan.FromSeconds(timeoutSeconds), cts.Token);
+        var completed = await Task.WhenAny(tcs.Task, delayTask).ConfigureAwait(false);
+
+        if (completed == tcs.Task)
+        {
+            cts.Cancel(); // Cancel the delay
+            return await tcs.Task.ConfigureAwait(false);
+        }
+
+        // Timeout — command generation already advanced by HandleRequest's finally,
+        // so the stale BeginInvoke callback will be discarded when it eventually fires.
+        AddinLog.Write($"RunOnMainThread timed out after {timeoutSeconds}s");
+        throw CommandFailure("main_thread_timeout");
+    }
+
+    /// <summary>
+    /// Check whether a COM RCW proxy is still connected to its underlying object.
+    /// Returns false if the proxy is a zombie (e.g. document closed).
+    /// </summary>
+    internal static bool IsComAlive(object comObject)
+    {
+        if (comObject == null) return false;
+        try
+        {
+            var unk = Marshal.GetIUnknownForObject(comObject);
+            Marshal.AddRef(unk);
+            Marshal.Release(unk);
+            Marshal.Release(unk);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private async Task HandleRequest(HttpListenerContext context)
@@ -114,7 +161,19 @@ internal sealed partial class AddinHttpServer : IDisposable
             // Health check
             if (context.Request.HttpMethod == "GET" && requestPath == "/health")
             {
-                var document = (HealthDocumentInfo)await RunOnMainThread(GetHealthDocumentInfo);
+                HealthDocumentInfo document;
+                try
+                {
+                    document = (HealthDocumentInfo)await RunOnMainThread(GetHealthDocumentInfo, HealthCheckTimeoutSeconds);
+                }
+                catch (CommandFailureException ex) when (ex.Code == "main_thread_timeout")
+                {
+                    // SW main thread is busy (e.g. processing a long command).
+                    // The HTTP server is alive — report ok with empty document info
+                    // so the client does not mistake this for a disconnection.
+                    AddinLog.Write("HTTP health: SW main thread busy, reporting ok with empty doc");
+                    document = new HealthDocumentInfo(string.Empty, string.Empty, string.Empty);
+                }
                 WriteJson(context, new
                 {
                     ok = true,
@@ -162,6 +221,7 @@ internal sealed partial class AddinHttpServer : IDisposable
             AddinLog.Write($"Command start: {commandName}");
             try
             {
+                Interlocked.Increment(ref _commandGeneration);
                 var executeWatch = Stopwatch.StartNew();
                 var result = await RunOnMainThread(() => ExecuteCommand(request));
                 AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");

@@ -693,27 +693,34 @@ partial class RenameWindow : WpfNs.Window
     {
         try
         {
-            var ni = new NotifyIcon();
-            ni.Icon = Drawing.SystemIcons.Information;
-            ni.Visible = true;
-            ni.BalloonTipTitle = title;
-            ni.BalloonTipText = message;
-            ni.BalloonTipIcon = ToolTipIcon.Info;
-            ni.ShowBalloonTip(900);
+            StopNoticeTimer();
 
-            var t = new Timer() { Interval = 1200 };
-            t.Tick += (s, ev) =>
+            AutoCloseNoticeText.Text = message;
+            AutoCloseNoticePopup.IsOpen = true;
+
+            _noticeTimer = new System.Windows.Threading.DispatcherTimer
             {
-                t.Stop();
-                t.Dispose();
-                ni.Visible = false;
-                ni.Dispose();
+                Interval = TimeSpan.FromSeconds(2)
             };
-            t.Start();
+            _noticeTimer.Tick += (_, _) =>
+            {
+                _noticeTimer?.Stop();
+                try { AutoCloseNoticePopup.IsOpen = false; }
+                catch { }
+            };
+            _noticeTimer.Start();
         }
         catch (Exception ex)
         {
             Debug.WriteLine("RenameWindow.ShowAutoCloseNotice failed: " + ex.Message);
         }
     }
+
+    private void StopNoticeTimer()
+    {
+        try { _noticeTimer?.Stop(); } catch { }
+        _noticeTimer = null;
+    }
+
+    private System.Windows.Threading.DispatcherTimer _noticeTimer;
 }

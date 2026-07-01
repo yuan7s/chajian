@@ -138,11 +138,16 @@ public class SwAddinClient : IDisposable
         StartHttpPolling();
     }
 
+    private int _pollingInProgress;
+
     private void StartHttpPolling()
     {
         _pingTimer = new Timer(
             async state =>
             {
+                if (Interlocked.CompareExchange(ref _pollingInProgress, 1, 0) != 0)
+                    return;
+
                 try
                 {
                     var info = await SendCommandAsync("active-document");
@@ -154,6 +159,10 @@ public class SwAddinClient : IDisposable
                 catch (Exception ex)
                 {
                     Debug.WriteLine("SwAddinClient: HTTP poll failed: " + ex.Message);
+                }
+                finally
+                {
+                    Interlocked.Exchange(ref _pollingInProgress, 0);
                 }
             }, null, 5000, 5000);
     }
@@ -373,7 +382,9 @@ public class SwAddinClient : IDisposable
             case "document_extension_unavailable": return "无法获取当前文档扩展对象";
             case "assembly_extension_unavailable": return "无法获取装配体扩展对象";
             case "solidworks_operation_failed": return string.IsNullOrWhiteSpace(operation) ? "SolidWorks 操作失败" : "SolidWorks 操作失败: " + operation;
-            case "reference_plane_mate_failed": return "未能添加基准面配合，请确认组件和装配体基准面名称匹配";
+            case "reference_plane_mate_failed": return string.IsNullOrWhiteSpace(error) 
+                ? "未能添加基准面配合，请确认组件和装配体基准面名称匹配" 
+                : "基准面配合失败: " + error;
             case "macro_file_required": return "请选择 .swp 宏文件";
             case "unsupported_macro_file": return "只支持 .swp 宏文件";
             case "macro_run_failed": return "宏执行失败，错误码: " + error;
@@ -405,6 +416,8 @@ public class SwAddinClient : IDisposable
             case "save_properties_failed": return FormatSolidWorksCodeMessage("保存属性失败", errors, warnings);
             case "assembly_configuration_unavailable": return "无法获取当前装配体配置";
             case "assembly_root_component_unavailable": return "无法获取装配体根组件";
+            case "sort_reorder_failed": return "排序失败，SolidWorks 重排组件时出错，请检查装配体是否包含轻化或只读组件。";
+            case "main_thread_timeout": return "SolidWorks 主线程未及时响应，请等待当前操作完成后再试。";
             case "internal_error": return "插件内部错误，请查看插件日志。";
             default: return "插件返回失败: " + code;
         }

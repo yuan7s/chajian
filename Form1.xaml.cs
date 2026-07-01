@@ -28,6 +28,7 @@ partial class Form1
 
     private WinForms.Timer _statusTimer;
     private WinForms.NotifyIcon _trayIcon;
+    private System.Windows.Threading.DispatcherTimer _noticeTimer;
     private WinForms.ContextMenuStrip _trayMenu;
     private WinForms.ToolStripMenuItem _trayToggleWindowItem;
     private WinForms.ToolStripMenuItem _trayTogglePropertyOverlayItem;
@@ -245,6 +246,11 @@ partial class Form1
                 FileNameLabel.Text = "无文档";
                 SetConnected(true);
                 UpdatePanelVisibility("", false);
+            }
+            catch (InvalidOperationException ex) when (IsCommandBusyError(ex))
+            {
+                // Addin is processing another command — keep the current status,
+                // don't flip to "disconnected".
             }
             catch
             {
@@ -485,6 +491,11 @@ partial class Form1
     private static bool IsNoActiveDocumentError(InvalidOperationException ex)
     {
         return ex.Message.IndexOf("没有活动文档", StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static bool IsCommandBusyError(InvalidOperationException ex)
+    {
+        return ex.Message.IndexOf("command_busy", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private void QueueAdjustWindowWidthToToolbar()
@@ -1100,20 +1111,33 @@ partial class Form1
     {
         try
         {
-            if (_trayIcon != null)
-            {
-                _trayIcon.BalloonTipTitle = noticeTitle;
-                _trayIcon.BalloonTipText = message;
-                _trayIcon.BalloonTipIcon = WinForms.ToolTipIcon.Info;
-                _trayIcon.ShowBalloonTip(900);
-                return;
-            }
-        }
-        catch
-        {
-        }
+            StopNoticeTimer();
 
-        WpfNs.MessageBox.Show(this, message, noticeTitle, WpfNs.MessageBoxButton.OK, WpfNs.MessageBoxImage.Information);
+            AutoCloseNoticeText.Text = message;
+            AutoCloseNoticePopup.IsOpen = true;
+
+            _noticeTimer = new System.Windows.Threading.DispatcherTimer
+            {
+                Interval = TimeSpan.FromSeconds(2)
+            };
+            _noticeTimer.Tick += (_, _) =>
+            {
+                _noticeTimer?.Stop();
+                try { AutoCloseNoticePopup.IsOpen = false; }
+                catch { }
+            };
+            _noticeTimer.Start();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine("ShowAutoCloseNotice failed: " + ex.Message);
+        }
+    }
+
+    private void StopNoticeTimer()
+    {
+        try { _noticeTimer?.Stop(); } catch { }
+        _noticeTimer = null;
     }
 
     private void ShowSortProgress(string message)
