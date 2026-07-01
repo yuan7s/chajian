@@ -1,2 +1,0 @@
-[permissions]
-allow = ["Bash(cd \"C:\\Users\\yuan7\\RiderProjects\\chajian2\" && dotnet build ExternalProgram.csproj -c Release 2>&1 && dotnet build ReadBom/ReadBom.csproj -c Release 2>&1 && dotnet test ExternalProgram.Tests/ExternalProgram.Tests.csproj -c Release 2>&1)", "Bash(cd \"C:\\Users\\yuan7\\RiderProjects\\chajian2\" && git log --oneline -15 && echo \"---TAGS---\" && git tag --sort=-creatordate | head -10 && echo \"---STATUS---\" && git status --short)"]
