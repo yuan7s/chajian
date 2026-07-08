@@ -208,61 +208,6 @@ internal sealed partial class AddinHttpServer
         }
     }
 
-    private sealed class SortOptions
-    {
-        public bool AssemblyFirst { get; private set; } = true;
-        public bool SuppressedLast { get; private set; } = true;
-        public bool SortFolders { get; private set; } = true;
-        public bool RecursiveSubAssemblies { get; private set; } = true;
-        public bool Descending { get; private set; }
-        public string NameSource { get; private set; } = "ComponentName";
-
-        public static SortOptions FromArgs(Dictionary<string, object> args)
-        {
-            var options = new SortOptions();
-            if (args == null) return options;
-
-            options.AssemblyFirst = GetBool(args, "assemblyFirst", true);
-            options.SuppressedLast = GetBool(args, "suppressedLast", true);
-            options.SortFolders = GetBool(args, "sortFolders", true);
-            options.RecursiveSubAssemblies = GetBool(args, "recursiveSubAssemblies", true);
-            options.Descending = GetBool(args, "descending", false);
-            options.NameSource = GetString(args, "nameSource", "ComponentName");
-            return options;
-        }
-
-        private static bool GetBool(Dictionary<string, object> args, string key, bool fallback)
-        {
-            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
-            if (value is bool boolValue) return boolValue;
-            return bool.TryParse(value.ToString(), out var parsed) ? parsed : fallback;
-        }
-
-        private static string GetString(Dictionary<string, object> args, string key, string fallback)
-        {
-            if (!args.TryGetValue(key, out var value) || value == null) return fallback;
-            var text = value.ToString();
-            return string.IsNullOrWhiteSpace(text) ? fallback : text;
-        }
-    }
-
-    private sealed class PropertyTarget
-    {
-        public ModelDoc2 Model { get; set; }
-        public string Title { get; set; }
-        public string Path { get; set; }
-        public string ConfigurationName { get; set; }
-        public string Source { get; set; }
-        public bool SelectedComponent { get; set; }
-        public Dictionary<string, string> FileProperties { get; set; }
-    }
-
-    private sealed class DeletePropertyStats
-    {
-        public int Documents { get; set; }
-        public int Deleted { get; set; }
-    }
-
     private sealed class DrawingViewSpec
     {
         public DrawingViewSpec(string displayName, double xRatio, double yRatio, params string[] orientationNames)

@@ -37,7 +37,7 @@ internal sealed partial class AddinHttpServer
         List<DrawingAutomationIssue> issues)
     {
         var before = CountDrawingDisplayDimensions(drawing);
-        var duplicateDimensions = GetArgBool(args, "duplicateDimensions");
+        var duplicateDimensions = true; // 强制消除重复
         var hiddenFeatureDimensions = GetArgBool(args, "hiddenFeatureDimensions");
         var usePlacementInSketch = GetArgBool(args, "usePlacementInSketch");
 
@@ -65,7 +65,7 @@ internal sealed partial class AddinHttpServer
         List<DrawingAutomationIssue> issues)
     {
         var before = CountDrawingHoleCallouts(drawing);
-        var duplicateDimensions = GetArgBool(args, "duplicateDimensions");
+        var duplicateDimensions = true; // 强制消除重复
         var hiddenFeatureDimensions = GetArgBool(args, "hiddenFeatureDimensions");
         var usePlacementInSketch = GetArgBool(args, "usePlacementInSketch");
 

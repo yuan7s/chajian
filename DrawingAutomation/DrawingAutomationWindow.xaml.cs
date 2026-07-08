@@ -44,7 +44,8 @@ partial class DrawingAutomationWindow : WpfNs.Window
         UseDefaultTemplateCheck.IsChecked = settings.DrawingAutomation_UseDefaultTemplate;
         SaveDrawingCheck.IsChecked = settings.DrawingAutomation_SaveDrawing;
         OverwriteDrawingCheck.IsChecked = settings.DrawingAutomation_OverwriteDrawing;
-        ApplySettingsCheck.IsChecked = settings.DrawingAutomation_ApplySettings;
+        ApplyDrawingStandardCheck.IsChecked = settings.DrawingAutomation_ApplyDrawingStandard;
+        ApplySheetFormatCheck.IsChecked = settings.DrawingAutomation_ApplySheetFormat;
         InsertViewsCheck.IsChecked = settings.DrawingAutomation_InsertViews;
         InsertIsoViewCheck.IsChecked = settings.DrawingAutomation_InsertIsoView;
         ImportModelItemsCheck.IsChecked = settings.DrawingAutomation_ImportModelItems;
@@ -63,7 +64,8 @@ partial class DrawingAutomationWindow : WpfNs.Window
         settings.DrawingAutomation_UseDefaultTemplate = UseDefaultTemplateCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_SaveDrawing = SaveDrawingCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_OverwriteDrawing = OverwriteDrawingCheck.IsChecked.GetValueOrDefault();
-        settings.DrawingAutomation_ApplySettings = ApplySettingsCheck.IsChecked.GetValueOrDefault();
+        settings.DrawingAutomation_ApplyDrawingStandard = ApplyDrawingStandardCheck.IsChecked.GetValueOrDefault();
+        settings.DrawingAutomation_ApplySheetFormat = ApplySheetFormatCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_InsertViews = InsertViewsCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_InsertIsoView = InsertIsoViewCheck.IsChecked.GetValueOrDefault();
         settings.DrawingAutomation_ImportModelItems = ImportModelItemsCheck.IsChecked.GetValueOrDefault();
@@ -282,7 +284,8 @@ partial class DrawingAutomationWindow : WpfNs.Window
             { "useDefaultTemplate", useDefaultTemplate },
             { "saveDrawing", SaveDrawingCheck.IsChecked.GetValueOrDefault() },
             { "overwriteDrawing", OverwriteDrawingCheck.IsChecked.GetValueOrDefault() },
-            { "applyDrawingSettings", ApplySettingsCheck.IsChecked.GetValueOrDefault() },
+            { "applyDrawingStandard", ApplyDrawingStandardCheck.IsChecked.GetValueOrDefault() },
+            { "applySheetFormat", ApplySheetFormatCheck.IsChecked.GetValueOrDefault() },
             { "insertStandardViews", InsertViewsCheck.IsChecked.GetValueOrDefault() },
             { "insertIsoView", InsertIsoViewCheck.IsChecked.GetValueOrDefault() },
             { "importModelItems", ImportModelItemsCheck.IsChecked.GetValueOrDefault() },

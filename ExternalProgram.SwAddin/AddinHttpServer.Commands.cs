@@ -448,65 +448,7 @@ internal sealed partial class AddinHttpServer
         return result;
     }
 
-    private object GetActiveDocumentInfo()
-    {
-        var model = GetActiveModel();
-        return new
-        {
-            title = Safe(model.GetTitle) ?? "",
-            path = Safe(model.GetPathName) ?? "",
-            configuration = GetActiveConfigurationName(model),
-            type = Safe(model.GetType)
-        };
-    }
 
-    private object Rebuild()
-    {
-        var model = GetActiveModel();
-        model.EditRebuild3();
-        return new { rebuilt = true };
-    }
-
-    private object Save()
-    {
-        var model = GetActiveModel();
-        model.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, 0, 0);
-        return new { saved = true };
-    }
-
-    private object OpenDocument(Dictionary<string, object> args)
-    {
-        var path = GetArgString(args, "path");
-        if (string.IsNullOrWhiteSpace(path)) throw CommandFailure("argument_required", "name", "path");
-        if (!File.Exists(path)) throw CommandFailure("file_not_found", "path", path);
-
-        var docType = GetDocumentTypeFromPath(path);
-        if (docType == 0) throw CommandFailure("unsupported_file_type", "path", path);
-
-        var existing = TryGetOpenModelByPath(path);
-        if (existing != null) return new { path, title = Safe(existing.GetTitle), alreadyOpen = true };
-
-        var errors = 0;
-        var warnings = 0;
-        var model = OpenDoc6WithDialogHandling(
-            path,
-            docType,
-            (int)swOpenDocOptions_e.swOpenDocOptions_Silent,
-            "",
-            ref errors,
-            ref warnings);
-        return new { path, title = Safe(() => model?.GetTitle()), errors, warnings };
-    }
-
-    private object ListExternalReferences(Dictionary<string, object> args)
-    {
-        var path = GetArgString(args, "path");
-        if (string.IsNullOrWhiteSpace(path)) throw CommandFailure("argument_required", "name", "path");
-        if (!File.Exists(path)) throw CommandFailure("file_not_found", "path", path);
-
-        var dependencies = ToStringArray(_swApp.GetDocumentDependencies2(path, false, true, false));
-        return new { path, dependencies };
-    }
 
     private ModelDoc2 TryGetOpenModelByPath(string path)
     {
@@ -773,26 +715,49 @@ internal sealed partial class AddinHttpServer
         return new { outputPath, format = formatName };
     }
 
-    // --- Open File Location ---
-
-    private object GetActiveOrSelectedModelPath()
-    {
-        var model = GetActiveModel();
-        var selectedComponent = GetSelectedComponent(model);
-        if (selectedComponent != null)
-        {
-            var selectedPath = Safe(selectedComponent.GetPathName) ?? "";
-            if (string.IsNullOrWhiteSpace(selectedPath))
-                selectedPath = Safe(() => (selectedComponent.GetModelDoc() as ModelDoc2)?.GetPathName()) ?? "";
-            if (!string.IsNullOrWhiteSpace(selectedPath)) return new { path = selectedPath, selected = true };
-        }
-
-        var path = Safe(model.GetPathName) ?? "";
-        if (!string.IsNullOrWhiteSpace(path)) return new { path, selected = false };
-
-        return new { path = Safe(model.GetTitle) ?? "", selected = false };
-    }
-
     // --- Rotate Drawing View ---
 
+    // ──────────── 共享辅助方法 ────────────
+
+    private static string GetComponentSelectionName(Component2 component)
+    {
+        var selectionName = Safe(component.GetSelectByIDString);
+        if (!string.IsNullOrWhiteSpace(selectionName)) return selectionName;
+
+        return Safe(() => component.Name2);
+    }
+
+    private static Component2 FindComponentByName(ModelDoc2 model, string name)
+    {
+        var configuration = model?.GetActiveConfiguration() as Configuration;
+        var rootComponent = configuration?.GetRootComponent() as Component2;
+        return FindComponentByName(GetComponentChildren(rootComponent), name);
+    }
+
+    private static Component2 FindComponentByName(object[] components, string name)
+    {
+        foreach (var component in EnumerateComponents(components))
+        {
+            var componentName = Safe(() => component.Name2) ?? "";
+            if (string.Equals(componentName, name, StringComparison.OrdinalIgnoreCase))
+                return component;
+
+            var child = FindComponentByName(GetComponentChildren(component), name);
+            if (child != null) return child;
+        }
+
+        return null;
+    }
+
+    private static void MarkDocDirty(ModelDoc2 model)
+    {
+        try
+        {
+            model?.SetSaveFlag();
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("MarkDocDirty", ex);
+        }
+    }
 }

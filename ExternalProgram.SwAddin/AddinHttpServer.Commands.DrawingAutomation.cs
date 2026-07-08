@@ -485,35 +485,13 @@ internal sealed partial class AddinHttpServer
     {
         templatePath = templatePath ?? ResolveDrawingAutomationTemplatePath(args);
 
-        // Since the add-in now runs in the main AppDomain (no child AppDomain),
-        // the ComBridge is no longer needed. Use ShellExecute fallback.
-        var bridge = GetComBridge();
-        if (bridge != null)
-        {
-            AddinLog.Write("Drawing automation INewDrawing2 via bridge: " + templatePath);
-            using var fontDialogHandler = StartSolidWorksFontDialogWatcher(TimeSpan.FromSeconds(60));
-            var bridgeType = bridge.GetType();
-            drawingModel = bridgeType.InvokeMember(
-                "NewDrawing",
-                System.Reflection.BindingFlags.InvokeMethod |
-                System.Reflection.BindingFlags.Instance |
-                System.Reflection.BindingFlags.Public,
-                null,
-                bridge,
-                new object[] { templatePath }) as ModelDoc2;
-            if (fontDialogHandler.HandledCount > 0)
-                AddinLog.Write("Drawing automation font dialogs handled: " +
-                               fontDialogHandler.HandledCount);
-        }
-        else
-        {
-            // Fallback: ShellExecute (no bridge available — old shell version)
-            AddinLog.Write("Drawing automation ShellExecute (no bridge): " + templatePath);
-            var originalTitle = Safe(() => (_swApp.ActiveDoc as ModelDoc2)?.GetTitle()) ?? "";
-            var originalPath = Safe(() => (_swApp.ActiveDoc as ModelDoc2)?.GetPathName()) ?? "";
-            Process.Start(new ProcessStartInfo(templatePath) { UseShellExecute = true });
-            drawingModel = PollForActiveDrawing(originalTitle, originalPath, TimeSpan.FromSeconds(30));
-        }
+        // 直接使用 SW API 创建工程图（合并架构，无 bridge 限制）。
+        AddinLog.Write("Drawing automation creating drawing via INewDocument2: " + templatePath);
+        using var fontDialogHandler = StartSolidWorksFontDialogWatcher(TimeSpan.FromSeconds(60));
+        drawingModel = _swApp.INewDocument2(templatePath, 0, 0, 0) as ModelDoc2;
+        if (fontDialogHandler.HandledCount > 0)
+            AddinLog.Write("Drawing automation font dialogs handled: " +
+                           fontDialogHandler.HandledCount);
 
         if (drawingModel == null || Safe(drawingModel.GetType) != (int)swDocumentTypes_e.swDocDRAWING)
             throw CommandFailure("drawing_create_failed", "path", templatePath);
@@ -534,35 +512,6 @@ internal sealed partial class AddinHttpServer
     /// </summary>
     private static object GetComBridge()
     {
-        return null;
-    }
-
-    private ModelDoc2 PollForActiveDrawing(
-        string originalTitle,
-        string originalPath,
-        TimeSpan timeout)
-    {
-        var sw = Stopwatch.StartNew();
-        while (sw.Elapsed < timeout)
-        {
-            var activeDoc = _swApp.ActiveDoc as ModelDoc2;
-            if (activeDoc != null)
-            {
-                var activeTitle = Safe(activeDoc.GetTitle) ?? "";
-                var activePath = Safe(activeDoc.GetPathName) ?? "";
-                var activeType = Safe(activeDoc.GetType);
-
-                var isNewDrawing = activeType == (int)swDocumentTypes_e.swDocDRAWING &&
-                                   (string.IsNullOrWhiteSpace(activePath) ||
-                                    (!string.Equals(activeTitle, originalTitle, StringComparison.OrdinalIgnoreCase) &&
-                                     !string.Equals(activePath, originalPath, StringComparison.OrdinalIgnoreCase)));
-                if (isNewDrawing)
-                    return activeDoc;
-            }
-
-            Thread.Sleep(300);
-        }
-
         return null;
     }
 
@@ -898,21 +847,25 @@ internal sealed partial class AddinHttpServer
         Dictionary<string, object> args,
         List<DrawingAutomationIssue> issues)
     {
-        if (!GetArgBool(args, "applyDrawingSettings", true)) return;
-
-        if (TryGetOptionalDrawingResourcePath(args, "standardPath", ".sldstd", "绘图标准文件", issues,
-                out var standardPath))
+        if (GetArgBool(args, "applyDrawingStandard", true))
         {
-            if (!LoadDrawingStandard(drawingModel, standardPath))
-                AddDrawingIssue(issues, "warning", "绘图标准", "绘图标准加载结果未确认", standardPath);
+            if (TryGetOptionalDrawingResourcePath(args, "standardPath", ".sldstd", "绘图标准文件", issues,
+                    out var standardPath))
+            {
+                if (!LoadDrawingStandard(drawingModel, standardPath))
+                    AddDrawingIssue(issues, "warning", "绘图标准", "绘图标准加载结果未确认", standardPath);
+            }
         }
 
-        if (TryGetOptionalDrawingResourcePath(args, "sheetFormatPath", ".slddrt", "图纸格式文件", issues,
-                out var sheetFormatPath))
+        if (GetArgBool(args, "applySheetFormat", true))
         {
-            var changed = ApplySheetFormatToAllSheets(drawing, sheetFormatPath);
-            if (changed == 0)
-                AddDrawingIssue(issues, "warning", "图纸格式", "未确认图纸格式已替换", sheetFormatPath);
+            if (TryGetOptionalDrawingResourcePath(args, "sheetFormatPath", ".slddrt", "图纸格式文件", issues,
+                    out var sheetFormatPath))
+            {
+                var changed = ApplySheetFormatToAllSheets(drawing, sheetFormatPath);
+                if (changed == 0)
+                    AddDrawingIssue(issues, "warning", "图纸格式", "未确认图纸格式已替换", sheetFormatPath);
+            }
         }
     }
 

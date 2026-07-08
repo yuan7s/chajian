@@ -175,7 +175,8 @@
                         <CheckBox x:Name="OverwriteDrawingCheck" Content="允许覆盖" />
                     </WrapPanel>
                     <WrapPanel>
-                        <CheckBox x:Name="ApplySettingsCheck" Content="套用绘图标准/图纸格式" />
+                        <CheckBox x:Name="ApplyDrawingStandardCheck" Content="替换绘图标准" />
+                        <CheckBox x:Name="ApplySheetFormatCheck" Content="替换图纸格式" />
                         <CheckBox x:Name="InsertViewsCheck" Content="生成三视图" />
                         <CheckBox x:Name="InsertIsoViewCheck" Content="等轴测" />
                     </WrapPanel>

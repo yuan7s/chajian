@@ -374,19 +374,40 @@ internal sealed partial class AddinHttpServer
         return Enumerable.Empty<string>();
     }
 
-    private object DeleteCustomProperties()
+    // --- Get Bounding Box ---
+
+    private object GetBoundingBox(Dictionary<string, object> args)
     {
         var model = GetActiveModel();
-        var stats = DeletePropertiesRecursive(model, false, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
+        var configName = GetArgString(args, "configuration");
+
+        if (!string.IsNullOrWhiteSpace(configName))
+            try
+            {
+                model.ShowConfiguration2(configName);
+            }
+            catch (Exception ex)
+            {
+                LogIgnoredException("GetBoundingBox.ShowConfiguration", ex);
+            }
+
+        var part = GetPartDoc(model);
+        if (part == null) throw CommandFailure("part_required_for_bounding_box");
+
+        var box = part.GetPartBox(false) as double[];
+        if (box == null || box.Length < 6) throw CommandFailure("bounding_box_unavailable");
+
+        return new
+        {
+            x1 = box[0], y1 = box[1], z1 = box[2],
+            x2 = box[3], y2 = box[4], z2 = box[5],
+            dx = box[3] - box[0],
+            dy = box[4] - box[1],
+            dz = box[5] - box[2]
+        };
     }
 
-    private object DeleteConfigurationProperties()
-    {
-        var model = GetActiveModel();
-        var stats = DeletePropertiesRecursive(model, true, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
-        return new { done = true, documents = stats.Documents, deleted = stats.Deleted };
-    }
+    // ──────────── 共享删除属性方法 ────────────
 
     private static DeletePropertyStats DeletePropertiesRecursive(ModelDoc2 model, bool deleteConfigurationProperties,
         HashSet<string> processed)
@@ -485,39 +506,22 @@ internal sealed partial class AddinHttpServer
         return "unsaved:" + title + ":" + model.GetHashCode();
     }
 
-    // --- Get Bounding Box ---
-
-    private object GetBoundingBox(Dictionary<string, object> args)
+    private sealed class PropertyTarget
     {
-        var model = GetActiveModel();
-        var configName = GetArgString(args, "configuration");
+        public ModelDoc2 Model { get; set; }
+        public string Title { get; set; }
+        public string Path { get; set; }
+        public string ConfigurationName { get; set; }
+        public string Source { get; set; }
+        public bool SelectedComponent { get; set; }
+        public Dictionary<string, string> FileProperties { get; set; }
+    }
 
-        if (!string.IsNullOrWhiteSpace(configName))
-            try
-            {
-                model.ShowConfiguration2(configName);
-            }
-            catch (Exception ex)
-            {
-                LogIgnoredException("GetBoundingBox.ShowConfiguration", ex);
-            }
-
-        var part = GetPartDoc(model);
-        if (part == null) throw CommandFailure("part_required_for_bounding_box");
-
-        var box = part.GetPartBox(false) as double[];
-        if (box == null || box.Length < 6) throw CommandFailure("bounding_box_unavailable");
-
-        return new
-        {
-            x1 = box[0], y1 = box[1], z1 = box[2],
-            x2 = box[3], y2 = box[4], z2 = box[5],
-            dx = box[3] - box[0],
-            dy = box[4] - box[1],
-            dz = box[5] - box[2]
-        };
+    private sealed class DeletePropertyStats
+    {
+        public int Documents { get; set; }
+        public int Deleted { get; set; }
     }
 
     // --- Sync Coding Props ---
-
 }

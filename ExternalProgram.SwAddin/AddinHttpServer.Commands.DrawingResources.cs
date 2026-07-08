@@ -18,50 +18,6 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
-    private object RotateSelectedDrawingView()
-    {
-        var model = GetActiveModel();
-        if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
-            throw CommandFailure("drawing_required");
-
-        var selMgr = model.SelectionManager as SelectionMgr;
-        var swView = selMgr?.GetSelectedObject6(1, -1) as View;
-        if (swView == null)
-            throw CommandFailure("drawing_view_required");
-
-        if (swView.Angle > 4.5)
-            swView.Angle = 0;
-        else
-            swView.Angle += Math.PI / 2;
-
-        model.Extension.SelectByID2(swView.Name, "DRAWINGVIEW", 0, 0, 0, false, 0, null, 0);
-        MarkDocDirty(model);
-
-        return new { viewName = swView.Name, angle = swView.Angle };
-    }
-
-    private object SetIsoStandard()
-    {
-        var model = GetActiveModel();
-        if (model.GetType() != (int)swDocumentTypes_e.swDocDRAWING)
-            throw CommandFailure("drawing_required");
-
-        var extension = model.Extension;
-        if (extension == null)
-            throw CommandFailure("document_extension_unavailable");
-
-        var ok = extension.SetUserPreferenceInteger(
-            (int)swUserPreferenceIntegerValue_e.swDetailingDimensionStandard,
-            0,
-            (int)swDetailingStandard_e.swDetailingStandardISO);
-
-        if (!ok)
-            throw CommandFailure("solidworks_operation_failed", "operation", "set_iso_standard");
-
-        MarkDocDirty(model);
-        return new { standard = "ISO", success = true };
-    }
-
     private object ReplaceDrawingStandard(Dictionary<string, object> args)
     {
         var path = GetDrawingResourcePath(args, ".sldstd", "绘图标准文件");

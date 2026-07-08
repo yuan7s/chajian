@@ -330,6 +330,22 @@ namespace ExternalProgram.Properties
 
         [UserScopedSetting]
         [DefaultSettingValue("True")]
+        public bool DrawingAutomation_ApplyDrawingStandard
+        {
+            get => (bool)this["DrawingAutomation_ApplyDrawingStandard"];
+            set => this["DrawingAutomation_ApplyDrawingStandard"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool DrawingAutomation_ApplySheetFormat
+        {
+            get => (bool)this["DrawingAutomation_ApplySheetFormat"];
+            set => this["DrawingAutomation_ApplySheetFormat"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
         public bool DrawingAutomation_InsertViews
         {
             get => (bool)this["DrawingAutomation_InsertViews"];

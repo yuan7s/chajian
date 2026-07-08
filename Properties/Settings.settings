@@ -124,6 +124,12 @@
     <Setting Name="DrawingAutomation_ApplySettings" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
+    <Setting Name="DrawingAutomation_ApplyDrawingStandard" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="DrawingAutomation_ApplySheetFormat" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
     <Setting Name="DrawingAutomation_InsertViews" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
