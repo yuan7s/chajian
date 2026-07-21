@@ -10,7 +10,7 @@
                  MinHeight="55"
                  MaxWidth="920"
                  MaxHeight="92"
-                 WindowStartupLocation="CenterScreen"
+                 WindowStartupLocation="Manual"
                  ResizeMode="NoResize"
                  Topmost="True"
                  WindowBackdropType="None"
@@ -146,7 +146,6 @@
                                 Orientation="Horizontal"
                                 VerticalAlignment="Center">
                         <ui:Button x:Name="Button2" Content="打开目录" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button2_Click" Visibility="Collapsed" ToolTip="打开当前文档或选中组件所在的文件夹" />
-                        <ui:Button x:Name="Button24" Content="工程图" Style="{StaticResource ToolbarButtonStyle}" Click="Button24_Click" Visibility="Collapsed" ToolTip="打开自动标准工程图窗口" />
                         <ui:Button x:Name="Button9" Content="图号编码" Style="{StaticResource ToolbarWideButtonStyle}" Click="Button9_Click" Visibility="Collapsed" ToolTip="将文件名同步写入物料编码、零件图号和文件名称属性" />
                         <ui:Button x:Name="Button16" Content="重命名" Style="{StaticResource ToolbarButtonStyle}" Click="Button16_Click" Visibility="Collapsed" ToolTip="打开重命名窗口，支持另存、重命名和属性写入" />
                     </StackPanel>

@@ -52,7 +52,6 @@ internal static class ToolbarButtonLayoutStore
     public const int CurrentLayoutVersion = 1;
 
     public const string OpenFolder = "OpenFolder";
-    public const string DrawingAutomation = "DrawingAutomation";
     public const string PartCoding = "PartCoding";
     public const string SaveDwg = "SaveDwg";
     public const string SavePdf = "SavePdf";
@@ -72,7 +71,6 @@ internal static class ToolbarButtonLayoutStore
     public static readonly IReadOnlyList<ToolbarButtonDefinition> Definitions = new[]
     {
         new ToolbarButtonDefinition { Id = OpenFolder, Text = "打开目录", DefaultGroups = ToolbarButtonGroups.DocumentGroups },
-        new ToolbarButtonDefinition { Id = DrawingAutomation, Text = "工程图", DefaultGroups = ToolbarButtonGroups.DocumentGroups },
         new ToolbarButtonDefinition { Id = PartCoding, Text = "图号编码", DefaultGroups = new[] { ToolbarButtonGroups.Part } },
         new ToolbarButtonDefinition { Id = SaveDwg, Text = "另存 DWG", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
         new ToolbarButtonDefinition { Id = SavePdf, Text = "另存 PDF", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
@@ -152,10 +150,6 @@ internal static class ToolbarButtonLayoutStore
         if (settings.Toolbar_ButtonLayoutVersion >= CurrentLayoutVersion)
             return items;
 
-        if (items.Any(item => string.Equals(item.Id, DrawingAutomation, StringComparison.OrdinalIgnoreCase)))
-            return items;
-
-        AddDefault(items, true, DrawingAutomation, ToolbarButtonGroups.Part, ToolbarButtonGroups.Drawing, ToolbarButtonGroups.Assembly);
         return Normalize(items);
     }
 
@@ -163,7 +157,6 @@ internal static class ToolbarButtonLayoutStore
     {
         var items = new List<ToolbarButtonLayoutItem>();
         AddDefault(items, settings.Toolbar_ShowOpenFolder, OpenFolder, ToolbarButtonGroups.Part, ToolbarButtonGroups.Drawing, ToolbarButtonGroups.Assembly);
-        AddDefault(items, true, DrawingAutomation, ToolbarButtonGroups.Part, ToolbarButtonGroups.Drawing, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowPartCoding, PartCoding, ToolbarButtonGroups.Part);
         AddDefault(items, settings.Toolbar_ShowDrawingSaveDwg, SaveDwg, ToolbarButtonGroups.Drawing);
         AddDefault(items, settings.Toolbar_ShowDrawingSavePdf, SavePdf, ToolbarButtonGroups.Drawing);

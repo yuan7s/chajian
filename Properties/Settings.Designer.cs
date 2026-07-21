@@ -273,150 +273,6 @@ namespace ExternalProgram.Properties
         }
 
         [UserScopedSetting]
-        [DefaultSettingValue("")]
-        public string DrawingAutomation_TemplatePath
-        {
-            get => (string)this["DrawingAutomation_TemplatePath"];
-            set => this["DrawingAutomation_TemplatePath"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("")]
-        public string DrawingAutomation_StandardPath
-        {
-            get => (string)this["DrawingAutomation_StandardPath"];
-            set => this["DrawingAutomation_StandardPath"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("")]
-        public string DrawingAutomation_SheetFormatPath
-        {
-            get => (string)this["DrawingAutomation_SheetFormatPath"];
-            set => this["DrawingAutomation_SheetFormatPath"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_UseDefaultTemplate
-        {
-            get => (bool)this["DrawingAutomation_UseDefaultTemplate"];
-            set => this["DrawingAutomation_UseDefaultTemplate"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_SaveDrawing
-        {
-            get => (bool)this["DrawingAutomation_SaveDrawing"];
-            set => this["DrawingAutomation_SaveDrawing"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_OverwriteDrawing
-        {
-            get => (bool)this["DrawingAutomation_OverwriteDrawing"];
-            set => this["DrawingAutomation_OverwriteDrawing"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_ApplySettings
-        {
-            get => (bool)this["DrawingAutomation_ApplySettings"];
-            set => this["DrawingAutomation_ApplySettings"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_ApplyDrawingStandard
-        {
-            get => (bool)this["DrawingAutomation_ApplyDrawingStandard"];
-            set => this["DrawingAutomation_ApplyDrawingStandard"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_ApplySheetFormat
-        {
-            get => (bool)this["DrawingAutomation_ApplySheetFormat"];
-            set => this["DrawingAutomation_ApplySheetFormat"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_InsertViews
-        {
-            get => (bool)this["DrawingAutomation_InsertViews"];
-            set => this["DrawingAutomation_InsertViews"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_InsertIsoView
-        {
-            get => (bool)this["DrawingAutomation_InsertIsoView"];
-            set => this["DrawingAutomation_InsertIsoView"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("True")]
-        public bool DrawingAutomation_ImportModelItems
-        {
-            get => (bool)this["DrawingAutomation_ImportModelItems"];
-            set => this["DrawingAutomation_ImportModelItems"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_DuplicateDimensions
-        {
-            get => (bool)this["DrawingAutomation_DuplicateDimensions"];
-            set => this["DrawingAutomation_DuplicateDimensions"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_HiddenFeatureDimensions
-        {
-            get => (bool)this["DrawingAutomation_HiddenFeatureDimensions"];
-            set => this["DrawingAutomation_HiddenFeatureDimensions"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_UseSketchPlacement
-        {
-            get => (bool)this["DrawingAutomation_UseSketchPlacement"];
-            set => this["DrawingAutomation_UseSketchPlacement"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("False")]
-        public bool DrawingAutomation_AutoArrangeDimensions
-        {
-            get => (bool)this["DrawingAutomation_AutoArrangeDimensions"];
-            set => this["DrawingAutomation_AutoArrangeDimensions"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("A4")]
-        public string DrawingAutomation_PaperSize
-        {
-            get => (string)this["DrawingAutomation_PaperSize"];
-            set => this["DrawingAutomation_PaperSize"] = value;
-        }
-
-        [UserScopedSetting]
-        [DefaultSettingValue("")]
-        public string DrawingAutomation_PaperFormatMap
-        {
-            get => (string)this["DrawingAutomation_PaperFormatMap"];
-            set => this["DrawingAutomation_PaperFormatMap"] = value;
-        }
-
-        [UserScopedSetting]
         [DefaultSettingValue("True")]
         public bool Rename_WriteFileName
         {
@@ -550,6 +406,38 @@ namespace ExternalProgram.Properties
         {
             get => (string)this["Sort_Direction"];
             set => this["Sort_Direction"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("True")]
+        public bool Update_AutoCheck
+        {
+            get => (bool)this["Update_AutoCheck"];
+            set => this["Update_AutoCheck"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("")]
+        public string Update_CheckUrl
+        {
+            get => (string)this["Update_CheckUrl"];
+            set => this["Update_CheckUrl"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("2000-01-01")]
+        public System.DateTime Update_LastCheck
+        {
+            get => (System.DateTime)this["Update_LastCheck"];
+            set => this["Update_LastCheck"] = value;
+        }
+
+        [UserScopedSetting]
+        [DefaultSettingValue("False")]
+        public bool Plugin_AutoRegisterOnStart
+        {
+            get => (bool)this["Plugin_AutoRegisterOnStart"];
+            set => this["Plugin_AutoRegisterOnStart"] = value;
         }
     }
 }

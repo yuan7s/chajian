@@ -17,7 +17,6 @@
     <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <PublishSingleFile>false</PublishSingleFile>
     <NoWarn>41999,42016,42017,42018,42019,42032,42036,CA1416,CS4014,CS1998</NoWarn>
-    <DefaultItemExcludes>$(DefaultItemExcludes);ReadBom\**</DefaultItemExcludes>
     <BuildSwAddinDuringMainBuild>false</BuildSwAddinDuringMainBuild>
     <SwAddinProject>$(MSBuildThisFileDirectory)ExternalProgram.SwAddin\ExternalProgram.SwAddin.csproj</SwAddinProject>
     <SwAddinOutputDirectory>$(MSBuildThisFileDirectory)ExternalProgram.SwAddin\bin\$(Configuration)\net48\</SwAddinOutputDirectory>
@@ -34,7 +33,6 @@
 
   <ItemGroup>
     <Compile Remove="ExternalProgram.SwAddin\**\*.cs" />
-    <Compile Remove="ExternalProgram.Tests\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

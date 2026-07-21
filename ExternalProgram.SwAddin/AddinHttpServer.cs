@@ -16,7 +16,7 @@ namespace ExternalProgram.SwAddin;
 
 /// <summary>
 /// HTTP+WebSocket 服务端，运行在 SW 进程中。
-/// 监听 127.0.0.1 回环地址，接收主程序（ExternalProgram.exe / ReadBom.exe）的 JSON 命令，
+/// 监听 127.0.0.1 回环地址，接收主程序（ExternalProgram.exe）的 JSON 命令，
 /// 通过 WinForms Control.BeginInvoke 将所有 COM 调用封送到 SW 主线程（STA）执行。
 /// </summary>
 internal sealed partial class AddinHttpServer : IDisposable
@@ -25,6 +25,12 @@ internal sealed partial class AddinHttpServer : IDisposable
     private const int DefaultCommandTimeoutSeconds = 30;
     // 健康检查超时（需要更短，因为客户端频繁扫描端口）
     private const int HealthCheckTimeoutSeconds = 5;
+
+    // 高频轮询命令：主程序状态栏定时拉取，日志静默以免刷屏。
+    private static readonly HashSet<string> QuietCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "active-document"
+    };
 
     private readonly SldWorks.SldWorks _swApp;
     // 用于将线程池回调封送到 SW 主线程的 WinForms 控件
@@ -35,8 +41,6 @@ internal sealed partial class AddinHttpServer : IDisposable
     private CancellationTokenSource _cts;
     // 命令互斥锁：同一时间只允许一个命令在 SW 主线程执行
     private int _commandInProgress;
-    // 批量操作的取消标志
-    private volatile bool _batchCancelled;
     // 命令代际计数器：超时后新命令递增，旧回调检测到代际不匹配则丢弃
     private long _commandGeneration;
     // 所有已连接的 WebSocket 客户端，用于广播事件
@@ -176,8 +180,9 @@ internal sealed partial class AddinHttpServer : IDisposable
             var isHealthCheck = context.Request.HttpMethod == "GET" && requestPath == "/health";
             var isWebSocket = context.Request.IsWebSocketRequest && requestPath == "/events";
 
-            // 只记录非健康检查和非 WebSocket 的请求，减少日志噪音
-            if (!isHealthCheck && !isWebSocket)
+            // 只记录非健康检查、非 WebSocket、非命令的请求，减少日志噪音。
+            // 命令请求在读到命令名后再按需记录（高频轮询命令静默）。
+            if (!isHealthCheck && !isWebSocket && requestPath != "/command")
                 AddinLog.Write($"HTTP {context.Request.HttpMethod} {requestPath} from {context.Request.RemoteEndPoint}");
 
             // WebSocket upgrade for /events
@@ -217,16 +222,6 @@ internal sealed partial class AddinHttpServer : IDisposable
                 return;
             }
 
-            // Cancel endpoint — bypasses command lock so the client can interrupt
-            // a long-running batch without getting 409.
-            if (context.Request.HttpMethod == "POST" && requestPath == "/cancel")
-            {
-                _batchCancelled = true;
-                AddinLog.Write("HTTP cancel requested");
-                WriteJson(context, new { ok = true, data = new { cancelled = true } });
-                return;
-            }
-
             // Command endpoint
             if (context.Request.HttpMethod != "POST" || requestPath != "/command")
             {
@@ -238,6 +233,11 @@ internal sealed partial class AddinHttpServer : IDisposable
 
             var request = ReadCommand(context.Request);
             var commandName = (request.Command ?? string.Empty).Trim();
+            // 高频轮询命令（状态栏每 5 秒拉取活动文档等）静默，避免刷屏淹没有用日志。
+            var quiet = QuietCommands.Contains(commandName);
+            if (!quiet)
+                AddinLog.Write($"HTTP POST /command from {context.Request.RemoteEndPoint}");
+
             if (Interlocked.CompareExchange(ref _commandInProgress, 1, 0) != 0)
             {
                 AddinLog.Write($"Command rejected while busy: {commandName}");
@@ -246,15 +246,22 @@ internal sealed partial class AddinHttpServer : IDisposable
                 return;
             }
 
-            AddinLog.Write($"Command start: {commandName}");
+            if (!quiet) AddinLog.Write($"Command start: {commandName}");
             try
             {
                 Interlocked.Increment(ref _commandGeneration);
                 var executeWatch = Stopwatch.StartNew();
                 var result = await RunOnMainThread(() => ExecuteCommand(request));
-                AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
-                WriteJson(context, new { ok = true, data = result });
-                AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
+                if (!quiet)
+                {
+                    AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
+                    WriteJson(context, new { ok = true, data = result });
+                    AddinLog.Write($"Command ok: {commandName} in {watch.ElapsedMilliseconds}ms");
+                }
+                else
+                {
+                    WriteJson(context, new { ok = true, data = result });
+                }
             }
             finally
             {

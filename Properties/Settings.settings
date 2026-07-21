@@ -103,60 +103,6 @@
     <Setting Name="Drawing_SheetFormatPath" Type="System.String" Scope="User">
       <Value Profile="(Default)"></Value>
     </Setting>
-    <Setting Name="DrawingAutomation_TemplatePath" Type="System.String" Scope="User">
-      <Value Profile="(Default)"></Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_StandardPath" Type="System.String" Scope="User">
-      <Value Profile="(Default)"></Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_SheetFormatPath" Type="System.String" Scope="User">
-      <Value Profile="(Default)"></Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_UseDefaultTemplate" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_SaveDrawing" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_OverwriteDrawing" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_ApplySettings" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_ApplyDrawingStandard" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_ApplySheetFormat" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_InsertViews" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_InsertIsoView" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_ImportModelItems" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">True</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_DuplicateDimensions" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_HiddenFeatureDimensions" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_UseSketchPlacement" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_AutoArrangeDimensions" Type="System.Boolean" Scope="User">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_PaperSize" Type="System.String" Scope="User">
-      <Value Profile="(Default)">A4</Value>
-    </Setting>
-    <Setting Name="DrawingAutomation_PaperFormatMap" Type="System.String" Scope="User">
-      <Value Profile="(Default)"></Value>
-    </Setting>
     <Setting Name="Rename_WriteFileName" Type="System.Boolean" Scope="User">
       <Value Profile="(Default)">True</Value>
     </Setting>
@@ -207,6 +153,18 @@
     </Setting>
     <Setting Name="Sort_Direction" Type="System.String" Scope="User">
       <Value Profile="(Default)">Ascending</Value>
+    </Setting>
+    <Setting Name="Update_AutoCheck" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="Update_CheckUrl" Type="System.String" Scope="User">
+      <Value Profile="(Default)"></Value>
+    </Setting>
+    <Setting Name="Update_LastCheck" Type="System.DateTime" Scope="User">
+      <Value Profile="(Default)">2000-01-01</Value>
+    </Setting>
+    <Setting Name="Plugin_AutoRegisterOnStart" Type="System.Boolean" Scope="User">
+      <Value Profile="(Default)">False</Value>
     </Setting>
   </Settings>
 </SettingsFile>

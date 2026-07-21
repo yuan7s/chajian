@@ -800,6 +800,147 @@
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
+
+            <TabItem Header="检查更新">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,10,0">
+                        <Border Style="{StaticResource SectionCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="当前版本" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock x:Name="CurrentVersionText"
+                                           FontSize="18"
+                                           FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                           Margin="0,0,0,4" />
+                                <TextBlock Text="填写返回版本号的检查地址（JSON 含 version/tag_name 字段，或纯文本版本号），点击检查是否有新版本。"
+                                           Style="{StaticResource HintTextStyle}"
+                                           Margin="0,0,0,14" />
+
+                                <TextBlock Text="检查更新地址" Style="{StaticResource FieldLabelStyle}" />
+                                <TextBox x:Name="UpdateCheckUrlBox"
+                                         MinHeight="36"
+                                         VerticalContentAlignment="Center"
+                                         Margin="0,0,0,14" />
+
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="16" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <CheckBox x:Name="AutoUpdateCheckBox"
+                                              Grid.Column="0"
+                                              Content="启动时自动检查更新"
+                                              VerticalAlignment="Center" />
+                                    <ui:Button x:Name="CheckUpdateButton"
+                                               Grid.Column="3"
+                                               Content="检查更新"
+                                               Style="{StaticResource PrimarySettingsButtonStyle}"
+                                               Click="CheckUpdateButton_Click" />
+                                </Grid>
+
+                                <TextBlock x:Name="UpdateStatusText"
+                                           Style="{StaticResource HintTextStyle}"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="自动检查更新会在程序启动时联网查询最新版本。更新地址为空时检查功能不生效。"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="4,0,4,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="插件注册">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="0,12,10,0">
+                        <Border Style="{StaticResource SectionCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="SolidWorks 插件状态" Style="{StaticResource SectionTitleStyle}" />
+                                <TextBlock Text="管理 ExternalProgram.SwAddin 的 COM 注册状态。"
+                                           Style="{StaticResource HintTextStyle}"
+                                           Margin="0,0,0,14" />
+
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border x:Name="PluginStatusDot"
+                                            Grid.Column="0"
+                                            Width="10"
+                                            Height="10"
+                                            CornerRadius="5"
+                                            Background="#9AA5B1"
+                                            Margin="0,0,10,0"
+                                            VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1"
+                                               x:Name="PluginStatusLabel"
+                                               Text="检测中..."
+                                               FontWeight="SemiBold"
+                                               VerticalAlignment="Center" />
+                                </Grid>
+
+                                <TextBlock Text="插件 DLL 路径" Style="{StaticResource FieldLabelStyle}" />
+                                <Grid Margin="0,0,0,14">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="8" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="PluginDllPathBox"
+                                             Grid.Column="0"
+                                             MinHeight="36"
+                                             VerticalContentAlignment="Center" />
+                                    <ui:Button Grid.Column="2"
+                                               Content="选择文件"
+                                               Style="{StaticResource SettingsButtonStyle}"
+                                               Click="SelectPluginDll_Click" />
+                                </Grid>
+
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="12" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:Button x:Name="RegisterPluginButton"
+                                               Grid.Column="0"
+                                               Content="注册插件"
+                                               Style="{StaticResource PrimarySettingsButtonStyle}"
+                                               Click="RegisterPluginButton_Click" />
+                                    <ui:Button x:Name="UnregisterPluginButton"
+                                               Grid.Column="2"
+                                               Content="卸载插件"
+                                               Style="{StaticResource SettingsButtonStyle}"
+                                               Click="UnregisterPluginButton_Click" />
+                                    <ui:Button Grid.Column="4"
+                                               Content="刷新状态"
+                                               Style="{StaticResource SettingsButtonStyle}"
+                                               Click="RefreshPluginStatusButton_Click" />
+                                </Grid>
+
+                                <TextBlock x:Name="PluginOpStatusText"
+                                           Style="{StaticResource HintTextStyle}"
+                                           TextWrapping="Wrap" />
+
+                                <Separator Margin="0,12" />
+
+                                <CheckBox x:Name="PluginAutoRegisterCheck"
+                                          Content="启动时自动检查并注册插件" />
+                            </StackPanel>
+                        </Border>
+
+                        <TextBlock Text="注册操作需要管理员权限。点击注册后会调用 RegAsm.exe 注册 COM 组件并写入 SolidWorks AddIn 注册表项。"
+                                   Style="{StaticResource HintTextStyle}"
+                                   Margin="4,0,4,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
         </TabControl>
 
         <Grid Grid.Row="2" Margin="0,14,0,0">

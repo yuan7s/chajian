@@ -23,81 +23,7 @@ internal sealed partial class AddinHttpServer
     private static readonly string[] StandardComponentFlagProperties = ["标准件"];
     private static readonly string[] PurchasedComponentFlagProperties = ["外购件"];
 
-    // ──────────── 工程图自动化 ────────────
-    // 孔标注的 SW 注释选项位掩码
-    private const int DrawingHoleCalloutAnnotationOptions = 1048576;
-    // 模型项目导入时的注释选项组合
-    private const int DrawingModelAnnotationOptions =
-        8 | 16 | 32768 | 131072 | DrawingHoleCalloutAnnotationOptions | 16777216;
-
-    // 工程图纸尺寸（A3 横向：420mm × 297mm）
-    private const double DrawingSheetWidth = 0.42;
-    private const double DrawingSheetHeight = 0.297;
-    // 视图布局间距参数（单位：米）
-    private const double DrawingViewLayoutGap = 0.032;
-    private const double DrawingViewLayoutClearance = 0.012;
-    private const double DrawingIsoViewLayoutClearance = 0.004;
-    private const double DrawingViewLayoutMarginX = 0.04;
-    private const double DrawingViewLayoutTopMargin = 0.035;
-    private const double DrawingViewLayoutBottomMargin = 0.065;
-    private const double DrawingIsoViewLayoutBottomMargin = 0.23;
-    private const double DrawingAnnotationMargin = 0.008;
-    private const double DrawingAnnotationSpacing = 0.007;
-    private static readonly string[] DrawingDefaultTemplateFileNames =
-    [
-        "工程图.drwdot",
-        "Drawing.drwdot"
-    ];
-    private static readonly DrawingScaleRatio[] DrawingStandardScales =
-    [
-        new DrawingScaleRatio(20, 1),
-        new DrawingScaleRatio(15, 1),
-        new DrawingScaleRatio(12, 1),
-        new DrawingScaleRatio(10, 1),
-        new DrawingScaleRatio(8, 1),
-        new DrawingScaleRatio(7, 1),
-        new DrawingScaleRatio(6, 1),
-        new DrawingScaleRatio(5, 1),
-        new DrawingScaleRatio(4, 1),
-        new DrawingScaleRatio(3, 1),
-        new DrawingScaleRatio(2, 1),
-        new DrawingScaleRatio(1, 1),
-        new DrawingScaleRatio(1, 2),
-        new DrawingScaleRatio(1, 3),
-        new DrawingScaleRatio(1, 4),
-        new DrawingScaleRatio(1, 5),
-        new DrawingScaleRatio(1, 8),
-        new DrawingScaleRatio(1, 10),
-        new DrawingScaleRatio(1, 15),
-        new DrawingScaleRatio(1, 20),
-        new DrawingScaleRatio(1, 25),
-        new DrawingScaleRatio(1, 50),
-        new DrawingScaleRatio(1, 75),
-        new DrawingScaleRatio(1, 100),
-        new DrawingScaleRatio(1, 150),
-        new DrawingScaleRatio(1, 200),
-        new DrawingScaleRatio(1, 500)
-    ];
-
-    private static readonly DrawingViewSpec[] StandardDrawingViewSpecs =
-    [
-        new DrawingViewSpec("前视图", 0.30, 0.47, "*Front", "*前视", "*前视图"),
-        new DrawingViewSpec("俯视图", 0.30, 0.75, "*Top", "*上视", "*俯视", "*上视图", "*俯视图"),
-        new DrawingViewSpec("右视图", 0.58, 0.47, "*Right", "*右视", "*右视图")
-    ];
-
-    private static readonly DrawingViewSpec IsoDrawingViewSpec =
-        new DrawingViewSpec("等轴测", 0.64, 0.41, "*Isometric", "*等轴测", "*等轴侧", "*等轴测图");
-
-    private static readonly DrawingViewSlotSpec[] StandardDrawingViewSlots =
-    [
-        new DrawingViewSlotSpec("主视图", 0.3324447719576762, 0.7117505740745859),
-        new DrawingViewSlotSpec("右视图", 0.6015328888757833, 0.7117505740745859),
-        new DrawingViewSlotSpec("俯视图", 0.3324447719576762, 0.4073276539248047)
-    ];
-
-    private static readonly DrawingViewSlotSpec IsoDrawingViewSlot =
-        new DrawingViewSlotSpec("等轴测", 0.64, 0.4073276539248047);
+    // ──────────── 工程图操作 ────────────
 
     private string _lastDocPath;
 
@@ -172,27 +98,6 @@ internal sealed partial class AddinHttpServer
 
             case "REPLACE-SHEET-FORMAT":
                 result = ReplaceSheetFormat(args);
-                break;
-
-            // ─── 工程图自动生成 ───
-            case "DRAWING-AUTOMATION-RUN":
-                result = RunDrawingAutomation(args);
-                break;
-
-            case "DRAWING-BATCH-RUN":
-                result = RunDrawingBatch(args);
-                break;
-
-            case "DRAWING-IMPORT-MODEL-ITEMS":
-                result = ImportDrawingModelItemsCommand(args);
-                break;
-
-            case "DRAWING-IMPORT-HOLE-CALLOUTS":
-                result = ImportDrawingHoleCalloutsCommand(args);
-                break;
-
-            case "DRAWING-AUTOMATION-CHECK":
-                result = CheckDrawingAutomation(args);
                 break;
 
             // ─── 装配体操作 ───
@@ -758,6 +663,27 @@ internal sealed partial class AddinHttpServer
         catch (Exception ex)
         {
             LogIgnoredException("MarkDocDirty", ex);
+        }
+    }
+
+    /// <summary>
+    /// 清除文件的只读属性。
+    /// </summary>
+    private static void ClearReadOnlyAttribute(string path)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return;
+
+            var attributes = File.GetAttributes(path);
+            if ((attributes & FileAttributes.ReadOnly) == 0) return;
+
+            File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
+            AddinLog.Write("Cleared read-only attribute: " + path);
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("ClearReadOnlyAttribute", ex);
         }
     }
 }

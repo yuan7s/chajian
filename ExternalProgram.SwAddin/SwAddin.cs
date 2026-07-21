@@ -10,7 +10,7 @@ namespace ExternalProgram.SwAddin;
 /// <summary>
 /// SolidWorks 插件入口。
 /// SW 启动时自动加载，在 SW 主 AppDomain 中直接启动 HTTP+WebSocket 服务，
-/// 供 ExternalProgram.exe（WPF 主程序）和 ReadBom.exe 通过 127.0.0.1 回环通信。
+/// 供 ExternalProgram.exe（WPF 主程序）通过 127.0.0.1 回环通信。
 /// </summary>
 [ComVisible(true)]
 [Guid("C8F7A3D2-6B51-4E92-A814-7F2D3C1E9A56")]
@@ -20,9 +20,7 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
 {
     private const string AddinTitle = "External Program Add-in";
     private const string AddinDescription = "External Program local command bridge for SolidWorks.";
-    // 两个 HTTP 服务各自扫描一段端口，避免冲突
     private const int ExternalBridgeBasePort = 32128;
-    private const int ReadBomBridgeBasePort = 32127;
     private const int PortScanCount = 60;
 
     private SldWorks.SldWorks _swApp;
@@ -31,10 +29,7 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
     private Control _mainThreadControl;
     // 对外 HTTP 服务（主程序命令通道）
     private AddinHttpServer _server;
-    // ReadBom 专用 HTTP 服务
-    private ReadBom.SwAddin.AddinHttpServer _readBomServer;
     private int _serverPort;
-    private int _readBomServerPort;
 
     /// <summary>
     /// SW 加载插件时回调。运行在 SW 主线程（STA）。
@@ -87,28 +82,22 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
     }
 
     /// <summary>
-    /// 启动两个 HTTP 服务，各自扫描可用端口。
+    /// 启动 HTTP 服务，扫描可用端口。
     /// </summary>
     private void StartServers()
     {
         _server = StartExternalBridgeServer(ExternalBridgeBasePort, PortScanCount);
-        _readBomServer = StartReadBomBridgeServer(ReadBomBridgeBasePort, PortScanCount);
         AddinLog.Write("HTTP server started on port " + _serverPort);
-        AddinLog.Write("ReadBom HTTP server started on port " + _readBomServerPort);
     }
 
     /// <summary>
-    /// 安全关闭所有 HTTP 服务。
+    /// 安全关闭 HTTP 服务。
     /// </summary>
     private void StopServers()
     {
-        try { _readBomServer?.Dispose(); }
-        catch (Exception ex) { AddinLog.Write("ReadBom server dispose ignored: " + ex.Message); }
-
         try { _server?.Dispose(); }
         catch (Exception ex) { AddinLog.Write("External server dispose ignored: " + ex.Message); }
 
-        _readBomServer = null;
         _server = null;
     }
 
@@ -137,33 +126,6 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
         }
 
         throw new InvalidOperationException("No available External bridge port.", lastError);
-    }
-
-    /// <summary>
-    /// 在 ReadBom 命令通道的端口范围内扫描，启动 HTTP 服务。
-    /// </summary>
-    private ReadBom.SwAddin.AddinHttpServer StartReadBomBridgeServer(int basePort, int portScanCount)
-    {
-        Exception lastError = null;
-        for (var port = basePort; port < basePort + portScanCount; port++)
-        {
-            var server = new ReadBom.SwAddin.AddinHttpServer(_swApp, _mainThreadControl, BuildLoopbackPrefix(port));
-            try
-            {
-                server.Start();
-                _readBomServerPort = port;
-                return server;
-            }
-            catch (Exception ex) when (IsPortStartFailure(ex))
-            {
-                lastError = ex;
-                AddinLog.Write("ReadBom bridge port unavailable: " + port + ", " + ex.Message);
-                try { server.Dispose(); }
-                catch (Exception disposeEx) { AddinLog.Write("ReadBom bridge server dispose after port failure ignored: " + disposeEx.Message); }
-            }
-        }
-
-        throw new InvalidOperationException("No available ReadBom bridge port.", lastError);
     }
 
     /// <summary>

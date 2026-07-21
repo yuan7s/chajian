@@ -885,4 +885,32 @@ internal sealed partial class AddinHttpServer
 
     // --- Coding Cleanup ---
 
+    // 以下三个方法从 DrawingAnnotations.cs 迁移过来，仅被 Rename 命令使用
+
+    private static string GetDrawingViewName(View view)
+    {
+        return Safe(view.GetName2) ?? Safe(() => view.Name) ?? "";
+    }
+
+    private static string GetViewReferencedModelPath(View view)
+    {
+        var path = Safe(view.GetReferencedModelName) ?? "";
+        if (!string.IsNullOrWhiteSpace(path)) return path;
+
+        var referencedModel = Safe(() => view.ReferencedDocument as ModelDoc2);
+        return Safe(() => referencedModel?.GetPathName()) ?? "";
+    }
+
+    private static IEnumerable<View> EnumerateDrawingViews(DrawingDoc drawing)
+    {
+        var view = Safe(() => drawing.GetFirstView() as View);
+        var guard = 0;
+        while (view != null && guard++ < 1000)
+        {
+            yield return view;
+            var current = view;
+            view = Safe(() => current.GetNextView() as View);
+        }
+    }
+
 }

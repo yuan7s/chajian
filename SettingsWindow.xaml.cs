@@ -1,8 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
+using Microsoft.Win32;
 using WpfNs = System.Windows;
 using WpfControls = System.Windows.Controls;
 using WpfInput = System.Windows.Input;
@@ -75,6 +80,19 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
         SortRecursiveCheck.IsChecked = settings.Sort_RecursiveSubAssemblies;
         SetComboTag(SortNameSourceCombo, string.IsNullOrWhiteSpace(settings.Sort_NameSource) ? "ComponentName" : settings.Sort_NameSource);
         SetComboTag(SortDirectionCombo, string.IsNullOrWhiteSpace(settings.Sort_Direction) ? "Ascending" : settings.Sort_Direction);
+
+        // 检查更新设置
+        CurrentVersionText.Text = "v" + GetCurrentVersion();
+        UpdateCheckUrlBox.Text = settings.Update_CheckUrl ?? "";
+        AutoUpdateCheckBox.IsChecked = settings.Update_AutoCheck;
+        var lastCheck = settings.Update_LastCheck;
+        if (lastCheck > new DateTime(2001, 1, 1))
+            UpdateStatusText.Text = "上次检查: " + lastCheck.ToString("yyyy-MM-dd HH:mm");
+
+        // 插件注册设置
+        PluginAutoRegisterCheck.IsChecked = settings.Plugin_AutoRegisterOnStart;
+        PluginDllPathBox.Text = GetSwAddinDllPath();
+        RefreshPluginRegistrationStatus();
     }
 
     private void SaveSettings()
@@ -108,6 +126,11 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
         settings.Sort_RecursiveSubAssemblies = SortRecursiveCheck.IsChecked.GetValueOrDefault();
         settings.Sort_NameSource = GetComboTag(SortNameSourceCombo, "ComponentName");
         settings.Sort_Direction = GetComboTag(SortDirectionCombo, "Ascending");
+
+        settings.Update_CheckUrl = UpdateCheckUrlBox.Text.Trim();
+        settings.Update_AutoCheck = AutoUpdateCheckBox.IsChecked.GetValueOrDefault();
+
+        settings.Plugin_AutoRegisterOnStart = PluginAutoRegisterCheck.IsChecked.GetValueOrDefault();
 
         settings.Save();
         PropertyOverlayWindow.ApplySettingsToOpenWindows();
@@ -653,6 +676,273 @@ partial class SettingsWindow : WpfUiControls.FluentWindow
     {
         var item = combo.SelectedItem as WpfControls.ComboBoxItem;
         return item?.Tag?.ToString() ?? fallback;
+    }
+
+    // ==================== 检查更新 ====================
+
+    private static string GetCurrentVersion()
+    {
+        var version = Assembly.GetExecutingAssembly().GetName().Version;
+        return version != null ? version.ToString() : "1.0.0.0";
+    }
+
+    private async void CheckUpdateButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        var checkUrl = UpdateCheckUrlBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(checkUrl))
+        {
+            UpdateStatusText.Text = "请先填写检查更新地址。";
+            return;
+        }
+
+        UpdateStatusText.Text = "正在检查...";
+        CheckUpdateButton.IsEnabled = false;
+
+        try
+        {
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(15) };
+            var response = await http.GetStringAsync(checkUrl);
+            var latestVersion = ParseVersionFromResponse(response);
+
+            if (string.IsNullOrWhiteSpace(latestVersion))
+            {
+                UpdateStatusText.Text = "无法解析远程版本信息，请确认地址返回了版本号。";
+                return;
+            }
+
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version;
+            if (Version.TryParse(latestVersion, out var remoteVersion))
+            {
+                UpdateStatusText.Text = remoteVersion > currentVersion
+                    ? string.Format("发现新版本 v{0}（当前 v{1}），请下载更新。", remoteVersion, currentVersion)
+                    : string.Format("已是最新版本 v{0}。", currentVersion);
+            }
+            else
+            {
+                UpdateStatusText.Text = "远程版本格式异常: " + latestVersion;
+            }
+
+            var settings = Properties.Settings.Default;
+            settings.Update_LastCheck = DateTime.Now;
+            settings.Save();
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusText.Text = "检查失败: " + ex.Message;
+        }
+        finally
+        {
+            CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private static string ParseVersionFromResponse(string response)
+    {
+        if (string.IsNullOrWhiteSpace(response)) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(response);
+            if (doc.RootElement.TryGetProperty("version", out var versionElement))
+                return versionElement.GetString();
+            if (doc.RootElement.TryGetProperty("tag_name", out var tagElement))
+                return tagElement.GetString()?.TrimStart('v', 'V');
+        }
+        catch
+        {
+            // 非 JSON 响应，回退到纯文本解析
+        }
+
+        var trimmed = response.Trim().TrimStart('v', 'V');
+        return Version.TryParse(trimmed, out _) ? trimmed : null;
+    }
+
+    // ==================== 插件注册 ====================
+
+    private const string SwAddinRegistryPath = @"SOFTWARE\SolidWorks\AddIns\{C8F7A3D2-6B51-4E92-A814-7F2D3C1E9A56}";
+
+    private void SelectPluginDll_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            CheckFileExists = true,
+            Filter = "插件程序集 (ExternalProgram.SwAddin.dll)|ExternalProgram.SwAddin.dll|程序集 (*.dll)|*.dll|所有文件 (*.*)|*.*"
+        };
+
+        if (dialog.ShowDialog(this).GetValueOrDefault())
+        {
+            PluginDllPathBox.Text = dialog.FileName;
+        }
+    }
+
+    private void RefreshPluginStatusButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        RefreshPluginRegistrationStatus();
+    }
+
+    private void RefreshPluginRegistrationStatus()
+    {
+        try
+        {
+            // COM 注册表项写在 LocalMachine 与 CurrentUser 两处，任一存在即视为已注册
+            var registered = SubKeyExists(Registry.LocalMachine, SwAddinRegistryPath)
+                             || SubKeyExists(Registry.CurrentUser, SwAddinRegistryPath);
+
+            if (registered)
+            {
+                PluginStatusLabel.Text = "已注册";
+                PluginStatusDot.Background = new WpfMedia.SolidColorBrush(WpfMedia.Color.FromRgb(0x16, 0xA3, 0x4A));
+                PluginOpStatusText.Text = "插件已在 SolidWorks 中注册。";
+            }
+            else
+            {
+                PluginStatusLabel.Text = "未注册";
+                PluginStatusDot.Background = new WpfMedia.SolidColorBrush(WpfMedia.Color.FromRgb(0xDC, 0x26, 0x26));
+                PluginOpStatusText.Text = "插件未注册，SolidWorks 不会加载该插件。";
+            }
+        }
+        catch (Exception ex)
+        {
+            PluginStatusLabel.Text = "检测失败";
+            PluginStatusDot.Background = new WpfMedia.SolidColorBrush(WpfMedia.Color.FromRgb(0x9A, 0xA5, 0xB1));
+            PluginOpStatusText.Text = "无法读取注册表: " + ex.Message;
+        }
+    }
+
+    private static bool SubKeyExists(RegistryKey root, string subkey)
+    {
+        using var key = root.OpenSubKey(subkey);
+        return key != null;
+    }
+
+    private void RegisterPluginButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        RunRegAsm(register: true);
+    }
+
+    private void UnregisterPluginButton_Click(object sender, WpfNs.RoutedEventArgs e)
+    {
+        RunRegAsm(register: false);
+    }
+
+    private void RunRegAsm(bool register)
+    {
+        var dllPath = PluginDllPathBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(dllPath) || !File.Exists(dllPath))
+        {
+            PluginOpStatusText.Text = "插件 DLL 文件不存在: " + dllPath;
+            return;
+        }
+
+        var regAsmPath = FindRegAsm();
+        if (string.IsNullOrWhiteSpace(regAsmPath))
+        {
+            PluginOpStatusText.Text = "未找到 RegAsm.exe，请确认已安装 .NET Framework 4.x。";
+            return;
+        }
+
+        var actionName = register ? "注册" : "卸载";
+        PluginOpStatusText.Text = "正在" + actionName + "插件（需要管理员授权）...";
+        RegisterPluginButton.IsEnabled = false;
+        UnregisterPluginButton.IsEnabled = false;
+
+        try
+        {
+            // COM 注册写 HKLM，需管理员权限。runas 提权要求 UseShellExecute=true，
+            // 此时无法重定向输出，因此改用退出码判断结果。
+            var args = register
+                ? string.Format("\"{0}\" /codebase", dllPath)
+                : string.Format("\"{0}\" /unregister", dllPath);
+
+            var psi = new ProcessStartInfo(regAsmPath, args)
+            {
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = ProcessWindowStyle.Hidden,
+                Verb = "runas"
+            };
+
+            using var process = Process.Start(psi);
+            if (process == null)
+            {
+                PluginOpStatusText.Text = actionName + "失败：无法启动 RegAsm.exe。";
+                return;
+            }
+
+            process.WaitForExit(30000);
+            if (!process.HasExited)
+            {
+                PluginOpStatusText.Text = actionName + "超时，请重试。";
+                return;
+            }
+
+            if (process.ExitCode == 0)
+            {
+                PluginOpStatusText.Text = actionName + "成功。";
+            }
+            else
+            {
+                PluginOpStatusText.Text = string.Format(
+                    "{0}失败（RegAsm 退出码 {1}）。请确认已用管理员权限运行。",
+                    actionName, process.ExitCode);
+            }
+
+            RefreshPluginRegistrationStatus();
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            // 用户在 UAC 提示中点了"否"
+            PluginOpStatusText.Text = actionName + "已取消：需要管理员权限。";
+        }
+        catch (Exception ex)
+        {
+            PluginOpStatusText.Text = actionName + "异常: " + ex.Message;
+        }
+        finally
+        {
+            RegisterPluginButton.IsEnabled = true;
+            UnregisterPluginButton.IsEnabled = true;
+        }
+    }
+
+    private static string FindRegAsm()
+    {
+        var frameworkRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows),
+            @"Microsoft.NET\Framework64");
+
+        if (Directory.Exists(frameworkRoot))
+        {
+            // 优先匹配 v4.x（SwAddin 目标框架为 net48）
+            var v4 = Path.Combine(frameworkRoot, @"v4.0.30319\RegAsm.exe");
+            if (File.Exists(v4)) return v4;
+
+            // 回退：扫描其它版本目录里的 RegAsm.exe
+            foreach (var dir in Directory.GetDirectories(frameworkRoot, "v*"))
+            {
+                var candidate = Path.Combine(dir, "RegAsm.exe");
+                if (File.Exists(candidate)) return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetSwAddinDllPath()
+    {
+        const string dllName = "ExternalProgram.SwAddin.dll";
+        var exeDir = AppDomain.CurrentDomain.BaseDirectory;
+
+        // 发布目录结构: <exe>\SwAddin\ExternalProgram.SwAddin.dll
+        var publishPath = Path.Combine(exeDir, "SwAddin", dllName);
+        if (File.Exists(publishPath)) return publishPath;
+
+        // 开发构建结构: 与主程序同目录（CopySwAddinToOutput 拷贝而来）
+        var devPath = Path.Combine(exeDir, dllName);
+        if (File.Exists(devPath)) return devPath;
+
+        // 都不存在时返回发布路径，供用户手动指定
+        return publishPath;
     }
 
     public sealed class RenamePropertySetting
