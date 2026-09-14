@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SolidWorks 控制台</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span id="status-dot" class="status-dot"></span>
+    <span id="status-text">连接中…</span>
+    <span class="sep">|</span>
+    <span id="doc-name">无文档</span>
+    <button id="settings-toggle" class="settings-toggle" type="button">⚙ 设置</button>
+  </header>
+
+  <section id="settings-panel" class="settings-panel" hidden>
+    <h3>绘图标准（「标准格式」按钮使用）</h3>
+    <label>绘图标准文件路径
+      <input id="cfg-standard-path" type="text" placeholder="例如 D:\模板\GB.drwdot" />
+    </label>
+    <label>图纸格式文件路径
+      <input id="cfg-sheet-format-path" type="text" placeholder="例如 D:\模板\A3.slddrt" />
+    </label>
+    <h3>装配体排序（「排序」按钮使用）</h3>
+    <label><input id="cfg-sort-assembly-first" type="checkbox" /> 装配体优先</label>
+    <label><input id="cfg-sort-suppressed-last" type="checkbox" /> 压缩件靠后</label>
+    <label><input id="cfg-sort-folders" type="checkbox" /> 按文件夹排序</label>
+    <label><input id="cfg-sort-recursive" type="checkbox" /> 递归子装配体</label>
+    <label><input id="cfg-sort-descending" type="checkbox" /> 降序</label>
+    <label>名称来源
+      <select id="cfg-sort-name-source">
+        <option value="ComponentName">组件名</option>
+        <option value="FileName">文件名</option>
+      </select>
+    </label>
+    <button id="settings-save" type="button">保存设置</button>
+  </section>
+
+  <main id="toolbar" class="toolbar"></main>
+  <div id="toast" class="toast" hidden></div>
+  <script src="app.js"></script>
+</body>
+</html>
