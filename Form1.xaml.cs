@@ -454,6 +454,7 @@ partial class Form1
         {
             { ToolbarButtonLayoutStore.OpenFolder, Button2 },
             { ToolbarButtonLayoutStore.PartCoding, Button9 },
+            { ToolbarButtonLayoutStore.BlankSize, Button24 },
             { ToolbarButtonLayoutStore.SaveDwg, Button1 },
             { ToolbarButtonLayoutStore.SavePdf, Button8 },
             { ToolbarButtonLayoutStore.RotateView, Button4 },
@@ -643,6 +644,21 @@ partial class Form1
         catch (Exception ex)
         {
             System.Windows.MessageBox.Show("同步属性失败: " + ex.Message);
+        }
+    }
+
+    private async void Button24_Click(object sender, EventArgs e)
+    {
+        try
+        {
+            var result = await _client.SendCommandAsync("write-blank-size");
+            var dict = result as Dictionary<string, object>;
+            var blankSize = dict != null && dict.ContainsKey("blankSize") ? dict["blankSize"]?.ToString() : "";
+            ShowAutoCloseNotice(string.IsNullOrWhiteSpace(blankSize) ? "下料尺寸已写入" : "下料尺寸已写入: " + blankSize);
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show("写入下料尺寸失败: " + ex.Message);
         }
     }
 
