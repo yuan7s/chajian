@@ -153,10 +153,37 @@ function groupForType(type) {
 }
 
 // ─────────── 渲染 ───────────
+let currentGroup = '';
+
+function getDefaultLayout() {
+  const layout = { part: [], drawing: [], assembly: [] };
+  for (const b of BUTTONS) {
+    for (const g of b.groups) {
+      if (layout[g]) layout[g].push(b.id);
+    }
+  }
+  return layout;
+}
+
+function getButtonLayout() {
+  const raw = localStorage.getItem('btnLayout');
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed && Array.isArray(parsed.part) && Array.isArray(parsed.drawing) && Array.isArray(parsed.assembly)) {
+        return parsed;
+      }
+    } catch (e) { /* fall through to default */ }
+  }
+  return getDefaultLayout();
+}
+
 function renderButtons(group) {
+  currentGroup = group;
   const toolbar = el('toolbar');
   toolbar.innerHTML = '';
-  const visible = BUTTONS.filter((b) => !group || b.groups.includes(group));
+  const layout = getButtonLayout();
+  const visible = group ? BUTTONS.filter((b) => (layout[group] || []).includes(b.id)) : [];
   if (visible.length === 0) {
     toolbar.innerHTML = '<div class="empty">当前文档类型没有可用操作</div>';
     return;
@@ -299,14 +326,51 @@ function loadSettingsForm() {
 function saveSettingsForm() {
   localStorage.setItem('standardPath', el('cfg-standard-path').value.trim());
   localStorage.setItem('sheetFormatPath', el('cfg-sheet-format-path').value.trim());
+  saveButtonLayout();
   showToast('设置已保存', 'ok');
+}
+
+function buildButtonLayoutUI() {
+  const container = el('layout-groups');
+  container.innerHTML = '';
+  const layout = getButtonLayout();
+  const groups = [['part', '零件'], ['drawing', '工程图'], ['assembly', '装配体']];
+  for (const [group, label] of groups) {
+    const details = document.createElement('details');
+    details.className = 'layout-group';
+    const summary = document.createElement('summary');
+    summary.textContent = label;
+    details.appendChild(summary);
+    const ids = layout[group] || [];
+    for (const b of BUTTONS) {
+      const lbl = document.createElement('label');
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.dataset.group = group;
+      cb.dataset.id = b.id;
+      cb.checked = ids.includes(b.id);
+      lbl.appendChild(cb);
+      lbl.appendChild(document.createTextNode(' ' + b.text));
+      details.appendChild(lbl);
+    }
+    container.appendChild(details);
+  }
+}
+
+function saveButtonLayout() {
+  const layout = { part: [], drawing: [], assembly: [] };
+  document.querySelectorAll('#layout-groups input[type="checkbox"]').forEach((cb) => {
+    if (cb.checked) layout[cb.dataset.group].push(cb.dataset.id);
+  });
+  localStorage.setItem('btnLayout', JSON.stringify(layout));
+  renderButtons(currentGroup);
 }
 
 function initSettingsPanel() {
   el('settings-toggle').addEventListener('click', () => {
     const panel = el('settings-panel');
     panel.hidden = !panel.hidden;
-    if (!panel.hidden) loadSettingsForm();
+    if (!panel.hidden) { loadSettingsForm(); buildButtonLayoutUI(); }
   });
   el('settings-save').addEventListener('click', saveSettingsForm);
 }
@@ -542,8 +606,84 @@ async function doRename(action) {
   }
 }
 
+// ─────────── 属性面板 ───────────
+const KEY_PROPERTIES = ['物料编码', '零件图号', '文件名称', '零件类型', '零件材质', '表面处理/热处理', '下料尺寸', '版本', '设计者', '出图者'];
+let propPollTimer = null;
+
+function initPropertyPanel() {
+  el('property-toggle').addEventListener('click', () => setPropertyPanelVisible(el('property-panel').hidden));
+  el('property-close').addEventListener('click', () => setPropertyPanelVisible(false));
+  el('prop-source').addEventListener('change', savePropSettings);
+  el('prop-scope').addEventListener('change', savePropSettings);
+  loadPropSettings();
+}
+
+function setPropertyPanelVisible(show) {
+  el('property-panel').hidden = !show;
+  if (show) {
+    refreshProperties();
+    if (!propPollTimer) propPollTimer = setInterval(refreshProperties, 1200);
+  } else if (propPollTimer) {
+    clearInterval(propPollTimer);
+    propPollTimer = null;
+  }
+}
+
+function loadPropSettings() {
+  el('prop-source').value = localStorage.getItem('propSource') || 'configuration';
+  el('prop-scope').value = localStorage.getItem('propScope') || 'key';
+}
+
+function savePropSettings() {
+  localStorage.setItem('propSource', el('prop-source').value);
+  localStorage.setItem('propScope', el('prop-scope').value);
+  refreshProperties();
+}
+
+async function refreshProperties() {
+  try {
+    const data = await sendCommand('read-properties', { source: el('prop-source').value });
+    renderProperties(data);
+  } catch (err) {
+    if (err && err.code === 'command_busy') return;
+    renderProperties(null);
+  }
+}
+
+function renderProperties(data) {
+  const list = el('prop-list');
+  list.innerHTML = '';
+  if (!data || !data.properties) {
+    el('prop-title').textContent = '无文档';
+    return;
+  }
+  el('prop-title').textContent = data.title || '-';
+  const props = data.properties;
+  const scope = el('prop-scope').value;
+  let entries;
+  if (scope === 'key') {
+    entries = KEY_PROPERTIES.map((k) => [k, props[k] != null ? props[k] : '']);
+  } else {
+    entries = Object.entries(props);
+  }
+  for (const [name, value] of entries) {
+    const row = document.createElement('div');
+    row.className = 'prop-row';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'prop-name';
+    nameEl.textContent = name;
+    const valEl = document.createElement('span');
+    valEl.className = 'prop-value';
+    valEl.textContent = value != null ? String(value) : '';
+    row.appendChild(nameEl);
+    row.appendChild(valEl);
+    list.appendChild(row);
+  }
+}
+
 // ─────────── 启动 ───────────
 initSettingsPanel();
+initPropertyPanel();
 initModals();
 renderButtons('');
 refreshStatus();

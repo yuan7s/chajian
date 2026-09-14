@@ -12,6 +12,7 @@
     <span id="status-text">连接中…</span>
     <span class="sep">|</span>
     <span id="doc-name">无文档</span>
+    <button id="property-toggle" class="settings-toggle" type="button">属性</button>
     <button id="settings-toggle" class="settings-toggle" type="button">⚙ 设置</button>
   </header>
 
@@ -23,11 +24,32 @@
     <label>图纸格式文件路径
       <input id="cfg-sheet-format-path" type="text" placeholder="例如 D:\模板\A3.slddrt" />
     </label>
+    <h3>按钮布局（勾选各文档类型显示的按钮）</h3>
+    <div id="layout-groups" class="layout-groups"></div>
     <button id="settings-save" type="button">保存设置</button>
   </section>
 
   <main id="toolbar" class="toolbar"></main>
   <div id="toast" class="toast" hidden></div>
+
+  <!-- 属性面板（侧边） -->
+  <aside id="property-panel" class="property-panel" hidden>
+    <div class="property-header">
+      <span id="prop-title">-</span>
+      <button id="property-close" class="modal-close" type="button">×</button>
+    </div>
+    <div class="property-controls">
+      <select id="prop-source">
+        <option value="configuration">配置特定</option>
+        <option value="custom">自定义</option>
+      </select>
+      <select id="prop-scope">
+        <option value="key">关键属性</option>
+        <option value="all">全部属性</option>
+      </select>
+    </div>
+    <div id="prop-list" class="property-list"></div>
+  </aside>
 
   <!-- 编码整理模态框 -->
   <div id="modal-coding-cleanup" class="modal-overlay" hidden>

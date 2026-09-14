@@ -141,3 +141,41 @@ body {
 .rn-status.conflict { color: #dc2626; }
 .rename-params { margin-top: 12px; border-top: 1px dashed #e5e7eb; padding-top: 8px; }
 .rename-params summary { cursor: pointer; font-size: 13px; color: #6b7280; }
+
+.layout-groups .layout-group { margin: 8px 0; border: 1px solid #e5e7eb; border-radius: 6px; padding: 6px 10px; }
+.layout-groups summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+.layout-groups .layout-group label { display: block; font-size: 13px; margin: 4px 0; }
+
+.property-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: #fff;
+  border-left: 1px solid #e5e7eb;
+  box-shadow: -4px 0 12px rgba(0, 0, 0, 0.12);
+  z-index: 15;
+  display: flex;
+  flex-direction: column;
+}
+.property-panel[hidden] { display: none; }
+.property-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  font-weight: 600;
+}
+.property-controls {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.property-controls select { flex: 1; padding: 4px; }
+.property-list { flex: 1; overflow: auto; padding: 8px 16px; }
+.prop-row { display: flex; padding: 4px 0; font-size: 13px; border-bottom: 1px solid #f3f4f6; }
+.prop-name { width: 130px; color: #6b7280; flex-shrink: 0; }
+.prop-value { flex: 1; word-break: break-all; }
