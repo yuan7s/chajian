@@ -154,6 +154,10 @@ internal sealed partial class AddinHttpServer
                 result = GetBoundingBox(args);
                 break;
 
+            case "WRITE-BLANK-SIZE":
+                result = WriteBlankSize();
+                break;
+
             // ─── 重命名 ───
             case "RENAME-TARGET":
                 result = GetRenameTargetInfo();
