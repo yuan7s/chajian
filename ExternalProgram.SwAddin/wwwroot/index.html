@@ -40,6 +40,77 @@
 
   <main id="toolbar" class="toolbar"></main>
   <div id="toast" class="toast" hidden></div>
+
+  <!-- 编码整理模态框 -->
+  <div id="modal-coding-cleanup" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <span>编码整理</span>
+        <button class="modal-close" type="button" data-close>×</button>
+      </div>
+      <div class="modal-body">
+        <label>名称过滤
+          <input id="cc-name-filter" type="text" placeholder="留空则处理全部组件" />
+        </label>
+        <label><input id="cc-process-asm" type="checkbox" /> 处理装配体</label>
+        <label><input id="cc-process-part" type="checkbox" /> 处理零件</label>
+        <label><input id="cc-exclude-virtual" type="checkbox" /> 排除虚拟件</label>
+        <label><input id="cc-exclude-standard" type="checkbox" /> 排除标准件</label>
+        <label><input id="cc-exclude-purchased" type="checkbox" /> 排除外购件</label>
+      </div>
+      <div class="modal-footer">
+        <button id="cc-execute" class="primary" type="button">执行</button>
+        <button type="button" data-close>取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 重命名模态框 -->
+  <div id="modal-rename" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <span>重命名</span>
+        <button class="modal-close" type="button" data-close>×</button>
+      </div>
+      <div class="modal-body">
+        <div class="rename-row">
+          <label>原文件名
+            <input id="rn-old-name" type="text" readonly />
+          </label>
+          <span id="rn-ext" class="rn-ext"></span>
+        </div>
+        <div class="rename-row">
+          <label>新文件名
+            <input id="rn-new-name" type="text" />
+          </label>
+          <span id="rn-name-status" class="rn-status"></span>
+        </div>
+
+        <details class="rename-params">
+          <summary>重命名参数</summary>
+          <label>属性目标
+            <select id="rn-property-target">
+              <option value="configuration">配置特定</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          <label><input id="rn-write-filename" type="checkbox" /> 写文件名称</label>
+          <label><input id="rn-write-material-code" type="checkbox" /> 写物料编码</label>
+          <label><input id="rn-write-part-number" type="checkbox" /> 写零件图号</label>
+          <label><input id="rn-write-design" type="checkbox" /> 写设计出图</label>
+          <label>设计文本 <input id="rn-design-text" type="text" /></label>
+          <label><input id="rn-write-version" type="checkbox" /> 写版本</label>
+          <label>版本文本 <input id="rn-version-text" type="text" /></label>
+        </details>
+      </div>
+      <div class="modal-footer">
+        <button id="rn-rename" class="primary" type="button">重命名</button>
+        <button id="rn-save-as" type="button">另存为</button>
+        <button id="rn-save-as-replace" type="button">另存替换</button>
+        <button type="button" data-close>取消</button>
+      </div>
+    </div>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>
