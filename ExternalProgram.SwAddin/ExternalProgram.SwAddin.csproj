@@ -37,6 +37,18 @@
         <Reference Include="System.Windows.Forms" />
     </ItemGroup>
 
+    <ItemGroup>
+        <EmbeddedResource Include="wwwroot\index.html">
+            <LogicalName>ExternalProgram.SwAddin.wwwroot.index.html</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="wwwroot\app.js">
+            <LogicalName>ExternalProgram.SwAddin.wwwroot.app.js</LogicalName>
+        </EmbeddedResource>
+        <EmbeddedResource Include="wwwroot\style.css">
+            <LogicalName>ExternalProgram.SwAddin.wwwroot.style.css</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
     <Target Name="CloseSolidWorksWhenAddinDllLocked" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(CloseSolidWorksWhenAddinDllLocked)' == 'true'">
         <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$path = '$(TargetPath)'; if (Test-Path -LiteralPath $path) { try { $stream = [System.IO.File]::Open($path, 'Open', 'ReadWrite', 'None'); $stream.Dispose() } catch { Write-Host 'ExternalProgram.SwAddin.dll is locked; closing SLDWORKS.exe'; Get-Process -Name SLDWORKS -ErrorAction SilentlyContinue | Stop-Process -Force } }&quot;" />
     </Target>
