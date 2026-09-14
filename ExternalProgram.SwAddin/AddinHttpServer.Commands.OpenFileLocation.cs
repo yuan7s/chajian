@@ -1,3 +1,6 @@
+using System;
+using System.Diagnostics;
+using System.IO;
 using SldWorks;
 
 namespace ExternalProgram.SwAddin;
@@ -7,21 +10,52 @@ namespace ExternalProgram.SwAddin;
 
 internal sealed partial class AddinHttpServer
 {
-    private object GetActiveOrSelectedModelPath()
+    private object OpenFileLocation()
     {
         var model = GetActiveModel();
         var selectedComponent = GetSelectedComponent(model);
+        string path = null;
+        var selected = false;
+
         if (selectedComponent != null)
         {
-            var selectedPath = Safe(selectedComponent.GetPathName) ?? "";
-            if (string.IsNullOrWhiteSpace(selectedPath))
-                selectedPath = Safe(() => (selectedComponent.GetModelDoc() as ModelDoc2)?.GetPathName()) ?? "";
-            if (!string.IsNullOrWhiteSpace(selectedPath)) return new { path = selectedPath, selected = true };
+            path = Safe(selectedComponent.GetPathName) ?? "";
+            if (string.IsNullOrWhiteSpace(path))
+                path = Safe(() => (selectedComponent.GetModelDoc() as ModelDoc2)?.GetPathName()) ?? "";
+            if (!string.IsNullOrWhiteSpace(path)) selected = true;
         }
 
-        var path = Safe(model.GetPathName) ?? "";
-        if (!string.IsNullOrWhiteSpace(path)) return new { path, selected = false };
+        if (string.IsNullOrWhiteSpace(path))
+            path = Safe(model.GetPathName) ?? "";
 
-        return new { path = Safe(model.GetTitle) ?? "", selected = false };
+        var opened = LaunchExplorerForPath(path);
+
+        if (string.IsNullOrWhiteSpace(path))
+            path = Safe(model.GetTitle) ?? "";
+
+        return new { path, selected, opened };
+    }
+
+    private static bool LaunchExplorerForPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return false;
+        try
+        {
+            if (File.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "/select,\"" + path + "\"") { UseShellExecute = true });
+                return true;
+            }
+            if (Directory.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo("explorer.exe", "\"" + path + "\"") { UseShellExecute = true });
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            LogIgnoredException("LaunchExplorerForPath", ex);
+        }
+        return false;
     }
 }

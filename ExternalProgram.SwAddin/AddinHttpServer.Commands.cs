@@ -76,7 +76,7 @@ internal sealed partial class AddinHttpServer
                 break;
 
             case "OPEN-FILE-LOCATION":
-                result = GetActiveOrSelectedModelPath();
+                result = OpenFileLocation();
                 break;
 
             // ─── 工程图视图/标注/标准 ───
@@ -111,6 +111,10 @@ internal sealed partial class AddinHttpServer
 
             case "RUN-SWP-MACRO":
                 result = RunSwpMacro(args);
+                break;
+
+            case "PICK-SWP-MACRO":
+                result = PickSwpMacro();
                 break;
 
             case "GET-COMPONENT-TREE":
