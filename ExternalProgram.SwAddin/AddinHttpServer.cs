@@ -26,6 +26,8 @@ internal sealed partial class AddinHttpServer : IDisposable
     private const int DefaultCommandTimeoutSeconds = 30;
     // 健康检查超时（需要更短，因为客户端频繁扫描端口）
     private const int HealthCheckTimeoutSeconds = 5;
+    // 文件选择框命令超时：模态框挂起期间可能远超默认 30 秒
+    private const int PickMacroTimeoutSeconds = 600;
 
     // 高频轮询命令：主程序状态栏定时拉取，日志静默以免刷屏。
     private static readonly HashSet<string> QuietCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -278,7 +280,7 @@ internal sealed partial class AddinHttpServer : IDisposable
             {
                 Interlocked.Increment(ref _commandGeneration);
                 var executeWatch = Stopwatch.StartNew();
-                var result = await RunOnMainThread(() => ExecuteCommand(request));
+                var result = await RunOnMainThread(() => ExecuteCommand(request), GetCommandTimeoutSeconds(commandName));
                 if (!quiet)
                 {
                     AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
@@ -524,6 +526,13 @@ internal sealed partial class AddinHttpServer : IDisposable
 
         var expected = _prefix.TrimEnd('/');
         return string.Equals(origin.TrimEnd('/'), expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetCommandTimeoutSeconds(string commandName)
+    {
+        return string.Equals(commandName, "pick-swp-macro", StringComparison.OrdinalIgnoreCase)
+            ? PickMacroTimeoutSeconds
+            : DefaultCommandTimeoutSeconds;
     }
 
     private void WriteJson(HttpListenerContext context, object obj)
