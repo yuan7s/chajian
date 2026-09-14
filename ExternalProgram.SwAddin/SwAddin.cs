@@ -125,7 +125,7 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
         try
         {
             var url = "http://127.0.0.1:" + _serverPort + "/";
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+            using var p = Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
         catch (Exception ex)
         {
