@@ -404,7 +404,7 @@ async function executeCodingCleanup() {
 
 // ─────────── 重命名 ───────────
 let renameDebounce = null;
-let renameSelectedComponent = false;
+let renameConflictSeq = 0;
 
 function loadRenameParams() {
   el('rn-property-target').value = localStorage.getItem('rnPropertyTarget') || 'configuration';
@@ -430,6 +430,7 @@ function saveRenameParams() {
 
 async function openRenameModal() {
   loadRenameParams();
+  el('rn-save-as-replace').style.display = 'none';
   openModal('modal-rename');
   el('rn-name-status').textContent = '';
   el('rn-name-status').className = 'rn-status';
@@ -437,12 +438,11 @@ async function openRenameModal() {
     const info = await sendCommand('rename-target');
     const oldName = (info && info.baseName) || '';
     const ext = (info && info.extension) || '';
-    renameSelectedComponent = !!(info && info.selectedComponent);
+    const selected = !!(info && info.selectedComponent);
     el('rn-old-name').value = oldName;
     el('rn-ext').textContent = ext;
     el('rn-new-name').value = oldName;
-    el('rn-save-as-replace').style.display = renameSelectedComponent ? '' : 'none';
-    if (oldName) checkRenameConflict(oldName);
+    el('rn-save-as-replace').style.display = selected ? '' : 'none';
   } catch (err) {
     showToast(err && err.message ? err.message : String(err), 'error');
     closeModal('modal-rename');
@@ -462,8 +462,10 @@ async function checkRenameConflict(newName) {
     status.className = 'rn-status';
     return;
   }
+  const seq = ++renameConflictSeq;
   try {
     const data = await sendCommand('check-name-conflict', { newName: name });
+    if (seq !== renameConflictSeq) return;
     if (data && data.conflict) {
       const detail = data.existsOpen && data.existsFile
         ? '重名(打开+本地)'
@@ -475,6 +477,7 @@ async function checkRenameConflict(newName) {
       status.className = 'rn-status ok';
     }
   } catch (err) {
+    if (seq !== renameConflictSeq) return;
     status.textContent = '';
     status.className = 'rn-status';
   }
