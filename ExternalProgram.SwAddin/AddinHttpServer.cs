@@ -7,7 +7,6 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Runtime.InteropServices;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -49,14 +48,18 @@ internal sealed partial class AddinHttpServer : IDisposable
     // 所有已连接的 WebSocket 客户端，用于广播事件
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
 
-    // 静态网页资源映射：请求路径 → (嵌入资源名, Content-Type)
-    private static readonly Dictionary<string, (string Resource, string ContentType)> StaticFiles =
+    // 静态网页资源根目录：插件目录下的 wwwroot 文件夹。前端文件放在此处而非嵌入资源，
+    // 便于不重新编译插件即可更新前端（替换文件后刷新浏览器即可）。
+    private static readonly string WebRoot = Path.Combine(AddinLog.DirectoryPath, "wwwroot");
+
+    // 静态网页资源映射：请求路径 → (相对文件名, Content-Type)
+    private static readonly Dictionary<string, (string File, string ContentType)> StaticFiles =
         new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
         {
-            { "/", ("ExternalProgram.SwAddin.wwwroot.index.html", "text/html; charset=utf-8") },
-            { "/index.html", ("ExternalProgram.SwAddin.wwwroot.index.html", "text/html; charset=utf-8") },
-            { "/app.js", ("ExternalProgram.SwAddin.wwwroot.app.js", "application/javascript; charset=utf-8") },
-            { "/style.css", ("ExternalProgram.SwAddin.wwwroot.style.css", "text/css; charset=utf-8") },
+            { "/", ("index.html", "text/html; charset=utf-8") },
+            { "/index.html", ("index.html", "text/html; charset=utf-8") },
+            { "/app.js", ("app.js", "application/javascript; charset=utf-8") },
+            { "/style.css", ("style.css", "text/css; charset=utf-8") },
         };
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
@@ -238,7 +241,7 @@ internal sealed partial class AddinHttpServer : IDisposable
             // Static web UI
             if (context.Request.HttpMethod == "GET" && StaticFiles.TryGetValue(requestPath, out var file))
             {
-                ServeStaticFile(context, file.Resource, file.ContentType);
+                ServeStaticFile(context, file.File, file.ContentType);
                 return;
             }
 
@@ -486,22 +489,19 @@ internal sealed partial class AddinHttpServer : IDisposable
         }
     }
 
-    private void ServeStaticFile(HttpListenerContext context, string resourceName, string contentType)
+    private void ServeStaticFile(HttpListenerContext context, string fileName, string contentType)
     {
         try
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            using var stream = assembly.GetManifestResourceStream(resourceName);
-            if (stream == null)
+            var fullPath = Path.Combine(WebRoot, fileName);
+            if (!File.Exists(fullPath))
             {
                 context.Response.StatusCode = 404;
                 WriteJson(context, new { ok = false, error = "not_found" });
                 return;
             }
 
-            using var ms = new MemoryStream();
-            stream.CopyTo(ms);
-            var bytes = ms.ToArray();
+            var bytes = File.ReadAllBytes(fullPath);
             context.Response.ContentType = contentType;
             context.Response.ContentLength64 = bytes.Length;
             context.Response.OutputStream.Write(bytes, 0, bytes.Length);
