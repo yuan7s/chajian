@@ -7,6 +7,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Runtime.InteropServices;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Web.Script.Serialization;
@@ -45,6 +46,16 @@ internal sealed partial class AddinHttpServer : IDisposable
     private long _commandGeneration;
     // 所有已连接的 WebSocket 客户端，用于广播事件
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
+
+    // 静态网页资源映射：请求路径 → (嵌入资源名, Content-Type)
+    private static readonly Dictionary<string, (string Resource, string ContentType)> StaticFiles =
+        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "/", ("ExternalProgram.SwAddin.wwwroot.index.html", "text/html; charset=utf-8") },
+            { "/index.html", ("ExternalProgram.SwAddin.wwwroot.index.html", "text/html; charset=utf-8") },
+            { "/app.js", ("ExternalProgram.SwAddin.wwwroot.app.js", "application/javascript; charset=utf-8") },
+            { "/style.css", ("ExternalProgram.SwAddin.wwwroot.style.css", "text/css; charset=utf-8") },
+        };
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
     {
@@ -219,6 +230,22 @@ internal sealed partial class AddinHttpServer : IDisposable
                     shortTitle = document.ShortTitle,
                     wsClients = _webSockets.Count
                 });
+                return;
+            }
+
+            // Static web UI
+            if (context.Request.HttpMethod == "GET" && StaticFiles.TryGetValue(requestPath, out var file))
+            {
+                ServeStaticFile(context, file.Resource, file.ContentType);
+                return;
+            }
+
+            // 非 GET 请求校验 Origin，拦截跨站 CSRF
+            if (context.Request.HttpMethod != "GET" && !IsSameOrigin(context.Request))
+            {
+                AddinLog.Write($"HTTP forbidden origin: {context.Request.Headers["Origin"]}");
+                context.Response.StatusCode = 403;
+                WriteJson(context, new { ok = false, errorCode = "forbidden" });
                 return;
             }
 
@@ -455,6 +482,47 @@ internal sealed partial class AddinHttpServer : IDisposable
                 catch (Exception ex) { AddinLog.Write("WebSocket broadcast ignored: " + ex.Message); }
             }
         }
+    }
+
+    private void ServeStaticFile(HttpListenerContext context, string resourceName, string contentType)
+    {
+        try
+        {
+            var assembly = Assembly.GetExecutingAssembly();
+            using var stream = assembly.GetManifestResourceStream(resourceName);
+            if (stream == null)
+            {
+                context.Response.StatusCode = 404;
+                WriteJson(context, new { ok = false, error = "not_found" });
+                return;
+            }
+
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var bytes = ms.ToArray();
+            context.Response.ContentType = contentType;
+            context.Response.ContentLength64 = bytes.Length;
+            context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            context.Response.OutputStream.Close();
+        }
+        catch (Exception ex)
+        {
+            AddinLog.Write("ServeStaticFile failed: " + ex.Message);
+            try { context.Response.StatusCode = 500; } catch { }
+        }
+    }
+
+    /// <summary>
+    /// CSRF 防护：浏览器跨站请求会携带 Origin 头，与自身 origin 不符时拒绝。
+    /// 旧 WPF 客户端（HttpClient）不带 Origin 头，放行。
+    /// </summary>
+    private bool IsSameOrigin(HttpListenerRequest request)
+    {
+        var origin = request.Headers["Origin"];
+        if (string.IsNullOrWhiteSpace(origin)) return true;
+
+        var expected = _prefix.TrimEnd('/');
+        return string.Equals(origin.TrimEnd('/'), expected, StringComparison.OrdinalIgnoreCase);
     }
 
     private void WriteJson(HttpListenerContext context, object obj)
