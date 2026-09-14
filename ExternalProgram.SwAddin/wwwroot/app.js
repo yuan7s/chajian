@@ -143,7 +143,9 @@ async function sendCommand(command, args, timeoutMs) {
   if (!res.ok) throw new Error('通信失败（HTTP ' + res.status + '）');
   if (!body) throw new Error('通信失败：无效响应');
   if (body.ok) return body.data;
-  throw new Error(formatError(body.errorCode, body.errorArgs));
+  const err = new Error(formatError(body.errorCode, body.errorArgs));
+  err.code = body.errorCode;
+  throw err;
 }
 
 // ─────────── 文档类型 → 分组 ───────────
@@ -156,10 +158,7 @@ function groupForType(type) {
 }
 
 // ─────────── 渲染 ───────────
-let currentGroup = '';
-
 function renderButtons(group) {
-  currentGroup = group;
   const toolbar = el('toolbar');
   toolbar.innerHTML = '';
   const visible = BUTTONS.filter((b) => !group || b.groups.includes(group));
@@ -247,9 +246,15 @@ async function refreshStatus() {
     el('doc-name').textContent = path ? path.split(/[\\/]/).pop().replace(/\.[^.]+$/, '') : (title || '无文档');
     renderButtons(groupForType(type));
   } catch (err) {
-    setConnected(false);
-    el('doc-name').textContent = '未连接';
-    renderButtons('');
+    if (err && err.code === 'active_document_required') {
+      setConnected(true);
+      el('doc-name').textContent = '无文档';
+      renderButtons('');
+    } else {
+      setConnected(false);
+      el('doc-name').textContent = '未连接';
+      renderButtons('');
+    }
   }
 }
 
