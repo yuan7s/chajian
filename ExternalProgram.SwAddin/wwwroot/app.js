@@ -27,11 +27,6 @@ const CONFIRM_COMMANDS = {
   'delete-error-mates':  '将删除当前装配体中的错误配合，确定继续？',
 };
 
-const PENDING_FEATURES = {
-  'coding-cleanup': '「编码整理」窗口尚未迁移到网页版，敬请期待。',
-  'rename-target':  '「重命名」窗口尚未迁移到网页版，敬请期待。',
-};
-
 const el = (id) => document.getElementById(id);
 
 // ─────────── 错误码 → 中文提示（对应后端 SwAddinClient.FormatCommandError） ───────────
@@ -177,7 +172,8 @@ function renderButtons(group) {
 
 // ─────────── 按钮点击 ───────────
 async function handleButton(b) {
-  if (PENDING_FEATURES[b.command]) { showToast(PENDING_FEATURES[b.command], 'info'); return; }
+  if (b.command === 'coding-cleanup') { openCodingCleanupModal(); return; }
+  if (b.command === 'rename-target') { openRenameModal(); return; }
   const confirmMsg = CONFIRM_COMMANDS[b.command];
   if (confirmMsg && !window.confirm(confirmMsg)) return;
 
@@ -331,8 +327,200 @@ function initSettingsPanel() {
   el('settings-save').addEventListener('click', saveSettingsForm);
 }
 
+// ─────────── 通用辅助 ───────────
+function lsBool(key, def) {
+  const v = localStorage.getItem(key);
+  return v === null ? def : v === 'true';
+}
+
+// ─────────── 模态框 ───────────
+function openModal(id) { el(id).hidden = false; }
+function closeModal(id) { el(id).hidden = true; }
+
+function initModals() {
+  document.querySelectorAll('[data-close]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const overlay = btn.closest('.modal-overlay');
+      if (overlay) overlay.hidden = true;
+    });
+  });
+  document.querySelectorAll('.modal-overlay').forEach((overlay) => {
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.hidden = true;
+    });
+  });
+
+  el('cc-execute').addEventListener('click', executeCodingCleanup);
+
+  el('rn-new-name').addEventListener('input', scheduleRenameConflictCheck);
+  el('rn-rename').addEventListener('click', () => doRename('rename-component'));
+  el('rn-save-as').addEventListener('click', () => doRename('save-as-new'));
+  el('rn-save-as-replace').addEventListener('click', () => doRename('save-as-replace'));
+}
+
+// ─────────── 编码整理 ───────────
+function loadCcForm() {
+  el('cc-name-filter').value = localStorage.getItem('ccNameFilter') || '';
+  el('cc-process-asm').checked = lsBool('ccProcessAsm', true);
+  el('cc-process-part').checked = lsBool('ccProcessPart', true);
+  el('cc-exclude-virtual').checked = lsBool('ccExcludeVirtual', true);
+  el('cc-exclude-standard').checked = lsBool('ccExcludeStandard', true);
+  el('cc-exclude-purchased').checked = lsBool('ccExcludePurchased', true);
+}
+
+function saveCcForm() {
+  localStorage.setItem('ccNameFilter', el('cc-name-filter').value);
+  localStorage.setItem('ccProcessAsm', String(el('cc-process-asm').checked));
+  localStorage.setItem('ccProcessPart', String(el('cc-process-part').checked));
+  localStorage.setItem('ccExcludeVirtual', String(el('cc-exclude-virtual').checked));
+  localStorage.setItem('ccExcludeStandard', String(el('cc-exclude-standard').checked));
+  localStorage.setItem('ccExcludePurchased', String(el('cc-exclude-purchased').checked));
+}
+
+function openCodingCleanupModal() {
+  loadCcForm();
+  openModal('modal-coding-cleanup');
+}
+
+async function executeCodingCleanup() {
+  saveCcForm();
+  const args = {
+    nameFilter: el('cc-name-filter').value,
+    processAsm: el('cc-process-asm').checked,
+    processPart: el('cc-process-part').checked,
+    excludeVirtual: el('cc-exclude-virtual').checked,
+    excludeStandard: el('cc-exclude-standard').checked,
+    excludePurchased: el('cc-exclude-purchased').checked,
+  };
+  try {
+    const data = await sendCommand('coding-cleanup', args, 600000);
+    const n = data && data.processed != null ? data.processed : 0;
+    showToast('编码整理完成，已更新 ' + n + ' 个组件。', 'ok');
+    closeModal('modal-coding-cleanup');
+  } catch (err) {
+    showToast(err && err.message ? err.message : String(err), 'error');
+  }
+}
+
+// ─────────── 重命名 ───────────
+let renameDebounce = null;
+let renameSelectedComponent = false;
+
+function loadRenameParams() {
+  el('rn-property-target').value = localStorage.getItem('rnPropertyTarget') || 'configuration';
+  el('rn-write-filename').checked = lsBool('rnWriteFileName', true);
+  el('rn-write-material-code').checked = lsBool('rnWriteMaterialCode', true);
+  el('rn-write-part-number').checked = lsBool('rnWritePartNumber', true);
+  el('rn-write-design').checked = lsBool('rnWriteDesign', false);
+  el('rn-write-version').checked = lsBool('rnWriteVersion', false);
+  el('rn-design-text').value = localStorage.getItem('rnDesignText') || '';
+  el('rn-version-text').value = localStorage.getItem('rnVersionText') || 'A';
+}
+
+function saveRenameParams() {
+  localStorage.setItem('rnPropertyTarget', el('rn-property-target').value);
+  localStorage.setItem('rnWriteFileName', String(el('rn-write-filename').checked));
+  localStorage.setItem('rnWriteMaterialCode', String(el('rn-write-material-code').checked));
+  localStorage.setItem('rnWritePartNumber', String(el('rn-write-part-number').checked));
+  localStorage.setItem('rnWriteDesign', String(el('rn-write-design').checked));
+  localStorage.setItem('rnWriteVersion', String(el('rn-write-version').checked));
+  localStorage.setItem('rnDesignText', el('rn-design-text').value.trim());
+  localStorage.setItem('rnVersionText', el('rn-version-text').value.trim());
+}
+
+async function openRenameModal() {
+  loadRenameParams();
+  openModal('modal-rename');
+  el('rn-name-status').textContent = '';
+  el('rn-name-status').className = 'rn-status';
+  try {
+    const info = await sendCommand('rename-target');
+    const oldName = (info && info.baseName) || '';
+    const ext = (info && info.extension) || '';
+    renameSelectedComponent = !!(info && info.selectedComponent);
+    el('rn-old-name').value = oldName;
+    el('rn-ext').textContent = ext;
+    el('rn-new-name').value = oldName;
+    el('rn-save-as-replace').style.display = renameSelectedComponent ? '' : 'none';
+    if (oldName) checkRenameConflict(oldName);
+  } catch (err) {
+    showToast(err && err.message ? err.message : String(err), 'error');
+    closeModal('modal-rename');
+  }
+}
+
+function scheduleRenameConflictCheck() {
+  if (renameDebounce) clearTimeout(renameDebounce);
+  renameDebounce = setTimeout(() => checkRenameConflict(), 500);
+}
+
+async function checkRenameConflict(newName) {
+  const name = (typeof newName === 'string' ? newName : el('rn-new-name').value).trim();
+  const status = el('rn-name-status');
+  if (!name) {
+    status.textContent = '';
+    status.className = 'rn-status';
+    return;
+  }
+  try {
+    const data = await sendCommand('check-name-conflict', { newName: name });
+    if (data && data.conflict) {
+      const detail = data.existsOpen && data.existsFile
+        ? '重名(打开+本地)'
+        : data.existsOpen ? '重名(已打开)' : '重名(本地)';
+      status.textContent = detail;
+      status.className = 'rn-status conflict';
+    } else {
+      status.textContent = '可保存';
+      status.className = 'rn-status ok';
+    }
+  } catch (err) {
+    status.textContent = '';
+    status.className = 'rn-status';
+  }
+}
+
+function buildRenameArgs(newName) {
+  const target = el('rn-property-target').value;
+  return {
+    newName,
+    propertyTarget: target,
+    source: target,
+    customProperties: target === 'custom',
+    fileName: el('rn-write-filename').checked,
+    materialCode: el('rn-write-material-code').checked,
+    partNumber: el('rn-write-part-number').checked,
+    design: el('rn-write-design').checked,
+    version: el('rn-write-version').checked,
+    designText: el('rn-design-text').value.trim(),
+    versionText: el('rn-version-text').value.trim() || 'A',
+    copyDrawing: true,
+    renameProperties: [],
+  };
+}
+
+async function doRename(action) {
+  const newName = el('rn-new-name').value.trim();
+  if (!newName) { showToast('请输入新文件名', 'warn'); return; }
+  saveRenameParams();
+  const labels = { 'rename-component': '重命名', 'save-as-new': '另存为', 'save-as-replace': '另存替换' };
+  try {
+    const data = await sendCommand(action, buildRenameArgs(newName), 600000);
+    if (data && data.success) {
+      showToast(labels[action] + '完成', 'ok');
+      closeModal('modal-rename');
+      refreshStatus();
+    } else {
+      showToast(labels[action] + '失败', 'error');
+    }
+  } catch (err) {
+    showToast(labels[action] + '失败: ' + (err && err.message ? err.message : err), 'error');
+  }
+}
+
 // ─────────── 启动 ───────────
 initSettingsPanel();
+initModals();
 renderButtons('');
 refreshStatus();
 connectEvents();
