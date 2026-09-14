@@ -174,6 +174,7 @@ function renderButtons(group) {
 async function handleButton(b) {
   if (b.command === 'coding-cleanup') { openCodingCleanupModal(); return; }
   if (b.command === 'rename-target') { openRenameModal(); return; }
+  if (b.command === 'sort-components') { openSortModal(); return; }
   const confirmMsg = CONFIRM_COMMANDS[b.command];
   if (confirmMsg && !window.confirm(confirmMsg)) return;
 
@@ -193,11 +194,6 @@ async function handleButton(b) {
       }
       await sendCommand('replace-drawing-settings', { standardPath, sheetFormatPath });
       showToast('绘图标准和图纸格式替换完成', 'ok');
-      return;
-    }
-    if (b.command === 'sort-components') {
-      await sendCommand('sort-components', buildSortArgs(), 600000);
-      showToast('装配体排序完成', 'ok');
       return;
     }
     if (b.command === 'run-swp-macro') {
@@ -298,23 +294,11 @@ function showToast(message, kind) {
 function loadSettingsForm() {
   el('cfg-standard-path').value = localStorage.getItem('standardPath') || '';
   el('cfg-sheet-format-path').value = localStorage.getItem('sheetFormatPath') || '';
-  el('cfg-sort-assembly-first').checked = localStorage.getItem('sortAssemblyFirst') === 'true';
-  el('cfg-sort-suppressed-last').checked = localStorage.getItem('sortSuppressedLast') === 'true';
-  el('cfg-sort-folders').checked = localStorage.getItem('sortFolders') === 'true';
-  el('cfg-sort-recursive').checked = localStorage.getItem('sortRecursiveSubAssemblies') === 'true';
-  el('cfg-sort-descending').checked = localStorage.getItem('sortDescending') === 'true';
-  el('cfg-sort-name-source').value = localStorage.getItem('sortNameSource') || 'ComponentName';
 }
 
 function saveSettingsForm() {
   localStorage.setItem('standardPath', el('cfg-standard-path').value.trim());
   localStorage.setItem('sheetFormatPath', el('cfg-sheet-format-path').value.trim());
-  localStorage.setItem('sortAssemblyFirst', String(el('cfg-sort-assembly-first').checked));
-  localStorage.setItem('sortSuppressedLast', String(el('cfg-sort-suppressed-last').checked));
-  localStorage.setItem('sortFolders', String(el('cfg-sort-folders').checked));
-  localStorage.setItem('sortRecursiveSubAssemblies', String(el('cfg-sort-recursive').checked));
-  localStorage.setItem('sortDescending', String(el('cfg-sort-descending').checked));
-  localStorage.setItem('sortNameSource', el('cfg-sort-name-source').value);
   showToast('设置已保存', 'ok');
 }
 
@@ -351,6 +335,7 @@ function initModals() {
   });
 
   el('cc-execute').addEventListener('click', executeCodingCleanup);
+  el('sort-execute').addEventListener('click', executeSort);
 
   el('rn-new-name').addEventListener('input', scheduleRenameConflictCheck);
   el('rn-rename').addEventListener('click', () => doRename('rename-component'));
@@ -397,6 +382,42 @@ async function executeCodingCleanup() {
     const n = data && data.processed != null ? data.processed : 0;
     showToast('编码整理完成，已更新 ' + n + ' 个组件。', 'ok');
     closeModal('modal-coding-cleanup');
+  } catch (err) {
+    showToast(err && err.message ? err.message : String(err), 'error');
+  }
+}
+
+// ─────────── 装配体排序 ───────────
+function loadSortForm() {
+  el('sort-assembly-first').checked = lsBool('sortAssemblyFirst', false);
+  el('sort-suppressed-last').checked = lsBool('sortSuppressedLast', false);
+  el('sort-folders').checked = lsBool('sortFolders', false);
+  el('sort-recursive').checked = lsBool('sortRecursiveSubAssemblies', false);
+  el('sort-descending').checked = lsBool('sortDescending', false);
+  el('sort-name-source').value = localStorage.getItem('sortNameSource') || 'ComponentName';
+}
+
+function saveSortForm() {
+  localStorage.setItem('sortAssemblyFirst', String(el('sort-assembly-first').checked));
+  localStorage.setItem('sortSuppressedLast', String(el('sort-suppressed-last').checked));
+  localStorage.setItem('sortFolders', String(el('sort-folders').checked));
+  localStorage.setItem('sortRecursiveSubAssemblies', String(el('sort-recursive').checked));
+  localStorage.setItem('sortDescending', String(el('sort-descending').checked));
+  localStorage.setItem('sortNameSource', el('sort-name-source').value);
+}
+
+function openSortModal() {
+  loadSortForm();
+  openModal('modal-sort');
+}
+
+async function executeSort() {
+  saveSortForm();
+  try {
+    const data = await sendCommand('sort-components', buildSortArgs(), 600000);
+    const n = data && data.foldersSorted != null ? data.foldersSorted : 0;
+    showToast(n > 0 ? '装配体排序完成，已处理 ' + n + ' 个文件夹' : '装配体排序完成', 'ok');
+    closeModal('modal-sort');
   } catch (err) {
     showToast(err && err.message ? err.message : String(err), 'error');
   }

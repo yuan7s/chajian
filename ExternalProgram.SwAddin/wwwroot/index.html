@@ -23,18 +23,6 @@
     <label>图纸格式文件路径
       <input id="cfg-sheet-format-path" type="text" placeholder="例如 D:\模板\A3.slddrt" />
     </label>
-    <h3>装配体排序（「排序」按钮使用）</h3>
-    <label><input id="cfg-sort-assembly-first" type="checkbox" /> 装配体优先</label>
-    <label><input id="cfg-sort-suppressed-last" type="checkbox" /> 压缩件靠后</label>
-    <label><input id="cfg-sort-folders" type="checkbox" /> 按文件夹排序</label>
-    <label><input id="cfg-sort-recursive" type="checkbox" /> 递归子装配体</label>
-    <label><input id="cfg-sort-descending" type="checkbox" /> 降序</label>
-    <label>名称来源
-      <select id="cfg-sort-name-source">
-        <option value="ComponentName">组件名</option>
-        <option value="FileName">文件名</option>
-      </select>
-    </label>
     <button id="settings-save" type="button">保存设置</button>
   </section>
 
@@ -107,6 +95,33 @@
         <button id="rn-rename" class="primary" type="button">重命名</button>
         <button id="rn-save-as" type="button">另存为</button>
         <button id="rn-save-as-replace" type="button">另存替换</button>
+        <button type="button" data-close>取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 装配体排序模态框 -->
+  <div id="modal-sort" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <span>装配体排序</span>
+        <button class="modal-close" type="button" data-close>×</button>
+      </div>
+      <div class="modal-body">
+        <label><input id="sort-assembly-first" type="checkbox" /> 装配体优先</label>
+        <label><input id="sort-suppressed-last" type="checkbox" /> 压缩件靠后</label>
+        <label><input id="sort-folders" type="checkbox" /> 按文件夹排序</label>
+        <label><input id="sort-recursive" type="checkbox" /> 递归子装配体</label>
+        <label><input id="sort-descending" type="checkbox" /> 降序</label>
+        <label>名称来源
+          <select id="sort-name-source">
+            <option value="ComponentName">组件名</option>
+            <option value="FileName">文件名</option>
+          </select>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button id="sort-execute" class="primary" type="button">执行排序</button>
         <button type="button" data-close>取消</button>
       </div>
     </div>
