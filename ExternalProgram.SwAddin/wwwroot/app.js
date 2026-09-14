@@ -490,6 +490,8 @@ async function executeSort() {
 // ─────────── 重命名 ───────────
 let renameDebounce = null;
 let renameConflictSeq = 0;
+let renameWatchTimer = null;
+let renameLastKey = '';
 
 function loadRenameParams() {
   el('rn-property-target').value = localStorage.getItem('rnPropertyTarget') || 'configuration';
@@ -519,18 +521,54 @@ async function openRenameModal() {
   openModal('modal-rename');
   el('rn-name-status').textContent = '';
   el('rn-name-status').className = 'rn-status';
+  renameLastKey = '';
   try {
     const info = await sendCommand('rename-target');
-    const oldName = (info && info.baseName) || '';
-    const ext = (info && info.extension) || '';
-    const selected = !!(info && info.selectedComponent);
-    el('rn-old-name').value = oldName;
-    el('rn-ext').textContent = ext;
-    el('rn-new-name').value = oldName;
-    el('rn-save-as-replace').style.display = selected ? '' : 'none';
+    applyRenameTarget(info);
+    renameLastKey = renameTargetKey(info);
+    startRenameWatch();
   } catch (err) {
     showToast(err && err.message ? err.message : String(err), 'error');
     closeModal('modal-rename');
+  }
+}
+
+function renameTargetKey(info) {
+  return ((info && info.path) || '') + '|' + ((info && info.componentName) || '') + '|' + (!!(info && info.selectedComponent));
+}
+
+function applyRenameTarget(info) {
+  const oldName = (info && info.baseName) || '';
+  const ext = (info && info.extension) || '';
+  const selected = !!(info && info.selectedComponent);
+  el('rn-old-name').value = oldName;
+  el('rn-ext').textContent = ext;
+  el('rn-new-name').value = oldName;
+  el('rn-save-as-replace').style.display = selected ? '' : 'none';
+  el('rn-name-status').textContent = '';
+  el('rn-name-status').className = 'rn-status';
+}
+
+function startRenameWatch() {
+  stopRenameWatch();
+  renameWatchTimer = setInterval(watchRenameTarget, 600);
+}
+
+function stopRenameWatch() {
+  if (renameWatchTimer) { clearInterval(renameWatchTimer); renameWatchTimer = null; }
+}
+
+async function watchRenameTarget() {
+  if (el('modal-rename').hidden) { stopRenameWatch(); return; }
+  try {
+    const info = await sendCommand('rename-target');
+    const key = renameTargetKey(info);
+    if (key !== renameLastKey) {
+      renameLastKey = key;
+      applyRenameTarget(info);
+    }
+  } catch (err) {
+    // 忙或未连接时忽略，保持当前显示
   }
 }
 
