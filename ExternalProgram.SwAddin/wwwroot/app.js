@@ -139,7 +139,7 @@ async function sendCommand(command, args, timeoutMs) {
   try { body = await res.json(); } catch (e) { /* ignore */ }
 
   if (res.status === 403) throw new Error('请求被拒绝（跨站拦截）');
-  if (res.status === 409) throw new Error('SolidWorks 正忙，请稍后重试');
+  if (res.status === 409) { const e = new Error('SolidWorks 正忙，请稍后重试'); e.code = 'command_busy'; throw e; }
   if (!res.ok) throw new Error('通信失败（HTTP ' + res.status + '）');
   if (!body) throw new Error('通信失败：无效响应');
   if (body.ok) return body.data;
@@ -246,6 +246,9 @@ async function refreshStatus() {
     el('doc-name').textContent = path ? path.split(/[\\/]/).pop().replace(/\.[^.]+$/, '') : (title || '无文档');
     renderButtons(groupForType(type));
   } catch (err) {
+    if (err && err.code === 'command_busy') {
+      return; // SolidWorks 正忙（如文件选择框打开中），保持当前状态不变
+    }
     if (err && err.code === 'active_document_required') {
       setConnected(true);
       el('doc-name').textContent = '无文档';
