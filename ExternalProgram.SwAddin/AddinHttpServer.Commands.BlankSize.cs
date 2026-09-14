@@ -34,14 +34,14 @@ internal sealed partial class AddinHttpServer
 
     /// <summary>
     /// 按文档类型取包围盒并格式化为下料尺寸文本（如 120.5x80x3）。
-    /// 零件用 GetPartBox（不含隐藏实体），装配体用 GetBox（不含基准面/草图）。
+    /// 零件用 GetPartBox(true)（NoConversion=true，返回米），装配体用 GetBox(0)（返回米，不含基准面/草图）。
     /// </summary>
     private static string GetBlankSizeText(ModelDoc2 model, int documentType)
     {
         object corners = null;
         if (documentType == (int)swDocumentTypes_e.swDocPART)
         {
-            corners = GetPartDoc(model)?.GetPartBox(false);
+            corners = GetPartDoc(model)?.GetPartBox(true);
         }
         else if (documentType == (int)swDocumentTypes_e.swDocASSEMBLY)
         {
