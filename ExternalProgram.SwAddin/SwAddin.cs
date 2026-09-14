@@ -94,22 +94,36 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
     }
 
     /// <summary>
-    /// 在 SolidWorks 主菜单栏注册「External Program」菜单及「打开网页控制台」项。
+    /// 在 SolidWorks 菜单栏注册「External Program」菜单及「打开网页控制台」项。
+    /// swDocNONE 仅对应「无文档」主框架，打开文档后菜单栏会切换为文档类型菜单，
+    /// 因此同时注册到零件/装配体/工程图上下文，确保菜单始终可见。
     /// </summary>
     private void AddWebConsoleMenu()
     {
         try
         {
             const string menuName = "External Program";
-            _swApp.AddMenu((int)swDocumentTypes_e.swDocNONE, menuName, 5);
-            _swApp.AddMenuItem2(
+            var docTypes = new[]
+            {
                 (int)swDocumentTypes_e.swDocNONE,
-                _cookie,
-                "打开网页控制台@" + menuName,
-                -1,
-                "OpenWebConsole",
-                "",
-                "在浏览器中打开网页控制台");
+                (int)swDocumentTypes_e.swDocPART,
+                (int)swDocumentTypes_e.swDocASSEMBLY,
+                (int)swDocumentTypes_e.swDocDRAWING
+            };
+
+            foreach (var docType in docTypes)
+            {
+                var menuId = _swApp.AddMenu(docType, menuName, 5);
+                var itemOk = _swApp.AddMenuItem2(
+                    docType,
+                    _cookie,
+                    "打开网页控制台@" + menuName,
+                    -1,
+                    "OpenWebConsole",
+                    "",
+                    "在浏览器中打开网页控制台");
+                AddinLog.Write($"AddWebConsoleMenu docType={docType} menuId={menuId} itemOk={itemOk}");
+            }
         }
         catch (Exception ex)
         {
