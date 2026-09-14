@@ -65,6 +65,7 @@ internal static class ToolbarButtonLayoutStore
     public const string Rename = "Rename";
     public const string DeleteCustomProps = "DeleteCustomProps";
     public const string DeleteConfigProps = "DeleteConfigProps";
+    public const string BlankSize = "BlankSize";
     public const string DeleteErrorMates = "DeleteErrorMates";
     public const string RunSwpMacro = "RunSwpMacro";
 
@@ -72,6 +73,7 @@ internal static class ToolbarButtonLayoutStore
     {
         new ToolbarButtonDefinition { Id = OpenFolder, Text = "打开目录", DefaultGroups = ToolbarButtonGroups.DocumentGroups },
         new ToolbarButtonDefinition { Id = PartCoding, Text = "图号编码", DefaultGroups = new[] { ToolbarButtonGroups.Part } },
+        new ToolbarButtonDefinition { Id = BlankSize, Text = "下料尺寸", DefaultGroups = new[] { ToolbarButtonGroups.Part, ToolbarButtonGroups.Assembly } },
         new ToolbarButtonDefinition { Id = SaveDwg, Text = "另存 DWG", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
         new ToolbarButtonDefinition { Id = SavePdf, Text = "另存 PDF", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
         new ToolbarButtonDefinition { Id = RotateView, Text = "旋转视图", DefaultGroups = new[] { ToolbarButtonGroups.Drawing } },
@@ -158,6 +160,7 @@ internal static class ToolbarButtonLayoutStore
         var items = new List<ToolbarButtonLayoutItem>();
         AddDefault(items, settings.Toolbar_ShowOpenFolder, OpenFolder, ToolbarButtonGroups.Part, ToolbarButtonGroups.Drawing, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowPartCoding, PartCoding, ToolbarButtonGroups.Part);
+        AddDefault(items, true, BlankSize, ToolbarButtonGroups.Part, ToolbarButtonGroups.Assembly);
         AddDefault(items, settings.Toolbar_ShowDrawingSaveDwg, SaveDwg, ToolbarButtonGroups.Drawing);
         AddDefault(items, settings.Toolbar_ShowDrawingSavePdf, SavePdf, ToolbarButtonGroups.Drawing);
         AddDefault(items, settings.Toolbar_ShowDrawingRotateView, RotateView, ToolbarButtonGroups.Drawing);
