@@ -508,7 +508,8 @@ internal sealed partial class AddinHttpServer : IDisposable
         catch (Exception ex)
         {
             AddinLog.Write("ServeStaticFile failed: " + ex.Message);
-            try { context.Response.StatusCode = 500; } catch { }
+            try { WriteJson(context, new { ok = false, error = "internal_error" }); }
+            catch { }
         }
     }
 
