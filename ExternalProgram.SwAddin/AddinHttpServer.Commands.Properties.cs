@@ -38,6 +38,7 @@ internal sealed partial class AddinHttpServer
         if (manager == null) throw CommandFailure("property_manager_unavailable");
 
         var values = new Dictionary<string, string>();
+        var rawValues = new Dictionary<string, string>();
 
         try
         {
@@ -45,6 +46,7 @@ internal sealed partial class AddinHttpServer
                 try
                 {
                     manager.Get5(name, false, out var rawValue, out var resolvedValue, out _);
+                    rawValues[name] = rawValue ?? "";
                     values[name] = !string.IsNullOrWhiteSpace(resolvedValue) ? resolvedValue : rawValue ?? "";
                 }
                 catch (Exception ex)
@@ -64,6 +66,7 @@ internal sealed partial class AddinHttpServer
             configuration = string.IsNullOrWhiteSpace(target.ConfigurationName) ? "custom" : target.ConfigurationName,
             source = target.Source,
             selectedComponent = target.SelectedComponent,
+            rawProperties = rawValues,
             properties = values
         };
     }
@@ -75,6 +78,14 @@ internal sealed partial class AddinHttpServer
         var target = ResolvePropertyTarget(args);
         if (target.FileProperties != null) throw CommandFailure("lightweight_component_write_unsupported");
 
+        // 在同一次主线程命令内校验目标，避免编辑期间切换零件导致误写。
+        if (args.ContainsKey("expectedPath") &&
+            (!string.Equals(GetArgString(args, "expectedPath"), target.Path ?? "", StringComparison.OrdinalIgnoreCase) ||
+             !string.Equals(GetArgString(args, "expectedTitle"), target.Title ?? "", StringComparison.Ordinal) ||
+             !string.Equals(GetArgString(args, "expectedConfiguration"), string.IsNullOrWhiteSpace(target.ConfigurationName) ? "custom" : target.ConfigurationName, StringComparison.Ordinal)))
+            throw CommandFailure("property_target_changed");
+
+
         var propsArg = args.TryGetValue("properties", out var p) ? p : null;
         var properties = propsArg as Dictionary<string, object>;
         if (properties == null) throw CommandFailure("argument_required", "name", "properties");
@@ -85,7 +96,9 @@ internal sealed partial class AddinHttpServer
         var written = new List<string>();
         foreach (var kvp in properties)
         {
-            manager.Add3(kvp.Key, 30, kvp.Value?.ToString() ?? "", 2);
+            var result = manager.Add3(kvp.Key, 30, kvp.Value?.ToString() ?? "", 2);
+            if (result != 0)
+                throw CommandFailure("property_write_failed", "name", kvp.Key, "result", result);
             written.Add(kvp.Key);
         }
 

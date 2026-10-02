@@ -17,8 +17,8 @@ const BUTTONS = [
   { id: 'Rename',                  text: '重命名',     command: 'rename-target',            groups: ['assembly'] },
   { id: 'RunSwpMacro',             text: '运行宏',     command: 'run-swp-macro',            groups: ['assembly'] },
   { id: 'DeleteErrorMates',        text: '删错配合',   command: 'delete-error-mates',       groups: ['assembly'] },
-  { id: 'DeleteCustomProps',       text: '删自定义',   command: 'delete-custom-props',      groups: ['assembly'] },
-  { id: 'DeleteConfigProps',       text: '删配置',     command: 'delete-config-props',      groups: ['assembly'] },
+  { id: 'DeleteCustomProps',       text: '删自定义属性',   command: 'delete-custom-props',      groups: ['assembly'] },
+  { id: 'DeleteConfigProps',       text: '删配置属性',     command: 'delete-config-props',      groups: ['assembly'] },
 ];
 
 const CONFIRM_COMMANDS = {
@@ -33,6 +33,8 @@ const el = (id) => document.getElementById(id);
 function formatError(code, args) {
   args = args || {};
   switch (code) {
+    case 'property_target_changed': return '选中目标已改变，请取消编辑后重新选择零件';
+    case 'property_write_failed': return '属性写入失败：' + (args.name || '') + '，部分属性可能已写入，请重新读取核对';
     case 'active_document_required': return '没有活动文档';
     case 'unknown_command': return '未知命令: ' + (args.command || '');
     case 'argument_required': return args.name ? args.name + ' 不能为空' : '缺少必要参数';
@@ -216,7 +218,7 @@ async function handleButton(b) {
       const standardPath = localStorage.getItem('standardPath') || '';
       const sheetFormatPath = localStorage.getItem('sheetFormatPath') || '';
       if (!standardPath || !sheetFormatPath) {
-        showToast('请先点右上角「设置」填写绘图标准和图纸格式文件路径', 'warn');
+        showToast('尚未配置绘图标准和图纸格式文件路径', 'warn');
         return;
       }
       await sendCommand('replace-drawing-settings', { standardPath, sheetFormatPath });
@@ -293,7 +295,7 @@ function connectEvents() {
     ws.onmessage = (ev) => {
       let msg;
       try { msg = JSON.parse(ev.data); } catch (e) { return; }
-      if (msg.type === 'doc-changed') { refreshStatus(); }
+      if (msg.type === 'doc-changed') { refreshStatus(); propGeneration++; refreshProperties(); }
       else if (msg.type === 'selection-changed') {
         const type = msg.data && msg.data.type;
         renderButtons(groupForType(type));
@@ -315,64 +317,6 @@ function showToast(message, kind) {
   t.hidden = false;
   if (toastTimer) clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.hidden = true; }, 2500);
-}
-
-// ─────────── 设置面板 ───────────
-function loadSettingsForm() {
-  el('cfg-standard-path').value = localStorage.getItem('standardPath') || '';
-  el('cfg-sheet-format-path').value = localStorage.getItem('sheetFormatPath') || '';
-}
-
-function saveSettingsForm() {
-  localStorage.setItem('standardPath', el('cfg-standard-path').value.trim());
-  localStorage.setItem('sheetFormatPath', el('cfg-sheet-format-path').value.trim());
-  saveButtonLayout();
-  showToast('设置已保存', 'ok');
-}
-
-function buildButtonLayoutUI() {
-  const container = el('layout-groups');
-  container.innerHTML = '';
-  const layout = getButtonLayout();
-  const groups = [['part', '零件'], ['drawing', '工程图'], ['assembly', '装配体']];
-  for (const [group, label] of groups) {
-    const details = document.createElement('details');
-    details.className = 'layout-group';
-    const summary = document.createElement('summary');
-    summary.textContent = label;
-    details.appendChild(summary);
-    const ids = layout[group] || [];
-    for (const b of BUTTONS) {
-      const lbl = document.createElement('label');
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.dataset.group = group;
-      cb.dataset.id = b.id;
-      cb.checked = ids.includes(b.id);
-      lbl.appendChild(cb);
-      lbl.appendChild(document.createTextNode(' ' + b.text));
-      details.appendChild(lbl);
-    }
-    container.appendChild(details);
-  }
-}
-
-function saveButtonLayout() {
-  const layout = { part: [], drawing: [], assembly: [] };
-  document.querySelectorAll('#layout-groups input[type="checkbox"]').forEach((cb) => {
-    if (cb.checked) layout[cb.dataset.group].push(cb.dataset.id);
-  });
-  localStorage.setItem('btnLayout', JSON.stringify(layout));
-  renderButtons(currentGroup);
-}
-
-function initSettingsPanel() {
-  el('settings-toggle').addEventListener('click', () => {
-    const panel = el('settings-panel');
-    panel.hidden = !panel.hidden;
-    if (!panel.hidden) { loadSettingsForm(); buildButtonLayoutUI(); }
-  });
-  el('settings-save').addEventListener('click', saveSettingsForm);
 }
 
 // ─────────── 通用辅助 ───────────
@@ -645,82 +589,332 @@ async function doRename(action) {
 }
 
 // ─────────── 属性面板 ───────────
-const KEY_PROPERTIES = ['物料编码', '零件图号', '文件名称', '零件类型', '零件材质', '表面处理/热处理', '下料尺寸', '版本', '设计者', '出图者'];
+const KEY_PROPERTIES = ['物料编码', '零件图号', '零件名称', '文件名称', '零件类型', '零件材质', '表面处理/热处理', '下料尺寸', '版本', '设计者', '出图者'];
 let propPollTimer = null;
+let propBusy = false;
+let propGeneration = 0;
+let propData = null;
+let propRenderKey = '';
+let propEntries = [];
+let propEditing = false;
+let propWriting = false;
+let propDraft = Object.create(null);
+let propEditTarget = null;
 
 function initPropertyPanel() {
+  el('property-toggle').setAttribute('aria-controls', 'property-panel');
+  el('property-toggle').setAttribute('aria-expanded', 'false');
   el('property-toggle').addEventListener('click', () => setPropertyPanelVisible(el('property-panel').hidden));
   el('property-close').addEventListener('click', () => setPropertyPanelVisible(false));
-  el('prop-source').addEventListener('change', savePropSettings);
-  el('prop-scope').addEventListener('change', savePropSettings);
   loadPropSettings();
+  initPropertySettings();
+  el('prop-edit').addEventListener('click', beginPropertyEdit);
+  el('prop-cancel').addEventListener('click', endPropertyEdit);
+  el('prop-save').addEventListener('click', writePropertyEdits);
+  window.addEventListener('beforeunload', event => {
+    if (propEditing && Object.keys(propDraft).length) { event.preventDefault(); event.returnValue = ''; }
+  });
+  el('prop-source').addEventListener('change', () => {
+    savePropSettings();
+    propGeneration++;
+    propData = null;
+    renderProperties(null);
+    refreshProperties();
+  });
+  for (const id of ['prop-scope', 'prop-hide-empty']) el(id).addEventListener('change', () => {
+    savePropSettings();
+    renderProperties(propData);
+  });
+  el('prop-search').addEventListener('input', () => renderProperties(propData));
+  el('prop-refresh').addEventListener('click', refreshProperties);
+  el('prop-copy').addEventListener('click', () => copyPropertyText(propEntries.map(([k, v]) => k + '\t' + v).join('\n')));
+  document.addEventListener('visibilitychange', () => {
+    propGeneration++;
+    clearTimeout(propPollTimer);
+    if (!document.hidden) refreshProperties();
+  });
 }
 
 function setPropertyPanelVisible(show) {
+  if (!show && propEditing) { showToast('请先写入或取消属性编辑', 'warn'); return; }
   el('property-panel').hidden = !show;
+  document.body.classList.toggle('properties-open', show);
+  el('property-toggle').setAttribute('aria-expanded', String(show));
+  propGeneration++;
+  clearTimeout(propPollTimer);
   if (show) {
+    propData = null;
+    renderProperties(null);
     refreshProperties();
-    if (!propPollTimer) propPollTimer = setInterval(refreshProperties, 1200);
-  } else if (propPollTimer) {
-    clearInterval(propPollTimer);
-    propPollTimer = null;
-  }
+  } else el('property-toggle').focus();
 }
 
 function loadPropSettings() {
-  el('prop-source').value = localStorage.getItem('propSource') || 'configuration';
-  el('prop-scope').value = localStorage.getItem('propScope') || 'key';
+  el('prop-source').value = localStorage.getItem('propSource') === 'custom' ? 'custom' : 'configuration';
+  el('prop-scope').value = localStorage.getItem('propScope') === 'all' ? 'all' : 'key';
+  el('prop-hide-empty').checked = localStorage.getItem('propHideEmpty') === 'true';
 }
 
 function savePropSettings() {
   localStorage.setItem('propSource', el('prop-source').value);
   localStorage.setItem('propScope', el('prop-scope').value);
-  refreshProperties();
+  localStorage.setItem('propHideEmpty', String(el('prop-hide-empty').checked));
+}
+
+// 关键属性配置与编辑草稿分离，取消时不修改已保存列表。
+function getKeyProperties() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('propKeyProperties'));
+    if (Array.isArray(saved) && saved.every(k => typeof k === 'string' && k.trim()))
+      return [...new Set(saved.map(k => k.trim()))];
+  } catch (_) { /* 配置损坏时使用默认列表。 */ }
+  return [...KEY_PROPERTIES];
+}
+
+function initPropertySettings() {
+  el('prop-settings').addEventListener('click', () => {
+    el('ps-source').value = el('prop-source').value;
+    el('ps-scope').value = el('prop-scope').value;
+    el('ps-hide-empty').checked = el('prop-hide-empty').checked;
+    el('ps-key-list').replaceChildren();
+    for (const name of getKeyProperties()) addKeyPropertyRow(name);
+    el('ps-error').textContent = '';
+    openModal('modal-property-settings');
+    el('ps-source').focus();
+  });
+  el('ps-add').addEventListener('click', () => addKeyPropertyRow('').focus());
+  el('ps-reset').addEventListener('click', () => {
+    el('ps-key-list').replaceChildren();
+    for (const name of KEY_PROPERTIES) addKeyPropertyRow(name);
+    el('ps-error').textContent = '';
+  });
+  el('ps-save').addEventListener('click', () => {
+    const names = Array.from(el('ps-key-list').querySelectorAll('input'), input => input.value.trim());
+    if (names.some(name => !name)) { el('ps-error').textContent = '属性名称不能为空，请填写或删除空行。'; return; }
+    if (new Set(names).size !== names.length) { el('ps-error').textContent = '属性名称重复，请修改或删除重复项。'; return; }
+    try {
+      localStorage.setItem('propKeyProperties', JSON.stringify(names));
+    } catch (_) { el('ps-error').textContent = '保存失败，请检查浏览器存储权限。'; return; }
+    const sourceChanged = el('prop-source').value !== el('ps-source').value;
+    el('prop-source').value = el('ps-source').value;
+    el('prop-scope').value = el('ps-scope').value;
+    el('prop-hide-empty').checked = el('ps-hide-empty').checked;
+    savePropSettings();
+    if (sourceChanged) { propGeneration++; propData = null; }
+    propRenderKey = '';
+    renderProperties(propData);
+    if (sourceChanged) refreshProperties();
+    closeModal('modal-property-settings');
+    el('prop-settings').focus();
+    showToast('属性栏设置已保存', 'ok');
+  });
+}
+
+function addKeyPropertyRow(name) {
+  const list = el('ps-key-list');
+  const row = document.createElement('div');
+  row.className = 'ps-key-row';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = name;
+  input.placeholder = '属性名称';
+  input.setAttribute('aria-label', '关键属性名称');
+  row.appendChild(input);
+  for (const [label, move] of [['上移', -1], ['下移', 1], ['删除', 0]]) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      if (move === -1 && row.previousElementSibling) list.insertBefore(row, row.previousElementSibling);
+      if (move === 1 && row.nextElementSibling) list.insertBefore(row.nextElementSibling, row);
+      if (!move) row.remove();
+      updateKeyPropertyMoves();
+    });
+    row.appendChild(button);
+  }
+  list.appendChild(row);
+  updateKeyPropertyMoves();
+  return input;
+}
+
+function updateKeyPropertyMoves() {
+  const rows = Array.from(el('ps-key-list').children);
+  rows.forEach((row, index) => {
+    const buttons = row.querySelectorAll('button');
+    buttons[0].disabled = index === 0;
+    buttons[1].disabled = index === rows.length - 1;
+  });
+}
+
+async function copyPropertyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    showToast('已复制', 'ok');
+  } catch (_) { showToast('无法访问剪贴板，请选中文字后复制', 'warn'); }
 }
 
 async function refreshProperties() {
+  if (propEditing || propBusy || document.hidden || el('property-panel').hidden) return;
+  clearTimeout(propPollTimer);
+  propBusy = true;
+  el('prop-refresh').disabled = true;
+  const generation = propGeneration;
+  if (!propData) el('prop-status').textContent = '正在读取属性…';
   try {
     const data = await sendCommand('read-properties', { source: el('prop-source').value });
+    if (generation !== propGeneration) return;
+    propData = data;
     renderProperties(data);
+    el('prop-status').textContent = '已同步 · ' + new Date().toLocaleTimeString('zh-CN');
   } catch (err) {
-    if (err && err.code === 'command_busy') return;
-    renderProperties(null);
+    if (generation !== propGeneration) return;
+    if (err && err.code === 'command_busy') {
+      el('prop-status').textContent = 'SolidWorks 正忙，稍后自动刷新';
+    } else {
+      propData = null;
+      renderProperties(null);
+      el('prop-status').textContent = err && err.code === 'active_document_required'
+        ? '请打开文档或选择一个组件' : '读取失败：' + (err.message || String(err));
+    }
+  } finally {
+    propBusy = false;
+    el('prop-refresh').disabled = false;
+    // 请求完成后再安排下一次，避免慢请求堆积；关闭或切换来源时丢弃旧响应。
+    if (!document.hidden && !el('property-panel').hidden)
+      propPollTimer = setTimeout(refreshProperties, generation === propGeneration ? 1200 : 0);
   }
 }
 
 function renderProperties(data) {
+  el('property-panel').classList.toggle('key-properties-view', el('prop-scope').value === 'key');
+  const props = data && data.properties;
+  el('prop-title').textContent = data ? data.title || '未命名文档' : '暂无属性';
+  el('prop-context').textContent = data ? (data.selectedComponent ? '选中组件' : '当前文档') + ' · ' +
+    (data.source === 'custom' ? '自定义属性' : '配置：' + (data.configuration || '默认')) : '';
+  el('prop-path').textContent = data ? data.path || '尚未保存' : '';
+  el('prop-path').title = data ? data.path || '' : '';
+  const query = el('prop-search').value.trim().toLocaleLowerCase();
+  const entries = !props ? [] : el('prop-scope').value === 'key'
+    ? getKeyProperties().map(k => [k, props[k] == null ? '' : String(props[k])])
+    : Object.entries(props).map(([k, v]) => [k, v == null ? '' : String(v)]).sort((a, b) => a[0].localeCompare(b[0], 'zh-CN'));
+  propEntries = entries.filter(([k, v]) => (!el('prop-hide-empty').checked || v.trim()) &&
+    (!query || (k + ' ' + v).toLocaleLowerCase().includes(query)));
+  el('prop-count').textContent = props ? '显示 ' + propEntries.length + ' 项 / 文件共 ' + Object.keys(props).length + ' 项属性' : '';
+  el('prop-copy').disabled = !propEntries.length;
+  el('prop-edit').disabled = !props || propEditing;
+  const key = JSON.stringify([data && data.path, data && data.title, data && data.configuration, propEditing, propEntries]);
+  if (key === propRenderKey) return;
+  propRenderKey = key;
   const list = el('prop-list');
-  list.innerHTML = '';
-  if (!data || !data.properties) {
-    el('prop-title').textContent = '无文档';
-    return;
+  const scroll = list.scrollTop;
+  const fragment = document.createDocumentFragment();
+  if (!propEntries.length) {
+    const empty = document.createElement('p');
+    empty.className = 'empty';
+    empty.textContent = !props ? '等待文档属性' : query ? '没有匹配的属性' : '当前范围没有可显示的属性';
+    fragment.appendChild(empty);
   }
-  el('prop-title').textContent = data.title || '-';
-  const props = data.properties;
-  const scope = el('prop-scope').value;
-  let entries;
-  if (scope === 'key') {
-    entries = KEY_PROPERTIES.map((k) => [k, props[k] != null ? props[k] : '']);
-  } else {
-    entries = Object.entries(props);
-  }
-  for (const [name, value] of entries) {
+  for (const [name, value] of propEntries) {
     const row = document.createElement('div');
     row.className = 'prop-row';
     const nameEl = document.createElement('span');
     nameEl.className = 'prop-name';
     nameEl.textContent = name;
     const valEl = document.createElement('span');
-    valEl.className = 'prop-value';
-    valEl.textContent = value != null ? String(value) : '';
-    row.appendChild(nameEl);
-    row.appendChild(valEl);
-    list.appendChild(row);
+    valEl.className = 'prop-value' + (value ? '' : ' is-empty');
+    valEl.textContent = value || '未填写';
+    const copy = document.createElement('button');
+    copy.type = 'button';
+    copy.className = 'prop-copy';
+    copy.textContent = '复制';
+    copy.setAttribute('aria-label', '复制' + name);
+    copy.disabled = !value;
+    copy.addEventListener('click', () => copyPropertyText(value));
+    if (propEditing) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'prop-value-input';
+      const original = String((data.rawProperties || data.properties)[name] ?? '');
+      input.value = Object.prototype.hasOwnProperty.call(propDraft, name) ? propDraft[name] : original;
+      input.setAttribute('aria-label', name);
+      input.addEventListener('input', () => {
+        if (input.value === original) delete propDraft[name];
+        else propDraft[name] = input.value;
+        el('prop-edit-note').textContent = '已修改 ' + Object.keys(propDraft).length + ' 项';
+      });
+      row.append(nameEl, input);
+    } else row.append(nameEl, valEl, copy);
+    fragment.appendChild(row);
+  }
+  list.replaceChildren(fragment);
+  list.scrollTop = scroll;
+}
+
+// 编辑时暂停跟随，保留原始表达式，仅提交实际修改的字段。
+function beginPropertyEdit() {
+  if (!propData || propEditing) return;
+  propEditing = true;
+  propGeneration++;
+  clearTimeout(propPollTimer);
+  propEditTarget = propData;
+  propDraft = Object.create(null);
+  togglePropertyEditUI();
+  propRenderKey = '';
+  renderProperties(propData);
+  el('prop-edit-note').textContent = '编辑中，暂停跟随选择';
+}
+
+function togglePropertyEditUI() {
+  el('prop-edit').hidden = propEditing;
+  el('prop-save').hidden = !propEditing;
+  el('prop-cancel').hidden = !propEditing;
+  for (const id of ['prop-settings', 'prop-search', 'prop-refresh']) el(id).disabled = propEditing;
+  el('property-panel').classList.toggle('editing-properties', propEditing);
+}
+
+function endPropertyEdit() {
+  if (propWriting) return;
+  propEditing = false;
+  propDraft = Object.create(null);
+  propEditTarget = null;
+  togglePropertyEditUI();
+  el('prop-edit-note').textContent = '';
+  propRenderKey = '';
+  renderProperties(propData);
+  refreshProperties();
+}
+
+async function writePropertyEdits() {
+  if (!propEditing || propWriting) return;
+  if (!Object.keys(propDraft).length) { showToast('没有需要写入的修改', 'info'); return; }
+  propWriting = true;
+  el('prop-save').disabled = true;
+  el('prop-cancel').disabled = true;
+  el('prop-list').querySelectorAll('input').forEach(input => input.disabled = true);
+  let success = false;
+  try {
+    await sendCommand('write-properties', {
+      source: propEditTarget.source,
+      expectedPath: propEditTarget.path || '',
+      expectedTitle: propEditTarget.title || '',
+      expectedConfiguration: propEditTarget.configuration || 'custom',
+      properties: { ...propDraft }
+    });
+    success = true;
+    showToast('属性已写入，请在 SolidWorks 中保存文档', 'ok');
+  } catch (err) {
+    showToast(err.message || String(err), 'error');
+    el('prop-edit-note').textContent = '写入失败，修改已保留';
+  } finally {
+    propWriting = false;
+    el('prop-save').disabled = false;
+    el('prop-cancel').disabled = false;
+    el('prop-list').querySelectorAll('input').forEach(input => input.disabled = false);
+    if (success) endPropertyEdit();
   }
 }
 
 // ─────────── 启动 ───────────
-initSettingsPanel();
 initPropertyPanel();
 initModals();
 renderButtons('');
