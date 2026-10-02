@@ -37,6 +37,13 @@
         <Reference Include="System.Windows.Forms" />
     </ItemGroup>
 
+    <ItemGroup>
+        <None Remove="wwwroot\**\*" />
+        <Content Include="wwwroot\**\*">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
     <Target Name="CloseSolidWorksWhenAddinDllLocked" BeforeTargets="BeforeBuild" Condition="'$(DesignTimeBuild)' != 'true' and '$(CloseSolidWorksWhenAddinDllLocked)' == 'true'">
         <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -Command &quot;$path = '$(TargetPath)'; if (Test-Path -LiteralPath $path) { try { $stream = [System.IO.File]::Open($path, 'Open', 'ReadWrite', 'None'); $stream.Dispose() } catch { Write-Host 'ExternalProgram.SwAddin.dll is locked; closing SLDWORKS.exe'; Get-Process -Name SLDWORKS -ErrorAction SilentlyContinue | Stop-Process -Force } }&quot;" />
     </Target>

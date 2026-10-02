@@ -1,6 +1,8 @@
 using System;
 using System.Net;
 using System.Runtime.InteropServices;
+using System.Diagnostics;
+using SwConst;
 using System.Windows.Forms;
 using Microsoft.Win32;
 using SolidWorksTools;
@@ -57,6 +59,7 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
             }
 
             StartServers();
+            AddWebConsoleMenu();
             return true;
         }
         catch (Exception ex)
@@ -88,6 +91,60 @@ public sealed class SwAddin : SolidWorks.Interop.swpublished.SwAddin
     {
         _server = StartExternalBridgeServer(ExternalBridgeBasePort, PortScanCount);
         AddinLog.Write("HTTP server started on port " + _serverPort);
+    }
+
+    /// <summary>
+    /// 在 SolidWorks 菜单栏注册「External Program」菜单及「打开网页控制台」项。
+    /// swDocNONE 仅对应「无文档」主框架，打开文档后菜单栏会切换为文档类型菜单，
+    /// 因此同时注册到零件/装配体/工程图上下文，确保菜单始终可见。
+    /// </summary>
+    private void AddWebConsoleMenu()
+    {
+        try
+        {
+            const string menuName = "External Program";
+            var docTypes = new[]
+            {
+                (int)swDocumentTypes_e.swDocNONE,
+                (int)swDocumentTypes_e.swDocPART,
+                (int)swDocumentTypes_e.swDocASSEMBLY,
+                (int)swDocumentTypes_e.swDocDRAWING
+            };
+
+            foreach (var docType in docTypes)
+            {
+                var menuId = _swApp.AddMenu(docType, menuName, 5);
+                var itemOk = _swApp.AddMenuItem2(
+                    docType,
+                    _cookie,
+                    "打开网页控制台@" + menuName,
+                    -1,
+                    "OpenWebConsole",
+                    "",
+                    "在浏览器中打开网页控制台");
+                AddinLog.Write($"AddWebConsoleMenu docType={docType} menuId={menuId} itemOk={itemOk}");
+            }
+        }
+        catch (Exception ex)
+        {
+            AddinLog.Write("AddWebConsoleMenu ignored: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 菜单回调：用默认浏览器打开本插件网页控制台。
+    /// </summary>
+    public void OpenWebConsole()
+    {
+        try
+        {
+            var url = "http://127.0.0.1:" + _serverPort + "/";
+            using var p = Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            AddinLog.Write("OpenWebConsole failed: " + ex.Message);
+        }
     }
 
     /// <summary>

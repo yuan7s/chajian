@@ -25,6 +25,8 @@ internal sealed partial class AddinHttpServer : IDisposable
     private const int DefaultCommandTimeoutSeconds = 30;
     // 健康检查超时（需要更短，因为客户端频繁扫描端口）
     private const int HealthCheckTimeoutSeconds = 5;
+    // 文件选择框命令超时：模态框挂起期间可能远超默认 30 秒
+    private const int PickMacroTimeoutSeconds = 600;
 
     // 高频轮询命令：主程序状态栏定时拉取，日志静默以免刷屏。
     private static readonly HashSet<string> QuietCommands = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -45,6 +47,20 @@ internal sealed partial class AddinHttpServer : IDisposable
     private long _commandGeneration;
     // 所有已连接的 WebSocket 客户端，用于广播事件
     private readonly ConcurrentBag<WebSocket> _webSockets = new ConcurrentBag<WebSocket>();
+
+    // 静态网页资源根目录：插件目录下的 wwwroot 文件夹。前端文件放在此处而非嵌入资源，
+    // 便于不重新编译插件即可更新前端（替换文件后刷新浏览器即可）。
+    private static readonly string WebRoot = Path.Combine(AddinLog.DirectoryPath, "wwwroot");
+
+    // 静态网页资源映射：请求路径 → (相对文件名, Content-Type)
+    private static readonly Dictionary<string, (string File, string ContentType)> StaticFiles =
+        new Dictionary<string, (string, string)>(StringComparer.OrdinalIgnoreCase)
+        {
+            { "/", ("index.html", "text/html; charset=utf-8") },
+            { "/index.html", ("index.html", "text/html; charset=utf-8") },
+            { "/app.js", ("app.js", "application/javascript; charset=utf-8") },
+            { "/style.css", ("style.css", "text/css; charset=utf-8") },
+        };
 
     public AddinHttpServer(SldWorks.SldWorks swApp, System.Windows.Forms.Control mainThreadControl, string prefix)
     {
@@ -222,6 +238,22 @@ internal sealed partial class AddinHttpServer : IDisposable
                 return;
             }
 
+            // Static web UI
+            if (context.Request.HttpMethod == "GET" && StaticFiles.TryGetValue(requestPath, out var file))
+            {
+                ServeStaticFile(context, file.File, file.ContentType);
+                return;
+            }
+
+            // 非 GET 请求校验 Origin，拦截跨站 CSRF
+            if (context.Request.HttpMethod != "GET" && !IsSameOrigin(context.Request))
+            {
+                AddinLog.Write($"HTTP forbidden origin: {context.Request.Headers["Origin"]}");
+                context.Response.StatusCode = 403;
+                WriteJson(context, new { ok = false, errorCode = "forbidden" });
+                return;
+            }
+
             // Command endpoint
             if (context.Request.HttpMethod != "POST" || requestPath != "/command")
             {
@@ -251,7 +283,7 @@ internal sealed partial class AddinHttpServer : IDisposable
             {
                 Interlocked.Increment(ref _commandGeneration);
                 var executeWatch = Stopwatch.StartNew();
-                var result = await RunOnMainThread(() => ExecuteCommand(request));
+                var result = await RunOnMainThread(() => ExecuteCommand(request), GetCommandTimeoutSeconds(commandName));
                 if (!quiet)
                 {
                     AddinLog.Write($"Command execute done: {commandName} in {executeWatch.ElapsedMilliseconds}ms");
@@ -455,6 +487,52 @@ internal sealed partial class AddinHttpServer : IDisposable
                 catch (Exception ex) { AddinLog.Write("WebSocket broadcast ignored: " + ex.Message); }
             }
         }
+    }
+
+    private void ServeStaticFile(HttpListenerContext context, string fileName, string contentType)
+    {
+        try
+        {
+            var fullPath = Path.Combine(WebRoot, fileName);
+            if (!File.Exists(fullPath))
+            {
+                context.Response.StatusCode = 404;
+                WriteJson(context, new { ok = false, error = "not_found" });
+                return;
+            }
+
+            var bytes = File.ReadAllBytes(fullPath);
+            context.Response.ContentType = contentType;
+            context.Response.ContentLength64 = bytes.Length;
+            context.Response.OutputStream.Write(bytes, 0, bytes.Length);
+            context.Response.OutputStream.Close();
+        }
+        catch (Exception ex)
+        {
+            AddinLog.Write("ServeStaticFile failed: " + ex.Message);
+            try { WriteJson(context, new { ok = false, error = "internal_error" }); }
+            catch { }
+        }
+    }
+
+    /// <summary>
+    /// CSRF 防护：浏览器跨站请求会携带 Origin 头，与自身 origin 不符时拒绝。
+    /// 旧 WPF 客户端（HttpClient）不带 Origin 头，放行。
+    /// </summary>
+    private bool IsSameOrigin(HttpListenerRequest request)
+    {
+        var origin = request.Headers["Origin"];
+        if (string.IsNullOrWhiteSpace(origin)) return true;
+
+        var expected = _prefix.TrimEnd('/');
+        return string.Equals(origin.TrimEnd('/'), expected, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetCommandTimeoutSeconds(string commandName)
+    {
+        return string.Equals(commandName, "pick-swp-macro", StringComparison.OrdinalIgnoreCase)
+            ? PickMacroTimeoutSeconds
+            : DefaultCommandTimeoutSeconds;
     }
 
     private void WriteJson(HttpListenerContext context, object obj)
